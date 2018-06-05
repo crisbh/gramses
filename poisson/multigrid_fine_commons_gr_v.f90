@@ -10,8 +10,8 @@
 ! Used variables:
 !                       finest(AMR)level     coarse(MG)levels
 !     -----------------------------------------------------------------
-!     vector component v1  gr_wbeta(:,1)  active_mg(myid,ilevel)%u(:,1)
-!     physical RHS for v1  gr_si(:,1)     active_mg(myid,ilevel)%u(:,2)
+!     GR geometric field   gr_pot(:,igr)  active_mg(myid,ilevel)%u(:,1)
+!     Matter RHS for GR    gr_mat(:,)     active_mg(myid,ilevel)%u(:,2)
 !     residual             f(:,1)         active_mg(myid,ilevel)%u(:,3)
 !     BC-modified RHS      f(:,2)                  N/A
 !     mask                 f(:,3)         active_mg(myid,ilevel)%u(:,4)
@@ -20,10 +20,10 @@
 
 
 ! ------------------------------------------------------------------------
-! Main multigrid routine for V_i's GR DOF, called by amr_step
+! Main multigrid routine for GR geometric fields, called by amr_step
 ! ------------------------------------------------------------------------
 
-subroutine multigrid_fine_gr(ilevel,icount)
+subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
    use amr_commons
    use poisson_commons
    use poisson_parameters
@@ -35,12 +35,12 @@ subroutine multigrid_fine_gr(ilevel,icount)
    include "mpif.h"
 #endif
 
-   integer, intent(in) :: ilevel,icount
+   integer, intent(in) :: ilevel,icount,igr
 
    integer, parameter  :: MAXITER  = 10
    real(dp), parameter :: SAFE_FACTOR = 0.5
 
-   integer :: ifine, i, iter, icpu
+   integer :: ifine, i, iter, icpu, igrp
    logical :: allmasked
    real(kind=8) :: err, last_err
    real(kind=8) :: res_norm2, i_res_norm2
@@ -52,8 +52,10 @@ subroutine multigrid_fine_gr(ilevel,icount)
 
    if(gravity_type>0)return
    if(numbtot(1,ilevel)==0)return
+   igrp = igr
+   if(igr>6) igrp = igr-6
 
-   if(verbose) print '(A,I2)','Entering fine multigrid at level ',ilevel
+   if(verbose) print '(A,I2)','Entering fine multigrid GR at level ',ilevel
 
 
    ! ---------------------------------------------------------------------
@@ -61,112 +63,113 @@ subroutine multigrid_fine_gr(ilevel,icount)
    ! ---------------------------------------------------------------------
 
    if(ilevel>levelmin)then
-      call make_initial_v1(ilevel,icount)           ! Interpolate
-   else
-      call make_multipole_v1(ilevel)                ! Fill with simple initial guess
+      call make_initial_gr(ilevel,icount,igr)           ! Interpolate
    endif
-   call make_virtual_fine_dp(gr_wbeta(1,1),ilevel)  ! Update boundaries
-   call make_boundary_v1(ilevel)                    ! Update physical boundaries
 
-   call make_fine_mask  (ilevel)                    ! Fill the fine mask
-   call make_virtual_fine_dp(f(:,3),ilevel)         ! Communicate mask
-   call make_boundary_mask(ilevel)                  ! Set mask to -1 in phys bounds (i.e. if not periodic BC)
-
-   call make_fine_bc_rhs(ilevel,icount)             ! Fill BC-modified RHS -- needs to modified rhs of equation.
+   call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Update boundaries
+   ! call make_boundary_v1(ilevel)                      ! Update physical boundaries
+   
+   if(igr==1) then
+      call make_fine_mask  (ilevel)                     ! Fill the fine mask
+      call make_virtual_fine_dp(f(:,3),ilevel)          ! Communicate mask
+      call make_boundary_mask(ilevel)                   ! Set mask to -1 in phys bounds
+   end if
+   
+   call make_fine_bc_rhs_gr(ilevel,icount,igr)          ! Fill BC-modified RHS.
 
    ! ---------------------------------------------------------------------
    ! Build communicators up
    ! ---------------------------------------------------------------------
 
-   ! @ finer level
-   call build_parent_comms_mg(active(ilevel),ilevel)
-   ! @ coarser levels
-   do ifine=(ilevel-1),2,-1
-      call build_parent_comms_mg(active_mg(myid,ifine),ifine)
-   end do
-
-   ! ---------------------------------------------------------------------
-   ! Restrict mask up, then set scan flag
-   ! ---------------------------------------------------------------------
-   ! @ finer level
-
-   if(ilevel>1) then
-      ! Restrict and communicate mask
-      call restrict_mask_fine_reverse(ilevel)
-      call make_reverse_mg_dp(4,ilevel-1)
-      call make_virtual_mg_dp(4,ilevel-1)
-
-      ! Convert volume fraction to mask value
-      do icpu=1,ncpu
-         if(active_mg(icpu,ilevel-1)%ngrid==0) cycle
-         active_mg(icpu,ilevel-1)%u(:,4)=2d0*active_mg(icpu,ilevel-1)%u(:,4)-1d0
+   if(igr==1) then
+      ! @ finer level
+      call build_parent_comms_mg(active(ilevel),ilevel)
+      ! @ coarser levels
+      do ifine=(ilevel-1),2,-1
+          call build_parent_comms_mg(active_mg(myid,ifine),ifine)
       end do
 
-      ! Check active mask state
-      if(active_mg(myid,ilevel-1)%ngrid>0) then
-         allmasked=(maxval(active_mg(myid,ilevel-1)%u(:,4))<=0d0)
-      else
-         allmasked=.true.
-      end if
+      ! ---------------------------------------------------------------------
+      ! Restrict mask up, then set scan flag
+      ! ---------------------------------------------------------------------
+      ! @ finer level
 
-      ! Allreduce on mask state
-#ifndef WITHOUTMPI
-      call MPI_ALLREDUCE(allmasked, allmasked_tot, 1, MPI_LOGICAL, &
-           & MPI_LAND, MPI_COMM_WORLD, info)
-      allmasked=allmasked_tot
-#endif
-   else
-      allmasked=.true.
-   endif
-
-   ! @ coarser levels
-   ! Restrict mask and compute levelmin_mg in the process
-   if (.not. allmasked) then
-      levelmin_mg=1
-      do ifine=(ilevel-1),2,-1
-
+      if(ilevel>1) then
          ! Restrict and communicate mask
-         call restrict_mask_coarse_reverse(ifine)
-         call make_reverse_mg_dp(4,ifine-1)
-         call make_virtual_mg_dp(4,ifine-1)
+         call restrict_mask_fine_reverse(ilevel)
+         call make_reverse_mg_dp(4,ilevel-1)
+         call make_virtual_mg_dp(4,ilevel-1)
 
          ! Convert volume fraction to mask value
          do icpu=1,ncpu
-            if(active_mg(icpu,ifine-1)%ngrid==0) cycle
-            active_mg(icpu,ifine-1)%u(:,4)=2d0*active_mg(icpu,ifine-1)%u(:,4)-1d0
+            if(active_mg(icpu,ilevel-1)%ngrid==0) cycle
+            active_mg(icpu,ilevel-1)%u(:,4)=2d0*active_mg(icpu,ilevel-1)%u(:,4)-1d0
          end do
 
          ! Check active mask state
-         if(active_mg(myid,ifine-1)%ngrid>0) then
-            allmasked=(maxval(active_mg(myid,ifine-1)%u(:,4))<=0d0)
+         if(active_mg(myid,ilevel-1)%ngrid>0) then
+            allmasked=(maxval(active_mg(myid,ilevel-1)%u(:,4))<=0d0)
          else
             allmasked=.true.
          end if
 
          ! Allreduce on mask state
 #ifndef WITHOUTMPI
-         call MPI_ALLREDUCE(allmasked,allmasked_tot,1,MPI_LOGICAL, &
-                 & MPI_LAND,MPI_COMM_WORLD,info)
+         call MPI_ALLREDUCE(allmasked, allmasked_tot, 1, MPI_LOGICAL, &
+              & MPI_LAND, MPI_COMM_WORLD, info)
          allmasked=allmasked_tot
 #endif
+      else
+         allmasked=.true.
+      endif
 
-         if(allmasked) then ! Coarser level is fully masked: stop here
-            levelmin_mg=ifine
-            exit
-         end if
+      ! @ coarser levels
+      ! Restrict mask and compute levelmin_mg in the process
+      if (.not. allmasked) then
+         levelmin_mg=1
+         do ifine=(ilevel-1),2,-1
+
+            ! Restrict and communicate mask
+            call restrict_mask_coarse_reverse(ifine)
+            call make_reverse_mg_dp(4,ifine-1)
+            call make_virtual_mg_dp(4,ifine-1)
+
+            ! Convert volume fraction to mask value
+            do icpu=1,ncpu
+               if(active_mg(icpu,ifine-1)%ngrid==0) cycle
+               active_mg(icpu,ifine-1)%u(:,4)=2d0*active_mg(icpu,ifine-1)%u(:,4)-1d0
+            end do
+
+            ! Check active mask state
+            if(active_mg(myid,ifine-1)%ngrid>0) then
+               allmasked=(maxval(active_mg(myid,ifine-1)%u(:,4))<=0d0)
+            else
+               allmasked=.true.
+            end if
+
+            ! Allreduce on mask state
+#ifndef WITHOUTMPI
+            call MPI_ALLREDUCE(allmasked,allmasked_tot,1,MPI_LOGICAL, &
+                    & MPI_LAND,MPI_COMM_WORLD,info)
+            allmasked=allmasked_tot
+#endif
+
+            if(allmasked) then ! Coarser level is fully masked: stop here
+               levelmin_mg=ifine
+               exit
+            end if
+         end do
+      else
+         levelmin_mg=ilevel
+      end if
+      if(nboundary>0)levelmin_mg=max(levelmin_mg,2)
+
+      ! Update flag with scan flag
+      call set_scan_flag_fine(ilevel)
+      do ifine=levelmin_mg,ilevel-1
+         call set_scan_flag_coarse(ifine)
       end do
-   else
-      levelmin_mg=ilevel
    end if
-   if(nboundary>0)levelmin_mg=max(levelmin_mg,2)
-
-   ! Update flag with scan flag
-   call set_scan_flag_fine(ilevel)
-   do ifine=levelmin_mg,ilevel-1
-      call set_scan_flag_coarse(ifine)
-   end do
-
-! the previous routine is only called once to build the infrastructure
 
    ! ---------------------------------------------------------------------
    ! Initiate solve at fine level
@@ -178,10 +181,10 @@ subroutine multigrid_fine_gr(ilevel,icount)
       iter=iter+1
       ! Pre-smoothing
       do i=1,ngs_fine
-         call gauss_seidel_mg_fine(ilevel,.true. )  ! Red step
-         call make_virtual_fine_dp(gr_wbeta(1,1)),ilevel)   ! Communicate phi
-         call gauss_seidel_mg_fine(ilevel,.false.)  ! Black step
-         call make_virtual_fine_dp(gr_wbeta(1,1),ilevel)   ! Communicate phi
+         call gauss_seidel_mg_fine(ilevel,.true. )        ! Red step
+         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel) ! Communicate GR field
+         call gauss_seidel_mg_fine(ilevel,.false.)        ! Black step
+         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel) ! Communicate GR field 
       end do
 
       ! Compute residual and restrict into upper level RHS
@@ -217,20 +220,20 @@ subroutine multigrid_fine_gr(ilevel,icount)
 
          ! Interpolate coarse solution and correct fine solution
          call interpolate_and_correct_fine(ilevel)
-         call make_virtual_fine_dp(gr_wbeta(1,1),ilevel)   ! Communicate phi
+         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel) ! Communicate GR field
       end if
 
       ! Post-smoothing
       do i=1,ngs_fine
-         call gauss_seidel_mg_fine(ilevel,.true. )  ! Red step
-         call make_virtual_fine_dp(gr_wbeta(1,1),ilevel)   ! Communicate phi
-         call gauss_seidel_mg_fine(ilevel,.false.)  ! Black step
-         call make_virtual_fine_dp(gr_wbeta(1,1),ilevel)   ! Communicate phi
+         call gauss_seidel_mg_fine(ilevel,.true. )        ! Red step
+         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel) ! Communicate GR field
+         call gauss_seidel_mg_fine(ilevel,.false.)        ! Black step
+         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel) ! Communicate GR field
       end do
 
       ! Update fine residual
       call cmp_residual_mg_fine(ilevel)
-      call make_virtual_fine_dp(f(1,1),ilevel) ! communicate residual
+      call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
       call cmp_residual_norm2_fine(ilevel,res_norm2)
 #ifndef WITHOUTMPI
       call MPI_ALLREDUCE(res_norm2,res_norm2_tot,1, &
@@ -258,8 +261,8 @@ subroutine multigrid_fine_gr(ilevel,icount)
 
    if(myid==1) print '(A,I5,A,I5,A,1pE10.3)','   ==> Level=',ilevel, ' Step=', &
             iter,' Error=',err
-   if(myid==1 .and. iter==MAXITER) print *,'WARN: Fine multigrid gr &
-      &Poisson failed to converge...'
+   if(myid==1 .and. iter==MAXITER) print *,'WARN: Fine multigrid GR &
+      &equation failed to converge...'
 
    ! ---------------------------------------------------------------------
    ! Cleanup MG levels after solve complete
@@ -268,7 +271,7 @@ subroutine multigrid_fine_gr(ilevel,icount)
       call cleanup_mg_level(ifine)
    end do
 
-end subroutine multigrid_fine_gr
+end subroutine multigrid_fine_gr_ln
 
 
 ! ########################################################################

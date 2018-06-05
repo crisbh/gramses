@@ -20,7 +20,7 @@
 
 
 ! ------------------------------------------------------------------------
-! Main multigrid routine for X GR DOF, called by amr_step
+! Main multigrid routine for the laspe function, called by amr_step
 ! ------------------------------------------------------------------------
 
 subroutine multigrid_fine_gr(ilevel,icount)
@@ -62,8 +62,6 @@ subroutine multigrid_fine_gr(ilevel,icount)
 
    if(ilevel>levelmin)then
       call make_initial_gr_alpha(ilevel,icount)  ! Interpolate alpha 
-   else
-      call make_multipole_gr_alpha(ilevel)       ! Fill with simple initial guess
    endif
    call make_virtual_fine_dp(gr_alpha(1),ilevel) ! Update boundaries
    call make_boundary_gr_alpha(ilevel)           ! Update physical boundaries

@@ -521,6 +521,86 @@ end subroutine make_initial_phi
 !###########################################################
 !###########################################################
 !###########################################################
+subroutine make_initial_gr(ilevel,icount,igr)
+  use amr_commons
+  use pm_commons
+  use poisson_commons
+  use gr_commons
+  implicit none
+  integer, intent(in)::ilevel,icount,igr
+  !
+  !
+  !
+  integer::igrid,ncache,i,ngrid,ind,iskip,idim,igrp
+  integer ,dimension(1:nvector),save::ind_grid,ind_cell,ind_cell_father
+  real(dp),dimension(1:nvector,1:twotondim),save::phi_int
+
+  igrp = igr
+  if(igr>6) igrp = igr-6
+
+  ! Loop over myid grids by vector sweeps
+  ncache=active(ilevel)%ngrid
+  do igrid=1,ncache,nvector
+     ! Gather nvector grids
+     ngrid=MIN(nvector,ncache-igrid+1)
+     do i=1,ngrid
+        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+     end do
+
+     if(ilevel==1)then
+        ! Loop over cells
+        do ind=1,twotondim
+           iskip=ncoarse+(ind-1)*ngridmax
+           do i=1,ngrid
+              ind_cell(i)=iskip+ind_grid(i)
+           end do
+           do i=1,ngrid
+              gr_pot(ind_cell(i),igrp)=0.0d0
+           end do
+           do idim=1,ndim
+              if(idim==3.and.igr>1) cycle
+              do i=1,ngrid
+                 f(ind_cell(i),idim)=0.0d0
+              end do
+           end do
+        end do
+        ! End loop over cells
+     else
+        ! Compute father cell index
+        do i=1,ngrid
+           ind_cell_father(i)=father(ind_grid(i))
+        end do
+
+        ! Interpolate
+        call interpol_gr_pot(ind_cell_father,phi_int,ngrid,ilevel,icount,igr)
+
+        ! Loop over cells
+        do ind=1,twotondim
+           iskip=ncoarse+(ind-1)*ngridmax
+           do i=1,ngrid
+              ind_cell(i)=iskip+ind_grid(i)
+           end do
+           do i=1,ngrid
+              gr_pot(ind_cell(i),igrp)=phi_int(i,ind)
+           end do
+           do idim=1,ndim
+              if(idim==3.and.igr>1) cycle
+              do i=1,ngrid
+                 f(ind_cell(i),idim)=0.0d0
+              end do
+           end do
+        end do
+        ! End loop over cells
+     end if
+
+  end do
+  ! End loop over grids
+
+end subroutine make_initial_gr
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
 subroutine make_multipole_phi(ilevel)
   use amr_commons
   use pm_commons

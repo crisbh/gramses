@@ -36,24 +36,14 @@ subroutine init_poisson_gr
      rho_top=0d0
   endif
 
-  !******************************************************  
-  ! Allocate GR variables 
-  !******************************************************  
+  ! Extra gr variables
   if(gr) then
-    allocate(gr_alpha (1:ncell))
-    allocate(gr_psi   (1:ncell))
-    allocate(gr_wbeta (1:ncell,1:4))
-    allocate(gr_si    (1:ncell,1:4))
-    allocate(gr_strace(1:ncell))
-    gr_alpha=0.0d0
-    gr_psi=0.0d0
-    gr_wbeta=0.0d0
-    gr_si=0.0d0
-    gr_strace=0.0d0
+     allocate(gr_pot(1:ncell,1:6))
+     allocate(gr_mat(1:ncell,1:5))
+     gr_pot=0.0d0
+     gr_mat=0.0d0
   endif
   
-  !******************************************************  
-
   !------------------------------------------------------
   ! Allocate multigrid variables
   !------------------------------------------------------
