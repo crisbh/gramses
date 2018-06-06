@@ -50,7 +50,7 @@ subroutine phi_fine_cg(ilevel,icount)
   ! Compute initial phi
   !===============================
    if(ilevel>levelmin)then
-      call make_initial_phi(ilevel,icount)              ! Interpolate phi down
+      call make_initial_phi(ilevel,icount)       ! Interpolate phi down
    else
       call make_multipole_phi(ilevel)            ! Fill up with simple initial guess
    endif

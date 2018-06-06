@@ -1,8 +1,9 @@
-subroutine interpol_phi(ind_cell,phi_int,ncell,ilevel,icount)
+subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igr)
   use amr_commons
-  use poisson_commons, only:phi,phi_old
+  use gr_commons, only:gr_pot
   implicit none
-  integer::ncell,ilevel,icount
+  integer::ncell,ilevel,icount,igr
+  integer::igrp
   integer ,dimension(1:nvector)::ind_cell
   real(dp),dimension(1:nvector,1:twotondim)::phi_int
 
@@ -46,17 +47,21 @@ subroutine interpol_phi(ind_cell,phi_int,ncell,ilevel,icount)
   endif
 
   ! Compute fraction of timesteps for interpolation
-  if (dtold(ilevel-1)> 0)then
-     tfrac=1.0*dtnew(ilevel)/dtold(ilevel-1)*(icount-1)
-  else
-     tfrac=0.
-  end if
+  ! if (dtold(ilevel-1)> 0)then
+  !   tfrac=1.0*dtnew(ilevel)/dtold(ilevel-1)*(icount-1)
+  ! else
+  !   tfrac=0.
+  ! end if
 
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
   call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ncell,ilevel)
 
-  ! Third order phi interpolation
+  ! Set GR field index
+  igrp = igr
+  if(igr>6) igrp = igr-6 
+
+  ! Third order gr_pots interpolation
   do ind=1,twotondim
      do i=1,ncell
         phi_int(i,ind)=0d0
@@ -67,10 +72,10 @@ subroutine interpol_phi(ind_cell,phi_int,ncell,ilevel,icount)
         do i=1,ncell
            indice=nbors_father_cells(i,ind_father)
            if (indice==0) then
-              add=coeff*(phi(ind_cell(i))+(phi(ind_cell(i))-phi_old(ind_cell(i)))*tfrac)
+              add=coeff*gr_pot(ind_cell(i),igrp)
               ! add=coeff*(-3d0/8d0*dx**2*boxlen*rho(ind_cell(i))+phi(ind_cell(i)))
            else
-              add=coeff*(phi(indice)+(phi(indice)-phi_old(indice))*tfrac)
+              add=coeff*gr_pot(indice,igrp)
               ! add=coeff*(-3d0/8d0*dx**2*boxlen*rho(indice)+phi(indice))
            endif
            phi_int(i,ind)=phi_int(i,ind)+add
@@ -78,48 +83,6 @@ subroutine interpol_phi(ind_cell,phi_int,ncell,ilevel,icount)
      end do
   end do
 
- end subroutine interpol_phi
-!###########################################################
-!###########################################################
-!###########################################################
-!###########################################################
-subroutine save_phi_old(ilevel)
-  use amr_commons
-  use poisson_commons, only:phi,phi_old
-  implicit none
-  integer ilevel
+ end subroutine interpol_gr_pot
+ 
 
-  !save the old potential for time extrapolation in case of subcycling
-
-  integer::i,ncache,ind,igrid,iskip,istart,ibound
-  integer,allocatable,dimension(:)::ind_grid
-
-  do ibound=1,nboundary+ncpu
-     if(ibound<=ncpu)then
-        ncache=numbl(ibound,ilevel)
-        istart=headl(ibound,ilevel)
-     else
-        ncache=numbb(ibound-ncpu,ilevel)
-        istart=headb(ibound-ncpu,ilevel)
-     end if
-     if(ncache>0)then
-        allocate(ind_grid(1:ncache))
-        ! Loop over level grids
-        igrid=istart
-        do i=1,ncache
-           ind_grid(i)=igrid
-           igrid=next(igrid)
-        end do
-        ! Loop over cells
-        do ind=1,twotondim
-           iskip=ncoarse+(ind-1)*ngridmax
-           ! save phi
-           do i=1,ncache
-              phi_old(ind_grid(i)+iskip)=phi(ind_grid(i)+iskip)
-           end do
-        end do
-        deallocate(ind_grid)
-     end if
-  end do
-
-end subroutine save_phi_old

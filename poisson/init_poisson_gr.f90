@@ -36,7 +36,7 @@ subroutine init_poisson_gr
      rho_top=0d0
   endif
 
-  ! Extra gr variables
+  ! gr variables
   if(gr) then
      allocate(gr_pot(1:ncell,1:6))
      allocate(gr_mat(1:ncell,1:5))

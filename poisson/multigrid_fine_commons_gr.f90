@@ -273,7 +273,6 @@ subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
 
 end subroutine multigrid_fine_gr_ln
 
-
 ! ########################################################################
 ! ########################################################################
 ! ########################################################################
@@ -282,11 +281,9 @@ end subroutine multigrid_fine_gr_ln
 ! ------------------------------------------------------------------------
 ! Recursive multigrid routine for coarse MG levels
 ! ------------------------------------------------------------------------
-recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe)
+recursive subroutine recursive_multigrid_coarse_(ifinelevel, safe)
    use amr_commons
    use poisson_commons
-   use gr_commons
-   use gr_parameters
    
    implicit none
 #ifndef WITHOUTMPI
@@ -362,7 +359,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe)
 
    end do
 
-end subroutine recursive_multigrid_coarse_gr
+end subroutine recursive_multigrid_coarse
 
 ! ########################################################################
 ! ########################################################################
@@ -913,7 +910,7 @@ end subroutine make_fine_mask
 ! Sets BC-modified RHS    into f(:,2)
 !
 ! ------------------------------------------------------------------------
-subroutine make_fine_bc_rhs_gr(ilevel,icount)
+subroutine make_fine_bc_rhs_gr(ilevel,icount,igr)
 
    use amr_commons
    use pm_commons
@@ -922,7 +919,7 @@ subroutine make_fine_bc_rhs_gr(ilevel,icount)
    use gr_parameters
 
    implicit none
-   integer, intent(in) :: ilevel,icount
+   integer, intent(in) :: ilevel,icount,igr
 
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
@@ -932,7 +929,7 @@ subroutine make_fine_bc_rhs_gr(ilevel,icount)
    real(dp), dimension(1:nvector,1:twotondim) :: phi_int
    integer,  dimension(1:nvector) :: ind_cell
 
-   integer  :: ngrid
+   integer  :: ngrid, igrp
    integer  :: ind, igrid_mg, idim, inbor
    integer  :: igrid_amr, icell_amr, iskip_amr
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
@@ -959,6 +956,10 @@ subroutine make_fine_bc_rhs_gr(ilevel,icount)
 
    ngrid=active(ilevel)%ngrid
 
+   ! Set GR field index
+   igrp = igr
+   if(igr>6) igrp = igr-6
+
    ! Loop over cells
    do ind=1,twotondim
       iskip_amr = ncoarse+(ind-1)*ngridmax
@@ -969,7 +970,13 @@ subroutine make_fine_bc_rhs_gr(ilevel,icount)
          icell_amr = iskip_amr + igrid_amr
 
          ! Init BC-modified RHS to rho - rho_tot :
-         f(icell_amr,2) = fourpi*(rho(icell_amr) - rho_tot)
+         if(igrp<5) then
+            f(icell_amr,2) = gr_mat(icell_amr,igrp) 
+         else if(igrp==5) then
+            f(icell_amr,2) = 
+         else
+            f(icell_amr,2) = 
+         end if
 
          if(f(icell_amr,3)<=0.0) cycle ! Do not process masked cells
 
@@ -995,7 +1002,7 @@ subroutine make_fine_bc_rhs_gr(ilevel,icount)
 
                   ! Interpolate from upper level
                   ind_cell(1)=ifathercell_nbor_amr
-                  call interpol_phi(ind_cell,phi_int,1,ilevel,icount)
+                  call interpol_gr_pot(ind_cell,phi_int,1,ilevel,icount,igrp)
                   nb_phi = phi_int(1,jjj(idim,inbor,ind))
                else
                   ! Fetch neighbor cell id
@@ -1003,11 +1010,11 @@ subroutine make_fine_bc_rhs_gr(ilevel,icount)
                   ! Check neighbor cell mask
                   nb_mask = f(icell_nbor_amr,3)
                   if(nb_mask>0) cycle ! Neighbor cell is active too: cycle
-                  nb_phi  = phi(icell_nbor_amr)
+                  nb_phi  = gr_pot(icell_nbor_amr,igrp)
                end if
                ! phi(#) interpolated with mask:
                w = nb_mask/(nb_mask-f(icell_amr,3)) ! Linear parameter
-               phi_b = ((1.0d0-w)*nb_phi + w*phi(icell_amr))
+               phi_b = ((1.0d0-w)*nb_phi + w*gr_pot(icell_amr,igrp))
 
                ! Increment correction for current cell
                f(icell_amr,2) = f(icell_amr,2) - 2.0d0*oneoverdx2*phi_b
