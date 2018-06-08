@@ -535,6 +535,7 @@ subroutine make_initial_gr(ilevel,icount,igr)
   integer ,dimension(1:nvector),save::ind_grid,ind_cell,ind_cell_father
   real(dp),dimension(1:nvector,1:twotondim),save::phi_int
 
+  ! Set GR field index
   igrp = igr
   if(igr>6) igrp = igr-6
 

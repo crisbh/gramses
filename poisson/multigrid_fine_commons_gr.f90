@@ -23,7 +23,7 @@
 ! Main multigrid routine for GR geometric fields, called by amr_step
 ! ------------------------------------------------------------------------
 
-subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
+subroutine multigrid_fine_gr(ilevel,icount,igr)
    use amr_commons
    use poisson_commons
    use poisson_parameters
@@ -41,7 +41,7 @@ subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
    real(dp), parameter :: SAFE_FACTOR = 0.5
 
    integer :: ifine, i, iter, icpu, igrp
-   logical :: allmasked
+   logical :: allmasked, gr_lin
    real(kind=8) :: err, last_err
    real(kind=8) :: res_norm2, i_res_norm2
 #ifndef WITHOUTMPI
@@ -52,8 +52,13 @@ subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
 
    if(gravity_type>0)return
    if(numbtot(1,ilevel)==0)return
+
+   ! Set field index
    igrp = igr
    if(igr>6) igrp = igr-6
+
+   gr_lin = .true.
+   if(igrp==5 .or. igrp==6) gr_lin = .false.
 
    if(verbose) print '(A,I2)','Entering fine multigrid GR at level ',ilevel
 
@@ -63,11 +68,11 @@ subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
    ! ---------------------------------------------------------------------
 
    if(ilevel>levelmin)then
-      call make_initial_gr(ilevel,icount,igr)           ! Interpolate
+      call make_initial_gr(ilevel,icount,igr)           ! Interpolate GR field
    endif
 
    call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Update boundaries
-   ! call make_boundary_v1(ilevel)                      ! Update physical boundaries
+   ! call make_boundary_gr(ilevel)                      ! Update physical boundaries
    
    if(igr==1) then
       call make_fine_mask  (ilevel)                     ! Fill the fine mask
@@ -75,7 +80,9 @@ subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
       call make_boundary_mask(ilevel)                   ! Set mask to -1 in phys bounds
    end if
    
-   call make_fine_bc_rhs_gr(ilevel,icount,igr)          ! Fill BC-modified RHS.
+   if(gr_lin) then
+      call make_fine_bc_rhs_gr_ln(ilevel,icount,igrp)   ! Fill BC-modified RHS for linear
+   end if
 
    ! ---------------------------------------------------------------------
    ! Build communicators up
@@ -169,7 +176,7 @@ subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
       do ifine=levelmin_mg,ilevel-1
          call set_scan_flag_coarse(ifine)
       end do
-   end if
+   end if !(igr==1)   
 
    ! ---------------------------------------------------------------------
    ! Initiate solve at fine level
@@ -180,17 +187,30 @@ subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
    main_iteration_loop: do
       iter=iter+1
       ! Pre-smoothing
-      do i=1,ngs_fine
-         call gauss_seidel_mg_fine(ilevel,.true. )        ! Red step
-         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel) ! Communicate GR field
-         call gauss_seidel_mg_fine(ilevel,.false.)        ! Black step
-         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel) ! Communicate GR field 
-      end do
+      if(gr_lin) then
+         do i=1,ngs_fine_gr_ln
+            call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igrp) ! Red step
+            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
+            call gauss_seidel_mg_fine_gr_ln(ilevel,.false.,igrp) ! Black step
+            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field 
+         end do
+      else
+         do i=1,ngs_fine_gr_nl
+            call gauss_seidel_mg_fine_gr_nl(ilevel,.true. ,igrp) ! Red step
+            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
+            call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igrp) ! Black step
+            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field 
+         end do
+      end if
 
       ! Compute residual and restrict into upper level RHS
-      call cmp_residual_mg_fine(ilevel)
+      if(gr_lin) then
+         call cmp_residual_mg_fine_gr_ln(ilevel,igrp)
+      else
+         call cmp_residual_mg_fine_gr_nl(ilevel,igrp)
+      end if   
       call make_virtual_fine_dp(f(1,1),ilevel) ! communicate residual
-      if(iter==1) then
+      if(iter==1.and.gr_lin) then
          call cmp_residual_norm2_fine(ilevel,i_res_norm2)
 #ifndef WITHOUTMPI
          call MPI_ALLREDUCE(i_res_norm2,i_res_norm2_tot,1, &
@@ -203,36 +223,68 @@ subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
       do icpu=1,ncpu
          if(active_mg(icpu,ilevel-1)%ngrid==0) cycle
          active_mg(icpu,ilevel-1)%u(:,2)=0.0d0
+         if(.not.gr_lin) then
+            active_mg(icpu,ilevel-1)%u(:,5)=0.0d0
+         end if
       end do
       ! Restrict and do reverse-comm
       call restrict_residual_fine_reverse(ilevel)
       call make_reverse_mg_dp(2,ilevel-1) ! communicate rhs
+       
+      if(.not.gr_lin)then
+         call restrict_gr_pot_fine_reverse(ilevel)
+         call make_reverse_mg_dp(5,ilevel-1) ! communicate gr_pot
+      end if
 
       if(ilevel>1) then
          ! Reset correction at upper level before solve
          do icpu=1,ncpu
             if(active_mg(icpu,ilevel-1)%ngrid==0) cycle
-            active_mg(icpu,ilevel-1)%u(:,1)=0.0d0
+            if(gr_lin) then
+               active_mg(icpu,ilevel-1)%u(:,1)=0.0d0
+            else
+               active_mg(icpu,ilevel-1)%u(:,1)=active_mg(icpu,ilevel-1)%u(:,5)
+            end if   
          end do
 
          ! Multigrid-solve the upper level
-         call recursive_multigrid_coarse(ilevel-1, safe_mode(ilevel))
-
+         if(gr_lin) then
+            call recursive_multigrid_coarse      (ilevel-1, safe_mode(ilevel))
+         else
+            call recursive_multigrid_coarse_gr_nl(ilevel-1, safe_mode(ilevel))
+         end if
          ! Interpolate coarse solution and correct fine solution
-         call interpolate_and_correct_fine(ilevel)
-         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel) ! Communicate GR field
+         if(gr_lin) then
+            call interpolate_and_correct_fine_gr_ln(ilevel,igrp)
+         else
+            call interpolate_and_correct_fine_gr_nl(ilevel,igrp)
+         end if
+         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)  ! Communicate GR field
       end if
 
       ! Post-smoothing
-      do i=1,ngs_fine
-         call gauss_seidel_mg_fine(ilevel,.true. )        ! Red step
-         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel) ! Communicate GR field
-         call gauss_seidel_mg_fine(ilevel,.false.)        ! Black step
-         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel) ! Communicate GR field
-      end do
+      if(gr_lin) then
+         do i=1,ngs_fine_gr_ln
+            call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igrp) ! Red step
+            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
+            call gauss_seidel_mg_fine_gr_ln(ilevel,.false.,igrp) ! Black step
+            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
+         end do
+      else
+         do i=1,ngs_fine_gr_nl
+            call gauss_seidel_mg_fine_gr_nl(ilevel,.true. ,igrp) ! Red step
+            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
+            call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igrp) ! Black step
+            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
+         end do
+      end if    
 
       ! Update fine residual
-      call cmp_residual_mg_fine(ilevel)
+      if(gr_lin) then
+         call cmp_residual_mg_fine_gr_ln(ilevel,igr)
+      else
+         call cmp_residual_mg_fine_gr_nl(ilevel,igr)
+      end if
       call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
       call cmp_residual_norm2_fine(ilevel,res_norm2)
 #ifndef WITHOUTMPI
@@ -241,37 +293,55 @@ subroutine multigrid_fine_gr_ln(ilevel,icount,igr)
       res_norm2=res_norm2_tot
 #endif
 
-      last_err = err
-      err = sqrt(res_norm2/(i_res_norm2+1d-20*rho_tot**2))
-
+      if(gr_lin) then
+         last_err = err
+         err = sqrt(res_norm2/(i_res_norm2+1d-20))
+      else
+         !TO DO 
+      end if    
+      
       ! Verbosity
-      if(verbose) print '(A,I5,A,1pE10.3)','   ==> Step=', &
-         & iter,' Error=',err
+      if(verbose) print '(A,I5,A,I5,A,1pE10.3)','   ==> Step=', &
+         & iter,'GR_pot:',igr,' Error=',err
 
-      ! Converged?
-      if(err<epsilon .or. iter>=MAXITER) exit
+      if(gr_lin) then
+         ! Converged?
+         if(err<epsilon .or. iter>=MAXITER) exit
 
-      ! Not converged, check error and possibly enable safe mode for the level
-      if(err > last_err*SAFE_FACTOR .and. (.not. safe_mode(ilevel))) then
-         if(verbose)print *,'CAUTION: Switching to safe MG mode for level ',ilevel
-         safe_mode(ilevel) = .true.
-      end if
-
+         ! Not converged, check error and possibly enable safe mode for the level
+         if(err > last_err*SAFE_FACTOR .and. (.not. safe_mode(ilevel))) then
+            if(verbose)print *,'CAUTION: Switching to safe MG mode for level ',ilevel
+            safe_mode(ilevel) = .true.
+         end if
+      else
+         !TO DO  
+      end if    
    end do main_iteration_loop
 
-   if(myid==1) print '(A,I5,A,I5,A,1pE10.3)','   ==> Level=',ilevel, ' Step=', &
+   if(gr_lin) then
+      if(myid==1) print '(A,I5,A,I5,A,1pE10.3)','   ==> Level=',ilevel, ' Step=', &
             iter,' Error=',err
-   if(myid==1 .and. iter==MAXITER) print *,'WARN: Fine multigrid GR &
+      if(myid==1 .and. iter==MAXITER) print *,'WARN: Fine multigrid GR &
       &equation failed to converge...'
-
+   else
+      ! TO DO
+   end if
+   
    ! ---------------------------------------------------------------------
    ! Cleanup MG levels after solve complete
    ! ---------------------------------------------------------------------
-   do ifine=1,ilevel-1
-      call cleanup_mg_level(ifine)
-   end do
+   if(igr<10) then
+      do ifine=1,ilevel-1
+         call restore_mg_level_gr(ifine)
+      end do
+      call restore_amr_level_gr(ilevel)
+   else
+      do ifine=1,ilevel-1
+         call cleanup_mg_level(ifine)
+      end do
+   end if
 
-end subroutine multigrid_fine_gr_ln
+end subroutine multigrid_fine_gr
 
 ! ########################################################################
 ! ########################################################################
@@ -281,9 +351,11 @@ end subroutine multigrid_fine_gr_ln
 ! ------------------------------------------------------------------------
 ! Recursive multigrid routine for coarse MG levels
 ! ------------------------------------------------------------------------
-recursive subroutine recursive_multigrid_coarse_(ifinelevel, safe)
+recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe)
    use amr_commons
    use poisson_commons
+   use gr_commons
+   use gr_parameters
    
    implicit none
 #ifndef WITHOUTMPI
@@ -359,423 +431,7 @@ recursive subroutine recursive_multigrid_coarse_(ifinelevel, safe)
 
    end do
 
-end subroutine recursive_multigrid_coarse
-
-! ########################################################################
-! ########################################################################
-! ########################################################################
-! ########################################################################
-
-! ------------------------------------------------------------------------
-! Multigrid communicator building
-! ------------------------------------------------------------------------
-subroutine build_parent_comms_mg(active_f_comm, ifinelevel)
-   use amr_commons
-   use poisson_commons
-   implicit none
-
-#ifndef WITHOUTMPI
-   include "mpif.h"
-   integer, dimension (MPI_STATUS_SIZE, ncpu) :: statuses
-#endif
-   type(communicator), intent(in) :: active_f_comm
-
-   integer, intent(in) :: ifinelevel
-
-   integer :: icoarselevel
-   integer :: ngrids, cur_grid, cur_cpu, cur_cell
-   integer :: i, nbatch, ind, istart
-
-   integer, dimension(1:nvector), save :: ind_cell_father
-   integer, dimension(1:nvector,1:twotondim),   save :: nbors_father_grids
-   integer, dimension(1:nvector,1:threetondim), save :: nbors_father_cells
-   integer, dimension(1:ncpu) :: indx
-   integer, dimension(1:ncpu) :: nreq, nreq2
-   integer :: nact_tot, nreq_tot, nreq_tot2
-
-#ifndef WITHOUTMPI
-   type(communicator), dimension(1:ncpu) :: comm_send, comm_receive
-   type(communicator), dimension(1:ncpu) :: comm_send2, comm_receive2
-   integer :: icpu, newgrids
-   integer, dimension(1:ncpu) :: recvbuf, recvbuf2
-   integer, dimension(1:ncpu) :: reqsend, reqrecv
-   integer :: countrecv, countsend
-   integer :: tag = 777, info
-   recvbuf  = 0
-#endif
-
-
-   icoarselevel=ifinelevel-1
-
-   nreq=0; nreq_tot=0; nact_tot=0
-   indx=0
-
-   ! ---------------------------------------------------------------------
-   ! STAGE 1 : Coarse grid MG activation for local grids (1st pass)
-   ! ---------------------------------------------------------------------
-
-   ! Loop over the AMR active communicator first
-   ngrids = active_f_comm%ngrid
-   do istart=1,ngrids,nvector
-      nbatch=min(nvector,ngrids-istart+1)
-      ! Gather grid indices and retrieve parent cells
-      do i=1,nbatch
-         ind_cell_father(i)=father( active_f_comm%igrid(istart+i-1) )
-      end do
-
-      ! Compute neighbouring father cells and grids
-      call get3cubefather(ind_cell_father,nbors_father_cells, &
-         & nbors_father_grids,nbatch,ifinelevel)
-
-      ! Now process the twotondim father grids
-      do ind=1,twotondim
-         do i=1,nbatch
-            cur_grid = nbors_father_grids(i,ind)
-            if(lookup_mg(cur_grid)>0) cycle ! Grid already active
-
-            cur_cpu=cpu_map(father(cur_grid))
-            if(cur_cpu==0) cycle
-
-            if(cur_cpu==myid) then
-               ! Stack grid for local activation
-               ! We own the grid: fill lookup_mg with its final value
-               nact_tot=nact_tot+1
-               flag2(nact_tot)=cur_grid
-               lookup_mg(cur_grid)=nact_tot
-            else
-               ! Stack grid into 2nd part of flag2 for remote activation
-               ! Here, lookup_mg(cur_grid) should be MINUS the AMR index
-               ! of the grid in the corresponding CPU AMR structure.
-               nreq_tot=nreq_tot+1
-               nreq(cur_cpu)=nreq(cur_cpu)+1
-               flag2(ngridmax+nreq_tot)=cur_grid ! "home" index in 2nd part
-               lookup_mg(cur_grid)=abs(lookup_mg(cur_grid)) ! Flag visited (>0)
-            end if
-         end do
-      end do
-   end do
-
-
-   ! ---------------------------------------------------------------------
-   ! STAGE 2 : Coarse grid MG activation request
-   ! ---------------------------------------------------------------------
-
-#ifndef WITHOUTMPI
-   ! Share number of requests and replies
-   call MPI_ALLTOALL(nreq, 1, MPI_INTEGER, recvbuf, 1, MPI_INTEGER, &
-      & MPI_COMM_WORLD, info)
-
-   ! Allocate inbound comms
-   do icpu=1,ncpu
-      comm_receive(icpu)%ngrid=recvbuf(icpu)
-      if(recvbuf(icpu)>0) allocate(comm_receive(icpu)%igrid(1:recvbuf(icpu)))
-   end do
-
-   ! Receive to-be-activated grids
-   countrecv=0; reqrecv=0
-   do icpu=1,ncpu
-      if(icpu==myid) cycle
-      ngrids=comm_receive(icpu)%ngrid
-      if(ngrids>0) then
-         countrecv=countrecv+1
-         call MPI_IRECV(comm_receive(icpu)%igrid, ngrids, MPI_INTEGER, &
-            & icpu-1, tag, MPI_COMM_WORLD, reqrecv(countrecv), info)
-      end if
-   end do
-
-   ! Allocate and then fill outbound (activation request) communicators
-   do icpu=1,ncpu
-      comm_send(icpu)%ngrid=nreq(icpu)
-      if(nreq(icpu)>0) allocate(comm_send(icpu)%igrid(1:nreq(icpu)))
-   end do
-   nreq=0
-   do i=1,nreq_tot
-      cur_grid=flag2(ngridmax+i) ! Local AMR index
-      cur_cpu =cpu_map(father(cur_grid))
-      nreq(cur_cpu)=nreq(cur_cpu)+1
-      comm_send(cur_cpu)%igrid(nreq(cur_cpu))=lookup_mg(cur_grid) ! Remote
-   end do
-
-   ! Send to-be-activated grids
-   countsend=0; reqsend=0
-   do icpu=1,ncpu
-      if(icpu==myid) cycle
-      ngrids=comm_send(icpu)%ngrid
-      if(ngrids>0) then
-         countsend=countsend+1
-         call MPI_ISEND(comm_send(icpu)%igrid, ngrids, MPI_INTEGER, &
-            & icpu-1, tag, MPI_COMM_WORLD, reqsend(countsend), info)
-      end if
-   end do
-
-   ! Wait for completion of receives
-   call MPI_WAITALL(countrecv, reqrecv, statuses, info)
-
-   ! Activate requested grids
-   do icpu=1,ncpu
-      if(icpu==myid) cycle
-      ngrids=comm_receive(icpu)%ngrid
-      if(ngrids>0) then
-         do i=1,ngrids
-            cur_grid=comm_receive(icpu)%igrid(i) ! Local AMR index
-            if(lookup_mg(cur_grid)>0) cycle      ! Already active: cycle
-            ! Activate grid
-            nact_tot=nact_tot+1
-            flag2(nact_tot)=cur_grid
-            lookup_mg(cur_grid)=nact_tot
-         end do
-      end if
-   end do
-
-   ! Wait for completion of sends
-   call MPI_WAITALL(countsend, reqsend, statuses, info)
-#endif
-
-   ! ---------------------------------------------------------------------
-   ! STAGE 3 : Coarse grid MG active comm gathering
-   ! ---------------------------------------------------------------------
-
-   active_mg(myid,icoarselevel)%ngrid=nact_tot
-   if(nact_tot>0) then
-      allocate( active_mg(myid,icoarselevel)%igrid(1:nact_tot) )
-      allocate( active_mg(myid,icoarselevel)%u(1:nact_tot*twotondim,1:4) )
-      allocate( active_mg(myid,icoarselevel)%f(1:nact_tot*twotondim,1:1) )
-      active_mg(myid,icoarselevel)%igrid=0
-      active_mg(myid,icoarselevel)%u=0.0d0
-      active_mg(myid,icoarselevel)%f=0
-   end if
-   do i=1,nact_tot
-      active_mg(myid,icoarselevel)%igrid(i)=flag2(i)
-   end do
-
-   ! ---------------------------------------------------------------------
-   ! STAGE 4 : Screen active grid neighbors for new reception grids
-   ! ---------------------------------------------------------------------
-   ngrids = active_mg(myid,icoarselevel)%ngrid
-   nreq2 = 0
-   nreq_tot2 = 0
-   do istart=1,ngrids,nvector
-      nbatch=min(nvector,ngrids-istart+1)
-      ! Gather grid indices and retrieve parent cells
-      do i=1,nbatch
-         ind_cell_father(i)=father( active_mg(myid,icoarselevel)%igrid(istart+i-1) )
-      end do
-
-      ! Compute neighbouring father cells
-      call get3cubefather(ind_cell_father,nbors_father_cells,nbors_father_grids,nbatch,icoarselevel)
-
-      ! Now process the father grids
-      do ind=1,threetondim
-         do i=1,nbatch
-            cur_cell = nbors_father_cells(i,ind)
-            cur_cpu  = cpu_map(cur_cell)
-            if(cur_cpu==0) cycle
-            cur_grid = son(cur_cell)
-            if(cur_cpu/=myid) then
-               ! Neighbor cell is not managed by current CPU
-               if (cur_grid==0) cycle              ! No grid there
-               if (lookup_mg(cur_grid)>0) cycle    ! Already selected
-               ! Add grid to request
-               nreq_tot2=nreq_tot2+1
-               nreq2(cur_cpu)=nreq2(cur_cpu)+1
-               flag2(ngridmax+nreq_tot+nreq_tot2)=cur_grid
-               lookup_mg(cur_grid)=abs(lookup_mg(cur_grid))  ! Mark visited
-            end if
-         end do
-      end do
-   end do
-
-   ! ---------------------------------------------------------------------
-   ! STAGE 5 : Share new reception grid requests, build emission comms
-   ! ---------------------------------------------------------------------
-
-#ifndef WITHOUTMPI
-   ! Share number of requests and replies
-   recvbuf2=0
-   call MPI_ALLTOALL(nreq2, 1, MPI_INTEGER, recvbuf2, 1, MPI_INTEGER, &
-      & MPI_COMM_WORLD, info)
-
-   ! Allocate inbound comms
-   do icpu=1,ncpu
-      comm_receive2(icpu)%ngrid=recvbuf2(icpu)
-      if(recvbuf2(icpu)>0) allocate(comm_receive2(icpu)%igrid(1:recvbuf2(icpu)))
-   end do
-
-   ! Receive potential reception grids
-   countrecv=0; reqrecv=0
-   do icpu=1,ncpu
-      if(icpu==myid) cycle
-      ngrids=comm_receive2(icpu)%ngrid
-      if(ngrids>0) then
-         countrecv=countrecv+1
-         call MPI_IRECV(comm_receive2(icpu)%igrid, ngrids, MPI_INTEGER, &
-            & icpu-1, tag, MPI_COMM_WORLD, reqrecv(countrecv), info)
-      end if
-   end do
-
-   ! Allocate and then fill outbound (reception request) communicators
-   do icpu=1,ncpu
-      comm_send2(icpu)%ngrid=nreq2(icpu)
-      if(nreq2(icpu)>0) allocate(comm_send2(icpu)%igrid(1:nreq2(icpu)))
-   end do
-   nreq2=0
-   do i=1,nreq_tot2
-      cur_grid=flag2(ngridmax+nreq_tot+i) ! Local AMR index
-      cur_cpu =cpu_map(father(cur_grid))
-      nreq2(cur_cpu)=nreq2(cur_cpu)+1
-      comm_send2(cur_cpu)%igrid(nreq2(cur_cpu))=lookup_mg(cur_grid) ! Remote AMR index
-      ! Restore negative lookup_mg
-      lookup_mg(cur_grid)=-abs(lookup_mg(cur_grid))
-   end do
-
-   ! Send reception request grids
-   countsend=0; reqsend=0
-   do icpu=1,ncpu
-      if(icpu==myid) cycle
-      ngrids=comm_send2(icpu)%ngrid
-      if(ngrids>0) then
-         countsend=countsend+1
-         call MPI_ISEND(comm_send2(icpu)%igrid,ngrids,MPI_INTEGER,icpu-1, &
-            & tag, MPI_COMM_WORLD, reqsend(countsend), info)
-      end if
-   end do
-
-   ! Wait for completion of receives
-   call MPI_WAITALL(countrecv, reqrecv, statuses, info)
-
-   ! Compute local MG indices of inbound grids, alloc & fill emission comms
-   do icpu=1,ncpu
-      if(icpu==myid) cycle
-      newgrids=0
-      do i=1,recvbuf2(icpu)
-         ! MAP AMR -> MG INDICES IN PLACE
-         comm_receive2(icpu)%igrid(i)=lookup_mg(comm_receive2(icpu)%igrid(i))
-         if(comm_receive2(icpu)%igrid(i)>0) newgrids=newgrids+1
-      end do
-      ! Allocate emission communicators
-      ngrids=recvbuf(icpu)+newgrids
-      emission_mg(icpu,icoarselevel)%ngrid=ngrids
-      if(ngrids>0) then
-         allocate(emission_mg(icpu,icoarselevel)%igrid(1:ngrids))
-         allocate(emission_mg(icpu,icoarselevel)%u(1:ngrids*twotondim,1:4) )
-         allocate(emission_mg(icpu,icoarselevel)%f(1:ngrids*twotondim,1:1))
-         emission_mg(icpu,icoarselevel)%igrid=0
-         emission_mg(icpu,icoarselevel)%u=0.0d0
-         emission_mg(icpu,icoarselevel)%f=0
-      end if
-      ! First part: activation request emission grids
-      do i=1,recvbuf(icpu)
-         emission_mg(icpu,icoarselevel)%igrid(i)=lookup_mg(comm_receive(icpu)%igrid(i))
-      end do
-      ! Second part: new emission grids
-      cur_grid=recvbuf(icpu)
-      do i=1,recvbuf2(icpu)
-         if(comm_receive2(icpu)%igrid(i)>0) then
-            cur_grid=cur_grid+1
-            emission_mg(icpu,icoarselevel)%igrid(cur_grid)=comm_receive2(icpu)%igrid(i)
-         end if
-      end do
-   end do
-
-   ! Wait for completion of sends
-   call MPI_WAITALL(countsend, reqsend, statuses, info)
-
-
-   ! ---------------------------------------------------------------------
-   ! STAGE 6 : Reply with local MG grid status and build reception comms
-   ! ---------------------------------------------------------------------
-   ! Receive MG mappings from other CPUs back into comm_send2
-   countrecv=0; reqrecv=0
-   do icpu=1,ncpu
-      if(icpu==myid) cycle
-      ngrids=nreq2(icpu)
-      if(ngrids>0) then
-         countrecv=countrecv+1
-         call MPI_IRECV(comm_send2(icpu)%igrid,ngrids,MPI_INTEGER,icpu-1, &
-            & tag, MPI_COMM_WORLD, reqrecv(countrecv), info)
-      end if
-   end do
-
-   ! Send local MG mappings to other CPUs from comm_receive
-   countsend=0; reqsend=0
-   do icpu=1,ncpu
-      if(icpu==myid) cycle
-      ngrids=recvbuf2(icpu)
-      if(ngrids>0) then
-         countsend=countsend+1
-         call MPI_ISEND(comm_receive2(icpu)%igrid,ngrids,MPI_INTEGER, &
-            & icpu-1, tag, MPI_COMM_WORLD, reqsend(countsend), info)
-      end if
-   end do
-
-   ! Wait for full completion of receives
-   call MPI_WAITALL(countrecv, reqrecv, statuses, info)
-
-   ! Count remotely active MG grids, and allocate and fill reception comms
-   do icpu=1,ncpu
-      if(icpu==myid) cycle
-      ! Count requested grids which are MG-active remotely
-      newgrids=0
-      do i=1,nreq2(icpu)
-         if(comm_send2(icpu)%igrid(i)>0) newgrids=newgrids+1
-      end do
-      ! Allocate and fill reception communicators on the fly
-      ngrids=nreq(icpu)+newgrids
-      active_mg(icpu,icoarselevel)%ngrid=ngrids
-      if(ngrids>0) then
-         allocate(active_mg(icpu,icoarselevel)%igrid(1:ngrids))
-         allocate(active_mg(icpu,icoarselevel)%u(1:ngrids*twotondim,1:4))
-         allocate(active_mg(icpu,icoarselevel)%f(1:ngrids*twotondim,1:1))
-         active_mg(icpu,icoarselevel)%igrid=0
-         active_mg(icpu,icoarselevel)%u=0.0d0
-         active_mg(icpu,icoarselevel)%f=0
-      end if
-   end do
-
-   nreq=0
-   do i=1,nreq_tot
-      cur_grid=flag2(ngridmax+i)
-      cur_cpu =cpu_map(father(cur_grid))
-      nreq(cur_cpu)=nreq(cur_cpu)+1
-      ! Add to reception comm
-      active_mg(cur_cpu,icoarselevel)%igrid(nreq(cur_cpu))=cur_grid
-      ! Backup lookup_mg into flag2
-      flag2(cur_grid)=lookup_mg(cur_grid)
-      ! Update lookup_mg
-      lookup_mg(cur_grid)=nreq(cur_cpu)
-   end do
-
-   nreq2=0; indx=nreq
-   do i=1,nreq_tot2
-      cur_grid=flag2(ngridmax+nreq_tot+i)
-      cur_cpu =cpu_map(father(cur_grid))
-      nreq2(cur_cpu)=nreq2(cur_cpu)+1
-      if(comm_send2(cur_cpu)%igrid(nreq2(cur_cpu))>0) then
-         indx(cur_cpu)=indx(cur_cpu)+1
-         ! Add to reception comm
-         active_mg(cur_cpu,icoarselevel)%igrid(indx(cur_cpu))=cur_grid
-         ! Backup lookup_mg
-         flag2(cur_grid)=-lookup_mg(cur_grid)
-         ! Update lookup_mg
-         lookup_mg(cur_grid)=indx(cur_cpu)
-      end if
-   end do
-
-   ! Wait for full completion of sends
-   call MPI_WAITALL(countsend, reqsend, statuses, info)
-
-
-   ! Cleanup
-   do icpu=1,ncpu
-      if(comm_send (icpu)%ngrid>0) deallocate(comm_send (icpu)%igrid)
-      if(comm_send2(icpu)%ngrid>0) deallocate(comm_send2(icpu)%igrid)
-      if(comm_receive (icpu)%ngrid>0) deallocate(comm_receive (icpu)%igrid)
-      if(comm_receive2(icpu)%ngrid>0) deallocate(comm_receive2(icpu)%igrid)
-   end do
-#endif
-
-end subroutine build_parent_comms_mg
-
+end subroutine recursive_multigrid_coarse_gr
 
 ! ########################################################################
 ! ########################################################################
@@ -836,65 +492,6 @@ end subroutine cleanup_mg_level
 ! ########################################################################
 
 ! ------------------------------------------------------------------------
-! Initialize mask at fine level into f(:,3)
-! ------------------------------------------------------------------------
-subroutine make_fine_mask(ilevel)
-
-   use amr_commons
-   use pm_commons
-   use poisson_commons
-   implicit none
-   integer, intent(in) :: ilevel
-
-   integer  :: ngrid
-   integer  :: ind, igrid_mg, icpu, ibound
-   integer  :: igrid_amr, icell_amr, iskip_amr
-
-   ngrid=active(ilevel)%ngrid
-   do ind=1,twotondim
-      iskip_amr = ncoarse+(ind-1)*ngridmax
-      do igrid_mg=1,ngrid
-         igrid_amr = active(ilevel)%igrid(igrid_mg)
-         icell_amr = iskip_amr + igrid_amr
-         ! Init mask to 1.0 on active cells :
-         f(icell_amr,3) = 1.0d0
-      end do
-   end do
-
-   do icpu=1,ncpu
-      ngrid=reception(icpu,ilevel)%ngrid
-      do ind=1,twotondim
-         iskip_amr = ncoarse+(ind-1)*ngridmax
-         do igrid_mg=1,ngrid
-            igrid_amr = reception(icpu,ilevel)%igrid(igrid_mg)
-            icell_amr = iskip_amr + igrid_amr
-            ! Init mask to 1.0 on virtual cells :
-            f(icell_amr,3) = 1.0d0
-         end do
-      end do
-   end do
-
-   do ibound=1,nboundary
-      ngrid=boundary(ibound,ilevel)%ngrid
-      do ind=1,twotondim
-         iskip_amr=ncoarse+(ind-1)*ngridmax
-         do igrid_mg=1,ngrid
-            igrid_amr = boundary(ibound,ilevel)%igrid(igrid_mg)
-            icell_amr = iskip_amr + igrid_amr
-            ! Init mask to -1.0 on boundary cells :
-            f(icell_amr,3) = -1.0d0
-         end do
-      end do
-   end do
-
-end subroutine make_fine_mask
-
-! ########################################################################
-! ########################################################################
-! ########################################################################
-! ########################################################################
-
-! ------------------------------------------------------------------------
 ! Preprocess the fine (AMR) level RHS to account for boundary conditions
 !
 !  _____#_____
@@ -910,7 +507,7 @@ end subroutine make_fine_mask
 ! Sets BC-modified RHS    into f(:,2)
 !
 ! ------------------------------------------------------------------------
-subroutine make_fine_bc_rhs_gr(ilevel,icount,igr)
+subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
 
    use amr_commons
    use pm_commons
@@ -972,10 +569,8 @@ subroutine make_fine_bc_rhs_gr(ilevel,icount,igr)
          ! Init BC-modified RHS to rho - rho_tot :
          if(igrp<5) then
             f(icell_amr,2) = gr_mat(icell_amr,igrp) 
-         else if(igrp==5) then
-            f(icell_amr,2) = 
          else
-            f(icell_amr,2) = 
+            call clean_stop 
          end if
 
          if(f(icell_amr,3)<=0.0) cycle ! Do not process masked cells
@@ -1023,363 +618,5 @@ subroutine make_fine_bc_rhs_gr(ilevel,icount,igr)
       end do
    end do
 
-end subroutine make_fine_bc_rhs_gr
+end subroutine make_fine_bc_rhs_gr_ln
 
-
-! ########################################################################
-! ########################################################################
-! ########################################################################
-! ########################################################################
-
-! ------------------------------------------------------------------------
-! MPI routines for MG communication for CPU boundaries,
-! Those are the MG versions of the make_virtual_* AMR routines
-! ------------------------------------------------------------------------
-
-subroutine make_virtual_mg_dp(ivar,ilevel)
-  use amr_commons
-  use poisson_commons
-  implicit none
-  integer::ilevel,ivar
-
-#ifndef WITHOUTMPI
-  include 'mpif.h'
-  integer,dimension(MPI_STATUS_SIZE,ncpu)::statuses
-  integer::icell,icpu,i,j,ncache,iskip,step
-  integer::countsend,countrecv
-  integer::info,tag=101
-  integer,dimension(ncpu)::reqsend,reqrecv
-
-  ! Receive all messages
-  countrecv=0
-  do icpu=1,ncpu
-     if(icpu==myid)cycle
-     ncache=active_mg(icpu,ilevel)%ngrid
-     if(ncache>0) then
-       countrecv=countrecv+1
-       call MPI_IRECV(active_mg(icpu,ilevel)%u(1,ivar),ncache*twotondim, &
-            & MPI_DOUBLE_PRECISION,icpu-1,tag,MPI_COMM_WORLD,reqrecv(countrecv),info)
-     end if
-  end do
-
-  ! Gather emission array
-  do icpu=1,ncpu
-     if (emission_mg(icpu,ilevel)%ngrid>0) then
-        do j=1,twotondim
-           step=(j-1)*emission_mg(icpu,ilevel)%ngrid
-           iskip=(j-1)*active_mg(myid,ilevel)%ngrid
-           do i=1,emission_mg(icpu,ilevel)%ngrid
-              icell=emission_mg(icpu,ilevel)%igrid(i)+iskip
-              emission_mg(icpu,ilevel)%u(i+step,1)=active_mg(myid,ilevel)%u(icell,ivar)
-           end do
-        end do
-     end if
-  end do
-
-  ! Send all messages
-  countsend=0
-  do icpu=1,ncpu
-     ncache=emission_mg(icpu,ilevel)%ngrid
-     if(ncache>0) then
-       countsend=countsend+1
-       call MPI_ISEND(emission_mg(icpu,ilevel)%u,ncache*twotondim, &
-            & MPI_DOUBLE_PRECISION,icpu-1,tag,MPI_COMM_WORLD,reqsend(countsend),info)
-     end if
-  end do
-
-  ! Wait for full completion of receives
-  call MPI_WAITALL(countrecv,reqrecv,statuses,info)
-
-  ! Wait for full completion of sends
-  call MPI_WAITALL(countsend,reqsend,statuses,info)
-
-#endif
-
-end subroutine make_virtual_mg_dp
-
-! ########################################################################
-! ########################################################################
-
-subroutine make_virtual_mg_int(ilevel)
-  use amr_commons
-  use poisson_commons
-  implicit none
-  integer::ilevel
-
-#ifndef WITHOUTMPI
-  include 'mpif.h'
-  integer,dimension(MPI_STATUS_SIZE,ncpu)::statuses
-  integer::icpu,i,j,ncache,iskip,step,icell
-  integer::countsend,countrecv
-  integer::info,tag=101
-  integer,dimension(ncpu)::reqsend,reqrecv
-
-  ! Receive all messages
-  countrecv=0
-  do icpu=1,ncpu
-     if(icpu==myid)cycle
-     ncache=active_mg(icpu,ilevel)%ngrid
-     if(ncache>0) then
-       countrecv=countrecv+1
-       call MPI_IRECV(active_mg(icpu,ilevel)%f(1,1),ncache*twotondim, &
-            & MPI_INTEGER,icpu-1,tag,MPI_COMM_WORLD,reqrecv(countrecv),info)
-     end if
-  end do
-
-  ! Gather emission array
-  do icpu=1,ncpu
-     if (emission_mg(icpu,ilevel)%ngrid>0) then
-        do j=1,twotondim
-           step=(j-1)*emission_mg(icpu,ilevel)%ngrid
-           iskip=(j-1)*active_mg(myid,ilevel)%ngrid
-           do i=1,emission_mg(icpu,ilevel)%ngrid
-              icell=emission_mg(icpu,ilevel)%igrid(i)+iskip
-              emission_mg(icpu,ilevel)%f(i+step,1)=active_mg(myid,ilevel)%f(icell,1)
-           end do
-        end do
-     end if
-  end do
-
-  ! Send all messages
-  countsend=0
-  do icpu=1,ncpu
-     ncache=emission_mg(icpu,ilevel)%ngrid
-     if(ncache>0) then
-       countsend=countsend+1
-       call MPI_ISEND(emission_mg(icpu,ilevel)%f,ncache*twotondim, &
-            & MPI_INTEGER,icpu-1,tag,MPI_COMM_WORLD,reqsend(countsend),info)
-     end if
-  end do
-
-  ! Wait for full completion of receives
-  call MPI_WAITALL(countrecv,reqrecv,statuses,info)
-
-  ! Wait for full completion of sends
-  call MPI_WAITALL(countsend,reqsend,statuses,info)
-
-#endif
-
-end subroutine make_virtual_mg_int
-
-! ########################################################################
-! ########################################################################
-
-subroutine make_reverse_mg_dp(ivar,ilevel)
-  use amr_commons
-  use poisson_commons
-  implicit none
-  integer::ilevel,ivar
-
-#ifndef WITHOUTMPI
-  include 'mpif.h'
-  integer,dimension(MPI_STATUS_SIZE,ncpu)::statuses
-  integer::icell,icpu,i,j,ncache,iskip,step
-  integer::countsend,countrecv
-  integer::info,tag=101
-  integer,dimension(ncpu)::reqsend,reqrecv
-
-  ! Receive all messages
-  countrecv=0
-  do icpu=1,ncpu
-     ncache=emission_mg(icpu,ilevel)%ngrid
-     if(ncache>0) then
-       countrecv=countrecv+1
-       call MPI_IRECV(emission_mg(icpu,ilevel)%u,ncache*twotondim, &
-            & MPI_DOUBLE_PRECISION,icpu-1,tag,MPI_COMM_WORLD,reqrecv(countrecv),info)
-     end if
-  end do
-
-  ! Send all messages
-  countsend=0
-  do icpu=1,ncpu
-     if(icpu==myid)cycle
-     ncache=active_mg(icpu,ilevel)%ngrid
-     if(ncache>0) then
-       countsend=countsend+1
-       call MPI_ISEND(active_mg(icpu,ilevel)%u(1,ivar),ncache*twotondim, &
-            & MPI_DOUBLE_PRECISION,icpu-1,tag,MPI_COMM_WORLD,reqsend(countsend),info)
-     end if
-  end do
-
-  ! Wait for full completion of receives
-  call MPI_WAITALL(countrecv,reqrecv,statuses,info)
-
-  ! Gather emission array
-  do icpu=1,ncpu
-     if (emission_mg(icpu,ilevel)%ngrid>0) then
-        do j=1,twotondim
-           step=(j-1)*emission_mg(icpu,ilevel)%ngrid
-           iskip=(j-1)*active_mg(myid,ilevel)%ngrid
-           do i=1,emission_mg(icpu,ilevel)%ngrid
-              icell=emission_mg(icpu,ilevel)%igrid(i)+iskip
-              active_mg(myid,ilevel)%u(icell,ivar)=active_mg(myid,ilevel)%u(icell,ivar)+ &
-                   & emission_mg(icpu,ilevel)%u(i+step,1)
-           end do
-        end do
-     end if
-  end do
-
-  ! Wait for full completion of sends
-  call MPI_WAITALL(countsend,reqsend,statuses,info)
-
-#endif
-
-end subroutine make_reverse_mg_dp
-
-! ########################################################################
-! ########################################################################
-
-subroutine make_reverse_mg_int(ilevel)
-  use amr_commons
-  use poisson_commons
-  implicit none
-  integer::ilevel
-
-#ifndef WITHOUTMPI
-  include 'mpif.h'
-  integer,dimension(MPI_STATUS_SIZE,ncpu)::statuses
-  integer::icell
-  integer::icpu,i,j,ncache,iskip,step
-  integer::countsend,countrecv
-  integer::info,tag=101
-  integer,dimension(ncpu)::reqsend,reqrecv
-
-  ! Receive all messages
-  countrecv=0
-  do icpu=1,ncpu
-     ncache=emission_mg(icpu,ilevel)%ngrid
-     if(ncache>0) then
-       countrecv=countrecv+1
-       call MPI_IRECV(emission_mg(icpu,ilevel)%f,ncache*twotondim, &
-            & MPI_INTEGER,icpu-1,tag,MPI_COMM_WORLD,reqrecv(countrecv),info)
-     end if
-  end do
-
-  ! Send all messages
-  countsend=0
-  do icpu=1,ncpu
-     if(icpu==myid)cycle
-     ncache=active_mg(icpu,ilevel)%ngrid
-     if(ncache>0) then
-       countsend=countsend+1
-       call MPI_ISEND(active_mg(icpu,ilevel)%f,ncache*twotondim, &
-            & MPI_INTEGER,icpu-1,tag,MPI_COMM_WORLD,reqsend(countsend),info)
-     end if
-  end do
-
-  ! Wait for full completion of receives
-  call MPI_WAITALL(countrecv,reqrecv,statuses,info)
-
-  ! Gather emission array
-  do icpu=1,ncpu
-     if (emission_mg(icpu,ilevel)%ngrid>0) then
-        do j=1,twotondim
-           step=(j-1)*emission_mg(icpu,ilevel)%ngrid
-           iskip=(j-1)*active_mg(myid,ilevel)%ngrid
-           do i=1,emission_mg(icpu,ilevel)%ngrid
-              icell=emission_mg(icpu,ilevel)%igrid(i)+iskip
-              active_mg(myid,ilevel)%f(icell,1)=active_mg(myid,ilevel)%f(icell,1)+&
-                 & emission_mg(icpu,ilevel)%f(i+step,1)
-           end do
-        end do
-     end if
-  end do
-
-  ! Wait for full completion of sends
-  call MPI_WAITALL(countsend,reqsend,statuses,info)
-
-#endif
-
-end subroutine make_reverse_mg_int
-
-
-! ########################################################################
-! ########################################################################
-! ########################################################################
-! ########################################################################
-
-subroutine dump_mg_levels(ilevel,idout)
-   use amr_commons
-   use poisson_commons
-   implicit none
-#ifndef WITHOUTMPI
-   include 'mpif.h'
-#endif
-   integer, intent(in) :: idout, ilevel
-
-   character(len=24)  :: cfile
-   character(len=5)   :: ccpu='00000'
-   character(len=5)   :: cout='00000'
-
-   integer :: i, ngrids, igrid, icpu, idim
-
-#ifndef WITHOUTMPI
-   integer,parameter::tag=1119
-   integer::dummy_io,info2
-#endif
-
-   write(ccpu,'(I5.5)') myid
-   write(cout,'(I5.5)') idout
-   cfile='multigrid_'//cout//'.out'//ccpu
-
-   ! Wait for the token
-#ifndef WITHOUTMPI
-   if(IOGROUPSIZE>0) then
-      if (mod(myid-1,IOGROUPSIZE)/=0) then
-         call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
-              & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
-      end if
-   endif
-#endif
-
-   open(unit=10,file=cfile,status='unknown',form='formatted')
-
-   write(10,'(I1)') ndim
-   write(10,'(I1)') myid
-   write(10,'(I1)') ncpu
-   write(10,'(I2)') ilevel
-
-   ! Loop over levels
-   do i=1,ilevel-1
-      ! Active grids
-      ngrids=active_mg(myid,i)%ngrid
-      write(10,*) ngrids
-      do igrid=1,ngrids
-         do idim=1,ndim
-            write(10,*) xg(active_mg(myid,i)%igrid(igrid),idim)
-         end do
-      end do
-
-      ! Reception grids
-      do icpu=1,ncpu
-         if(icpu==myid)cycle
-         ngrids=active_mg(icpu,i)%ngrid
-         write(10,*) ngrids
-         do igrid=1,ngrids
-            do idim=1,ndim
-               write(10,*) xg(active_mg(icpu,i)%igrid(igrid),idim)
-            end do
-         end do
-      end do
-
-   end do
-
-   close(10)
-
-        ! Send the token
-#ifndef WITHOUTMPI
-   if(IOGROUPSIZE>0) then
-      if(mod(myid,IOGROUPSIZE)/=0 .and.(myid.lt.ncpu))then
-         dummy_io=1
-         call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag, &
-              & MPI_COMM_WORLD,info2)
-      end if
-   endif
-#endif
-
-end subroutine dump_mg_levels
-
-! ########################################################################
-! ########################################################################
-! ########################################################################
-! ########################################################################

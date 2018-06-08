@@ -6,85 +6,13 @@
 ! Used variables:
 !                       finest(AMR)level     coarse(MG)levels
 !     -----------------------------------------------------------------
-!     potential            phi            active_mg(myid,ilevel)%u(:,1)
+!     GR geometric fields  gr_pot(:,igr)  active_mg(myid,ilevel)%u(:,1)
 !     physical RHS         rho            active_mg(myid,ilevel)%u(:,2)
 !     residual             f(:,1)         active_mg(myid,ilevel)%u(:,3)
 !     BC-modified RHS      f(:,2)                  N/A
 !     mask                 f(:,3)         active_mg(myid,ilevel)%u(:,4)
 !
 ! ------------------------------------------------------------------------
-
-
-! ------------------------------------------------------------------------
-! Mask restriction (top-down, OBSOLETE, UNUSED)
-! ------------------------------------------------------------------------
-
-subroutine restrict_mask_coarse(ifinelevel,allmasked)
-   use amr_commons
-   use poisson_commons
-   implicit none
-   integer, intent(in) :: ifinelevel
-   logical, intent(out) :: allmasked
-
-   integer :: ind_c_cell, ind_f_cell, cpu_amr
-
-   integer :: iskip_c_amr, iskip_c_mg
-   integer :: igrid_c_amr, igrid_c_mg
-   integer :: icell_c_amr, icell_c_mg
-
-   integer :: iskip_f_mg
-   integer :: igrid_f_amr, igrid_f_mg
-   integer :: icell_f_mg
-
-   real(dp) :: ngpmask
-   real(dp) :: dtwotondim = (twotondim)
-
-   integer :: icoarselevel
-   icoarselevel=ifinelevel-1
-   allmasked=.true.
-
-   ! Loop over coarse cells of the myid active comm
-   do ind_c_cell=1,twotondim
-      iskip_c_amr=ncoarse+(ind_c_cell-1)*ngridmax
-      iskip_c_mg =(ind_c_cell-1)*active_mg(myid,icoarselevel)%ngrid
-
-      ! Loop over coarse grids of myid
-      do igrid_c_mg=1,active_mg(myid,icoarselevel)%ngrid
-         igrid_c_amr=active_mg(myid,icoarselevel)%igrid(igrid_c_mg)
-         icell_c_amr=iskip_c_amr+igrid_c_amr
-         icell_c_mg =iskip_c_mg +igrid_c_mg
-         igrid_f_amr=son(icell_c_amr)
-         cpu_amr=cpu_map(icell_c_amr)
-         if(igrid_f_amr==0) then
-            ! Cell is not refined
-            ngpmask      = -1.0d0
-         else
-            ! Cell is refined
-            ! Check if son grid is in MG hierarchy
-            igrid_f_mg=lookup_mg(igrid_f_amr)
-            if(igrid_f_mg<=0) then
-               ! Child oct is not in multigrid hierarchy
-               ngpmask=-1.0d0
-            else
-               ! Child oct is within MG hierarchy
-               ! Loop over fine cells and gather ngpmask
-               ngpmask=0.0d0
-               do ind_f_cell=1,twotondim
-                  ! Extract fine mask value in the corresponding MG comm
-                  iskip_f_mg=(ind_f_cell-1)*active_mg(cpu_amr,ifinelevel)%ngrid
-                  icell_f_mg=iskip_f_mg+igrid_f_mg
-                  ngpmask=ngpmask+active_mg(cpu_amr,ifinelevel)%u(icell_f_mg,4)
-               end do
-               ngpmask=ngpmask/dtwotondim
-            end if
-         end if
-         ! Store cell mask
-         active_mg(myid,icoarselevel)%u(icell_c_mg,4)=ngpmask
-         allmasked=allmasked .and. (ngpmask<=0.0)
-      end do
-   end do
-
-end subroutine restrict_mask_coarse
 
 ! ------------------------------------------------------------------------
 ! Mask restriction (bottom-up)
@@ -466,76 +394,6 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
       end do
    end do
 end subroutine gauss_seidel_mg_coarse
-
-! ------------------------------------------------------------------------
-! Residual restriction (top-down, OBSOLETE, UNUSED)
-! ------------------------------------------------------------------------
-
-subroutine restrict_residual_coarse(ifinelevel)
-   ! Restrict coarser (MG) residual at level ifinelevel using NGP into coarser residual at level
-   ! ifinelevel-1
-   ! Restricted residual is stored into the RHS at the coarser level
-   use amr_commons
-   use pm_commons
-   use poisson_commons
-   implicit none
-   integer, intent(in) :: ifinelevel
-
-   real(dp) :: val, w
-   integer  :: icoarselevel, cpu_amr
-   integer  :: ngrid_c, ind_c, iskip_c_amr, iskip_c_mg, igrid_c_amr, icell_c_amr, icell_c_mg, igrid_c_mg
-   integer  :: ind_f, igrid_f_amr, igrid_f_mg, icell_f_mg
-
-   icoarselevel=ifinelevel-1
-
-   ! Loop over coarse MG cells
-   ngrid_c=active_mg(myid,icoarselevel)%ngrid
-   do ind_c=1,twotondim
-      iskip_c_amr = ncoarse + (ind_c-1)*ngridmax
-      iskip_c_mg  = (ind_c-1)*ngrid_c
-
-      do igrid_c_mg=1,ngrid_c
-         igrid_c_amr = active_mg(myid,icoarselevel)%igrid(igrid_c_mg)
-         icell_c_amr = igrid_c_amr + iskip_c_amr
-         cpu_amr     = cpu_map(icell_c_amr)
-         icell_c_mg  = igrid_c_mg  + iskip_c_mg
-
-         ! Get AMR child grid
-         igrid_f_amr = son(icell_c_amr)
-         if(igrid_f_amr==0) then
-            active_mg(myid,icoarselevel)%u(icell_c_mg,2) = 0.0d0    ! Nullify residual (coarser RHS)
-            cycle
-         end if
-
-         ! Get child MG grid id
-         igrid_f_mg = lookup_mg(igrid_f_amr)
-         if(igrid_f_mg<=0) then
-            ! Son grid is not in MG hierarchy
-            active_mg(myid,icoarselevel)%u(icell_c_mg,2) = 0.0d0    ! Nullify residual (coarser RHS)
-            cycle
-         end if
-
-         ! Loop over child (fine MG) cells
-         val = 0.0d0
-         w = 0d0
-         do ind_f=1,twotondim
-            icell_f_mg = igrid_f_mg + (ind_f-1)*active_mg(cpu_amr,ifinelevel)%ngrid
-
-            if (active_mg(cpu_amr,ifinelevel)%u(icell_f_mg,4)<=0.0) cycle
-            val = val + active_mg(cpu_amr,ifinelevel)%u(icell_f_mg,3)
-            w = w + 1d0
-         end do
-         ! Store restricted residual into RHS of coarse level
-         if(w>0) then
-            active_mg(myid,icoarselevel)%u(icell_c_mg,2) = val/w
-         else
-            active_mg(myid,icoarselevel)%u(icell_c_mg,2) = 0d0
-         end if
-      end do
-   end do
-end subroutine restrict_residual_coarse
-
-
 
 ! ------------------------------------------------------------------------
 ! Residual restriction (bottom-up)

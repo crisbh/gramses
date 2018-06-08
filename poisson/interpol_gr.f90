@@ -1,9 +1,8 @@
-subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igr)
+subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igrp)
   use amr_commons
   use gr_commons, only:gr_pot
   implicit none
-  integer::ncell,ilevel,icount,igr
-  integer::igrp
+  integer::ncell,ilevel,icount,igrp
   integer ,dimension(1:nvector)::ind_cell
   real(dp),dimension(1:nvector,1:twotondim)::phi_int
 
@@ -57,10 +56,6 @@ subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igr)
   dx=0.5D0**ilevel
   call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ncell,ilevel)
 
-  ! Set GR field index
-  igrp = igr
-  if(igr>6) igrp = igr-6 
-
   ! Third order gr_pots interpolation
   do ind=1,twotondim
      do i=1,ncell
@@ -73,10 +68,8 @@ subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igr)
            indice=nbors_father_cells(i,ind_father)
            if (indice==0) then
               add=coeff*gr_pot(ind_cell(i),igrp)
-              ! add=coeff*(-3d0/8d0*dx**2*boxlen*rho(ind_cell(i))+phi(ind_cell(i)))
            else
               add=coeff*gr_pot(indice,igrp)
-              ! add=coeff*(-3d0/8d0*dx**2*boxlen*rho(indice)+phi(indice))
            endif
            phi_int(i,ind)=phi_int(i,ind)+add
         end do
