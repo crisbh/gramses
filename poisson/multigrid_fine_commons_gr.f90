@@ -188,14 +188,14 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       iter=iter+1
       ! Pre-smoothing
       if(gr_lin) then
-         do i=1,ngs_fine_gr_ln
+         do i=1,ngs_fine_gr_ln_pre
             call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igrp) ! Red step
             call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_ln(ilevel,.false.,igrp) ! Black step
             call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field 
          end do
       else
-         do i=1,ngs_fine_gr_nl
+         do i=1,ngs_fine_gr_nl_pre
             call gauss_seidel_mg_fine_gr_nl(ilevel,.true. ,igrp) ! Red step
             call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igrp) ! Black step
@@ -264,14 +264,14 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
 
       ! Post-smoothing
       if(gr_lin) then
-         do i=1,ngs_fine_gr_ln
+         do i=1,ngs_fine_gr_ln_pst
             call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igrp) ! Red step
             call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_ln(ilevel,.false.,igrp) ! Black step
             call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
          end do
       else
-         do i=1,ngs_fine_gr_nl
+         do i=1,ngs_fine_gr_nl_pst
             call gauss_seidel_mg_fine_gr_nl(ilevel,.true. ,igrp) ! Red step
             call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igrp) ! Black step
@@ -328,6 +328,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    end if
    
    ! ---------------------------------------------------------------------
+   ! Do NOT cleanup MG levels until all 10 GR fields are solved
    ! Cleanup MG levels after solve complete
    ! ---------------------------------------------------------------------
    if(igr<10) then
@@ -432,59 +433,6 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe)
    end do
 
 end subroutine recursive_multigrid_coarse_gr
-
-! ########################################################################
-! ########################################################################
-! ########################################################################
-! ########################################################################
-
-! ------------------------------------------------------------------------
-! Multigrid level cleanup
-! ------------------------------------------------------------------------
-subroutine cleanup_mg_level(ilevel)
-   use amr_commons
-   use pm_commons
-   use poisson_commons
-   implicit none
-
-   integer, intent(in) :: ilevel
-
-   integer :: igrid, icpu, cur_grid, cur_cpu
-
-   ! ---------------------------------------------------------------------
-   ! Cleanup lookup table
-   ! ---------------------------------------------------------------------
-   do icpu=1,ncpu
-      do igrid=1,active_mg(icpu,ilevel)%ngrid
-         cur_grid=active_mg(icpu,ilevel)%igrid(igrid)
-         cur_cpu=cpu_map(father(cur_grid))
-         if(cur_cpu==myid) then
-            lookup_mg(cur_grid)=0
-         else
-            lookup_mg(cur_grid)=-mod(flag2(cur_grid),ngridmax)
-         end if
-      end do
-   end do
-
-   ! ---------------------------------------------------------------------
-   ! Deallocate communicators
-   ! ---------------------------------------------------------------------
-   do icpu=1,ncpu
-      if(active_mg(icpu,ilevel)%ngrid>0)then
-         deallocate(active_mg(icpu,ilevel)%igrid)
-         deallocate(active_mg(icpu,ilevel)%u)
-         deallocate(active_mg(icpu,ilevel)%f)
-      endif
-      active_mg(icpu,ilevel)%ngrid=0
-      if(emission_mg(icpu,ilevel)%ngrid>0)then
-         deallocate(emission_mg(icpu,ilevel)%igrid)
-         deallocate(emission_mg(icpu,ilevel)%u)
-         deallocate(emission_mg(icpu,ilevel)%f)
-      endif
-      emission_mg(icpu,ilevel)%ngrid=0
-   end do
-
-end subroutine cleanup_mg_level
 
 ! ########################################################################
 ! ########################################################################
@@ -619,4 +567,72 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
    end do
 
 end subroutine make_fine_bc_rhs_gr_ln
+
+! ########################################################################
+! ########################################################################
+! ########################################################################
+! ########################################################################
+! ------------------------------------------------------------------------
+! Multigrid level restoration for the Poisson equation solver next
+! ------------------------------------------------------------------------
+
+subroutine restore_mg_level_gr(ilevel)
+   use amr_commons
+   use pm_commons
+   use poisson_commons
+   implicit none
+
+   integer, intent(in) :: ilevel
+
+   integer :: igrid, icpu, cur_grid, cur_cpu
+
+   do icpu=1,ncpu
+      if(active_mg(icpu,ilevel)%ngrid>0)then
+         active_mg(icpu,ilevel)%u(:,1)=0.0d0
+         active_mg(icpu,ilevel)%u(:,2)=0.0d0
+         active_mg(icpu,ilevel)%u(:,3)=0.0d0
+         active_mg(icpu,ilevel)%u(:,5)=0.0d0
+         active_mg(icpu,ilevel)%u(:,6)=0.0d0
+      endif
+
+      if(emission_mg(icpu,ilevel)%ngrid>0)then
+         emission_mg(icpu,ilevel)%u(:,1)=0.0d0
+         emission_mg(icpu,ilevel)%u(:,2)=0.0d0
+         emission_mg(icpu,ilevel)%u(:,3)=0.0d0
+         emission_mg(icpu,ilevel)%u(:,5)=0.0d0
+         emission_mg(icpu,ilevel)%u(:,6)=0.0d0
+      endif
+
+   end do
+
+end subroutine restore_mg_level_gr
+
+subroutine restore_amr_level_gr(ilevel)
+
+   use amr_commons
+   use pm_commons
+   use poisson_commons
+   use gr_commons 
+
+   implicit none
+
+   integer,intent(in) :: ilevel
+
+   integer :: ngrid,igrid,ind,ind_cell,ind_grid,iskip,i
+
+   ngrid = active(ilevel)%ngrid
+
+   do ind=1,twotondim
+      iskip = ncoarse+(ind-1)*ngridmax
+      do igrid=1,ngrid
+           ind_grid = active(ilevel)%igrid(igrid)
+           ind_cell = ind_grid+iskip
+           do i=1,ndim-1
+              f(ind_cell,i) = 0.0d0
+           end do
+      end do
+   end do
+
+end subroutine restore_amr_level_gr
+
 

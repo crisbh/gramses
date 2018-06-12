@@ -8,8 +8,14 @@ module gr_parameters
     real(dp) :: sol=299792458.0D0
 
     ! Relaxation parameters for linear/non-linear GR equations
-    integer :: ngs_fine_gr_ln = 5   ! Linear 
-    integer :: ngs_fine_gr_nl = 5   ! Non-linear 
-
+    integer :: ngs_fine_gr_ln_pre = 5   ! Linear pre-smoothing factor
+    integer :: ngs_fine_gr_ln_pst = 5   ! Linear post-smoothing factor 
+    integer :: ngs_fine_gr_nl_pre = 5   ! Non-linear pre-smoothing factor 
+    integer :: ngs_fine_gr_nl_pst = 5   ! Non-linear post-smoothing factor 
+    
+    integer :: ngs_coarse_gr_ln_pre = 5   ! Linear pre-smoothing factor
+    integer :: ngs_coarse_gr_ln_pst = 5   ! Linear post-smoothing factor 
+    integer :: ngs_coarse_gr_nl_pre = 5   ! Non-linear pre-smoothing factor 
+    integer :: ngs_coarse_gr_nl_pst = 5   ! Non-linear post-smoothing factor 
 
 end module gr_parameters
