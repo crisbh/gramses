@@ -15,62 +15,10 @@
 ! ------------------------------------------------------------------------
 
 ! ------------------------------------------------------------------------
-! Mask restriction (bottom-up)
-! ------------------------------------------------------------------------
-
-subroutine restrict_mask_coarse_reverse(ifinelevel)
-   use amr_commons
-   use poisson_commons
-   implicit none
-   integer, intent(in) :: ifinelevel
-
-   integer :: ind_c_cell, ind_f_cell, cpu_amr
-
-   integer :: iskip_c_mg
-   integer :: igrid_c_amr, igrid_c_mg
-   integer :: icell_c_amr, icell_c_mg
-
-   integer :: iskip_f_mg
-   integer :: igrid_f_amr, igrid_f_mg
-   integer :: icell_f_mg
-
-   real(dp) :: ngpmask
-   real(dp) :: dtwotondim = (twotondim)
-
-   integer :: icoarselevel
-   icoarselevel=ifinelevel-1
-
-   ! Loop over fine cells of the myid active comm
-   do ind_f_cell=1,twotondim
-      iskip_f_mg =(ind_f_cell-1)*active_mg(myid,ifinelevel)%ngrid
-
-      ! Loop over fine grids of myid
-      do igrid_f_mg=1,active_mg(myid,ifinelevel)%ngrid
-         icell_f_mg=iskip_f_mg+igrid_f_mg
-         igrid_f_amr=active_mg(myid,ifinelevel)%igrid(igrid_f_mg)
-         ! Get coarse grid AMR index and CPU id
-         icell_c_amr=father(igrid_f_amr)
-         ind_c_cell=(icell_c_amr-ncoarse-1)/ngridmax+1
-         igrid_c_amr=icell_c_amr-ncoarse-(ind_c_cell-1)*ngridmax
-         cpu_amr=cpu_map(father(igrid_c_amr))
-         ! Convert to MG index, get MG coarse cell id
-         igrid_c_mg=lookup_mg(igrid_c_amr)
-         iskip_c_mg=(ind_c_cell-1)*active_mg(cpu_amr,icoarselevel)%ngrid
-         icell_c_mg=iskip_c_mg+igrid_c_mg
-         ! Stack cell volume fraction in coarse cell
-         ngpmask=(1d0+active_mg(myid,ifinelevel)%u(icell_f_mg,4))/2d0/dtwotondim
-         active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,4)=&
-            active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,4)+ngpmask
-      end do
-   end do
-
-end subroutine restrict_mask_coarse_reverse
-
-! ------------------------------------------------------------------------
 ! Residual computation
 ! ------------------------------------------------------------------------
 
-subroutine cmp_residual_mg_coarse(ilevel)
+subroutine cmp_residual_mg_coarse_gr_nl(ilevel)
    ! Computes the residual for pure MG levels, and stores it into active_mg(myid,ilevel)%u(:,3)
    use amr_commons
    use poisson_commons
@@ -186,12 +134,12 @@ subroutine cmp_residual_mg_coarse(ilevel)
       end do
    end do
 
-end subroutine cmp_residual_mg_coarse
+end subroutine cmp_residual_mg_coarse_gr_nl
 
 ! ##################################################################
 ! ##################################################################
 
-subroutine cmp_uvar_norm2_coarse(ivar, ilevel, norm2)
+subroutine cmp_uvar_norm2_coarse_gr(ivar, ilevel, norm2)
    use amr_commons
    use poisson_commons
    implicit none
@@ -219,12 +167,12 @@ subroutine cmp_uvar_norm2_coarse(ivar, ilevel, norm2)
       end do
    end do
    norm2 = dx2*norm2
-end subroutine cmp_uvar_norm2_coarse
+end subroutine cmp_uvar_norm2_coarse_gr
 
 ! ##################################################################
 ! ##################################################################
 
-subroutine cmp_fvar_norm2_coarse(ivar, ilevel, norm2)
+subroutine cmp_fvar_norm2_coarse_gr(ivar, ilevel, norm2)
    use amr_commons
    use poisson_commons
    implicit none
@@ -252,13 +200,13 @@ subroutine cmp_fvar_norm2_coarse(ivar, ilevel, norm2)
       end do
    end do
    norm2 = dx2*norm2
-end subroutine cmp_fvar_norm2_coarse
+end subroutine cmp_fvar_norm2_coarse_gr
 
 ! ------------------------------------------------------------------------
 ! Gauss-Seidel smoothing
 ! ------------------------------------------------------------------------
 
-subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
+subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep)
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -393,13 +341,13 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
          end if
       end do
    end do
-end subroutine gauss_seidel_mg_coarse
+end subroutine gauss_seidel_mg_coarse_gr_nl
 
 ! ------------------------------------------------------------------------
 ! Residual restriction (bottom-up)
 ! ------------------------------------------------------------------------
 
-subroutine restrict_residual_coarse_reverse(ifinelevel)
+subroutine restrict_residual_coarse_reverse_gr(ifinelevel)
    use amr_commons
    use poisson_commons
    implicit none
@@ -453,7 +401,7 @@ subroutine restrict_residual_coarse_reverse(ifinelevel)
       end do
    end do
 
-end subroutine restrict_residual_coarse_reverse
+end subroutine restrict_residual_coarse_reverse_gr
 
 ! ------------------------------------------------------------------------
 ! Interpolation and correction
@@ -560,80 +508,3 @@ subroutine interpolate_and_correct_coarse(ifinelevel)
    end do
    ! End loop over grids
 end subroutine interpolate_and_correct_coarse
-
-
-! ------------------------------------------------------------------------
-! Flag setting
-! ------------------------------------------------------------------------
-
-subroutine set_scan_flag_coarse(ilevel)
-   use amr_commons
-   use poisson_commons
-   implicit none
-
-   integer, intent(in) :: ilevel
-
-   integer :: ind, ngrid, scan_flag
-   integer :: igrid_mg, inbor, idim, igshift
-   integer :: igrid_amr, igrid_nbor_amr, cpu_nbor_amr
-
-   integer :: iskip_mg, icell_mg, igrid_nbor_mg, icell_nbor_mg
-
-   integer, dimension(1:3,1:2,1:8) :: iii, jjj
-
-   iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
-   iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
-   iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
-   iii(2,2,1:8)=(/0,0,4,4,0,0,4,4/); jjj(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
-   iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
-   iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
-
-   ngrid = active_mg(myid,ilevel)%ngrid
-   if(ngrid==0) return
-
-   ! Loop over cells and set coarse SCAN flag
-   do ind=1,twotondim
-      iskip_mg  = (ind-1)*ngrid
-      do igrid_mg=1,ngrid
-         igrid_amr = active_mg(myid,ilevel)%igrid(igrid_mg)
-         icell_mg  = iskip_mg  + igrid_mg
-
-         if(active_mg(myid,ilevel)%u(icell_mg,4)==1d0) then
-            scan_flag=0       ! Init flag to 'no scan needed'
-            scan_flag_loop: do inbor=1,2
-               do idim=1,ndim
-                  igshift = iii(idim,inbor,ind)
-                  if(igshift==0) then
-                     igrid_nbor_amr = igrid_amr
-                     cpu_nbor_amr   = myid
-                  else
-                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
-                     cpu_nbor_amr   = cpu_map(nbor(igrid_amr,igshift))
-                  end if
-
-                  if(igrid_nbor_amr==0) then
-                     scan_flag=1
-                     exit scan_flag_loop
-                  else
-                     igrid_nbor_mg = lookup_mg(igrid_nbor_amr)
-                     if(igrid_nbor_mg<=0) then
-                        scan_flag=1
-                        exit scan_flag_loop
-                     else
-                        icell_nbor_mg  = igrid_nbor_mg  + &
-                                 (jjj(idim,inbor,ind)-1)*active_mg(cpu_nbor_amr,ilevel)%ngrid
-                        if(active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,4)<=0.0) then
-                           scan_flag=1
-                           exit scan_flag_loop
-                        end if
-                     end if
-                  end if
-               end do
-            end do scan_flag_loop
-         else
-            scan_flag=1
-         end if
-         active_mg(myid,ilevel)%f(icell_mg,1)=scan_flag
-      end do
-   end do
-end subroutine set_scan_flag_coarse

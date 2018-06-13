@@ -352,7 +352,7 @@ end subroutine multigrid_fine_gr
 ! ------------------------------------------------------------------------
 ! Recursive multigrid routine for coarse MG levels
 ! ------------------------------------------------------------------------
-recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe)
+recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
    use amr_commons
    use poisson_commons
    use gr_commons
@@ -363,19 +363,36 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe)
    include "mpif.h"
 #endif
 
-   integer, intent(in) :: ifinelevel
+   integer, intent(in) :: ifinelevel, igr
    logical, intent(in) :: safe
 
-   integer :: i, icpu, icycle, ncycle
+   integer :: i, icpu, icycle, ncycle, igrp
+   logical :: gr_lin
+
+   ! Set field index
+   igrp = igr
+   if(igr>6) igrp = igr-6
+
+   gr_lin = .true.
+   if(igrp==5 .or. igrp==6) gr_lin = .false.
 
    if(ifinelevel<=levelmin_mg) then
       ! Solve 'directly' :
-      do i=1,2*ngs_coarse
-         call gauss_seidel_mg_coarse(ifinelevel,safe,.true. )  ! Red step
-         call make_virtual_mg_dp(1,ifinelevel)  ! Communicate solution
-         call gauss_seidel_mg_coarse(ifinelevel,safe,.false.)  ! Black step
-         call make_virtual_mg_dp(1,ifinelevel)  ! Communicate solution
-      end do
+      if(gr_lin) then
+         do i=1,2*ngs_coarse_gr_ln_pst
+            call gauss_seidel_mg_coarse(ifinelevel,safe,.true. ) ! Red step
+            call make_virtual_mg_dp(1,ifinelevel)                ! Communicate 
+            call gauss_seidel_mg_coarse(ifinelevel,safe,.false.) ! Black step
+            call make_virtual_mg_dp(1,ifinelevel)                ! Communicate 
+         end do
+      else
+         do i=1,2*ngs_coarse_gr_nl_pst
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igrp) ! Red step
+            call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igrp) ! Black step
+            call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
+         end do
+      end if
       return
    end if
 
@@ -388,27 +405,44 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe)
    do icycle=1,ncycle
 
       ! Pre-smoothing
-      do i=1,ngs_coarse
-         call gauss_seidel_mg_coarse(ifinelevel,safe,.true. )  ! Red step
-         call make_virtual_mg_dp(1,ifinelevel)  ! Communicate solution
-         call gauss_seidel_mg_coarse(ifinelevel,safe,.false.)  ! Black step
-         call make_virtual_mg_dp(1,ifinelevel)  ! Communicate solution
-      end do
+      if(gr_lin) then
+         do i=1,ngs_coarse_gr_ln_pre
+            call gauss_seidel_mg_coarse(ifinelevel,safe,.true. ) ! Red step
+            call make_virtual_mg_dp(1,ifinelevel)                ! Communicate 
+            call gauss_seidel_mg_coarse(ifinelevel,safe,.false.) ! Black step
+            call make_virtual_mg_dp(1,ifinelevel)                ! Communicate 
+         end do
+      else
+         do i=1,ngs_coarse_gr_nl_pre
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igrp) ! Red step
+            call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igrp) ! Black step
+            call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
+         end do
+      end if
 
       ! Compute residual and restrict into upper level RHS
-      call cmp_residual_mg_coarse(ifinelevel)
+      if(gr_lin) then
+         call cmp_residual_mg_coarse(ifinelevel)
+      else
+         call cmp_residual_mg_coarse_gr_nl(ifinelevel,igrp)
+      end if
       call make_virtual_mg_dp(3,ifinelevel)  ! Communicate residual
 
       ! First clear the rhs in coarser reception comms
       do icpu=1,ncpu
          if(active_mg(icpu,ifinelevel-1)%ngrid==0) cycle
          active_mg(icpu,ifinelevel-1)%u(:,2)=0.0d0
+         if(.not.gr_lin) then
+            active_mg(icpu,ilevel-1)%u(:,5)=0.0d0
+         end if
       end do
 
       ! Restrict and do reverse-comm
       call restrict_residual_coarse_reverse(ifinelevel)
       call make_reverse_mg_dp(2,ifinelevel-1) ! communicate rhs
-
+      !TO DO -- see extradof
+      
       ! Reset correction from upper level before solve
       do icpu=1,ncpu
          if(active_mg(icpu,ifinelevel-1)%ngrid==0) cycle
@@ -416,20 +450,33 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe)
       end do
 
       ! Multigrid-solve the upper level
-      call recursive_multigrid_coarse(ifinelevel-1, safe)
+      call recursive_multigrid_coarse_gr(ifinelevel-1, safe)
 
       ! Interpolate coarse solution and correct back into fine solution
-      call interpolate_and_correct_coarse(ifinelevel)
+      if(gr_lin) then
+         call interpolate_and_correct_coarse(ifinelevel)
+      else
+         call interpolate_and_correct_coarse_gr_nl(ifinelevel)
+      end if
       call make_virtual_mg_dp(1,ifinelevel)  ! Communicate solution
 
       ! Post-smoothing
-      do i=1,ngs_coarse
-         call gauss_seidel_mg_coarse(ifinelevel,safe,.true. )  ! Red step
-         call make_virtual_mg_dp(1,ifinelevel)  ! Communicate solution
-         call gauss_seidel_mg_coarse(ifinelevel,safe,.false.)  ! Black step
-         call make_virtual_mg_dp(1,ifinelevel)  ! Communicate solution
-      end do
-
+      if(gr_lin) then
+         do i=1,ngs_coarse_gr_ln_pst
+            call gauss_seidel_mg_coarse(ifinelevel,safe,.true. ) ! Red step
+            call make_virtual_mg_dp(1,ifinelevel)                ! Communicate 
+            call gauss_seidel_mg_coarse(ifinelevel,safe,.false.) ! Black step
+            call make_virtual_mg_dp(1,ifinelevel)                ! Communicate 
+         end do
+      else
+         do i=1,ngs_coarse_gr_nl_pst
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igrp) ! Red step
+            call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igrp) ! Black step
+            call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
+         end do
+      end if
+      
    end do
 
 end subroutine recursive_multigrid_coarse_gr
