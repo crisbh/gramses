@@ -8,14 +8,15 @@
 !   * helper functions
 !
 ! Used variables:
-!                       finest(AMR)level     coarse(MG)levels
+!                          finest(AMR)level     coarse(MG)levels
 !     -----------------------------------------------------------------
-!     GR geometric field   gr_pot(:,igr)  active_mg(myid,ilevel)%u(:,1)
-!     Matter RHS for GR    gr_mat(:,)     active_mg(myid,ilevel)%u(:,2)
-!     residual             f(:,1)         active_mg(myid,ilevel)%u(:,3)
-!     BC-modified RHS      f(:,2)                  N/A
-!     mask                 f(:,3)         active_mg(myid,ilevel)%u(:,4)
-!
+!     GR geometric field      gr_pot(:,igr)  active_mg(myid,ilevel)%u(:,1)
+!     Matter RHS for GR       gr_mat(:,)     active_mg(myid,ilevel)%u(:,2)
+!     residual                f(:,1)         active_mg(myid,ilevel)%u(:,3)
+!     BC-modified RHS         f(:,2)                  N/A
+!     mask                    f(:,3)         active_mg(myid,ilevel)%u(:,4)
+!     restricted NL GR field   N/A           active_mg(myid,ilevel)%u(:,5)
+!     restricted dens          N/A           active_mg(myid,ilevel)%u(:,6)
 ! ------------------------------------------------------------------------
 
 
@@ -37,7 +38,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
 
    integer, intent(in) :: ilevel,icount,igr
 
-   integer, parameter  :: MAXITER  = 10
+   integer, parameter  :: MAXITER  = 50
    real(dp), parameter :: SAFE_FACTOR = 0.5
 
    integer :: ifine, i, iter, icpu, igrp
@@ -176,7 +177,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       do ifine=levelmin_mg,ilevel-1
          call set_scan_flag_coarse(ifine)
       end do
-   end if !(igr==1)   
+   end if ! (igr==1)   
 
    ! ---------------------------------------------------------------------
    ! Initiate solve at fine level
@@ -209,7 +210,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       else
          call cmp_residual_mg_fine_gr_nl(ilevel,igrp)
       end if   
-      call make_virtual_fine_dp(f(1,1),ilevel) ! communicate residual
+      call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
       if(iter==1.and.gr_lin) then
          call cmp_residual_norm2_fine(ilevel,i_res_norm2)
 #ifndef WITHOUTMPI
@@ -227,6 +228,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
             active_mg(icpu,ilevel-1)%u(:,5)=0.0d0
          end if
       end do
+
       ! Restrict and do reverse-comm
       call restrict_residual_fine_reverse(ilevel)
       call make_reverse_mg_dp(2,ilevel-1) ! communicate rhs
@@ -253,6 +255,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
          else
             call recursive_multigrid_coarse_gr_nl(ilevel-1, safe_mode(ilevel))
          end if
+
          ! Interpolate coarse solution and correct fine solution
          if(gr_lin) then
             call interpolate_and_correct_fine_gr_ln(ilevel,igrp)
@@ -328,8 +331,9 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    end if
    
    ! ---------------------------------------------------------------------
-   ! Do NOT cleanup MG levels until all 10 GR fields are solved
-   ! Cleanup MG levels after solve complete
+   ! Do NOT cleanup MG levels until all 10 GR fields are solved.
+   ! Instead simply reset some containers to use them for the next GR field.
+   ! Cleanup MG levels only after solve is complete.
    ! ---------------------------------------------------------------------
    if(igr<10) then
       do ifine=1,ilevel-1
@@ -376,17 +380,25 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
    gr_lin = .true.
    if(igrp==5 .or. igrp==6) gr_lin = .false.
 
+   if(verbose) then
+      if(ifinelevel>levelmin_mg) then
+         print '(A,I2,A,I2)','V-cycle: entering coarse multigrid at level ',ifinelevel, ' for gr_pot ',igr
+      else
+         print '(A,I2,A,I2)','V-cycle: entering coarsest multigrid level ',ifinelevel, ' for gr_pot ', igr
+      end if
+   end if
+   
    if(ifinelevel<=levelmin_mg) then
       ! Solve 'directly' :
       if(gr_lin) then
-         do i=1,2*ngs_coarse_gr_ln_pst
+         do i=1,ngs_coarse_gr_ln_pst
             call gauss_seidel_mg_coarse(ifinelevel,safe,.true. ) ! Red step
             call make_virtual_mg_dp(1,ifinelevel)                ! Communicate 
             call gauss_seidel_mg_coarse(ifinelevel,safe,.false.) ! Black step
             call make_virtual_mg_dp(1,ifinelevel)                ! Communicate 
          end do
       else
-         do i=1,2*ngs_coarse_gr_nl_pst
+         do i=1,ngs_coarse_gr_nl_pst
             call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igrp) ! Red step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
             call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igrp) ! Black step
@@ -423,7 +435,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
 
       ! Compute residual and restrict into upper level RHS
       if(gr_lin) then
-         call cmp_residual_mg_coarse(ifinelevel)
+         call cmp_residual_mg_coarse      (ifinelevel)
       else
          call cmp_residual_mg_coarse_gr_nl(ifinelevel,igrp)
       end if
@@ -434,19 +446,27 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
          if(active_mg(icpu,ifinelevel-1)%ngrid==0) cycle
          active_mg(icpu,ifinelevel-1)%u(:,2)=0.0d0
          if(.not.gr_lin) then
-            active_mg(icpu,ilevel-1)%u(:,5)=0.0d0
+            active_mg(icpu, ilevel-1)%u(:,5)=0.0d0
          end if
       end do
 
       ! Restrict and do reverse-comm
       call restrict_residual_coarse_reverse(ifinelevel)
       call make_reverse_mg_dp(2,ifinelevel-1) ! communicate rhs
-      !TO DO -- see extradof
-      
+      if(.not.gr_lin) then
+         call restrict_gr_pot_coarse_reverse_gr_nl(ifinelevel)
+         call make_reverse_mg_dp(5,ifinelevel-1) ! communicate rhs
+         call make_physical_rhs_coarse_gr_nl(ifinelevel-1)
+      end if
+
       ! Reset correction from upper level before solve
       do icpu=1,ncpu
          if(active_mg(icpu,ifinelevel-1)%ngrid==0) cycle
-         active_mg(icpu,ifinelevel-1)%u(:,1)=0.0d0
+         if(gr_lin) then 
+            active_mg(icpu,ifinelevel-1)%u(:,1)=0.0d0
+         else
+            active_mg(icpu,ifinelevel-1)%u(:,1)=active_mg(icpu,ifinelevel-1)%u(:,5)
+         end if
       end do
 
       ! Multigrid-solve the upper level
@@ -454,9 +474,9 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
 
       ! Interpolate coarse solution and correct back into fine solution
       if(gr_lin) then
-         call interpolate_and_correct_coarse(ifinelevel)
+         call interpolate_and_correct_coarse      (ifinelevel)
       else
-         call interpolate_and_correct_coarse_gr_nl(ifinelevel)
+         call interpolate_and_correct_coarse_gr_nl(ifinelevel,igrp)
       end if
       call make_virtual_mg_dp(1,ifinelevel)  ! Communicate solution
 
@@ -478,6 +498,8 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
       end if
       
    end do
+
+   if(verbose) print '(A,I2,A,I2)','V-cycle: leaving coarse multigrid at level ',ifinelevel, ' for gr_pot ',igr
 
 end subroutine recursive_multigrid_coarse_gr
 

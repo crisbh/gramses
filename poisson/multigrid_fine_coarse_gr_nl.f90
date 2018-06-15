@@ -139,7 +139,7 @@ end subroutine cmp_residual_mg_coarse_gr_nl
 ! ##################################################################
 ! ##################################################################
 
-subroutine cmp_uvar_norm2_coarse_gr(ivar, ilevel, norm2)
+subroutine cmp_uvar_norm2_coarse_gr_nl(ivar, ilevel, norm2)
    use amr_commons
    use poisson_commons
    implicit none
@@ -167,12 +167,12 @@ subroutine cmp_uvar_norm2_coarse_gr(ivar, ilevel, norm2)
       end do
    end do
    norm2 = dx2*norm2
-end subroutine cmp_uvar_norm2_coarse_gr
+end subroutine cmp_uvar_norm2_coarse_gr_nl
 
 ! ##################################################################
 ! ##################################################################
 
-subroutine cmp_fvar_norm2_coarse_gr(ivar, ilevel, norm2)
+subroutine cmp_fvar_norm2_coarse_gr_nl(ivar, ilevel, norm2)
    use amr_commons
    use poisson_commons
    implicit none
@@ -200,7 +200,7 @@ subroutine cmp_fvar_norm2_coarse_gr(ivar, ilevel, norm2)
       end do
    end do
    norm2 = dx2*norm2
-end subroutine cmp_fvar_norm2_coarse_gr
+end subroutine cmp_fvar_norm2_coarse_gr_nl
 
 ! ------------------------------------------------------------------------
 ! Gauss-Seidel smoothing
@@ -344,17 +344,128 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep)
 end subroutine gauss_seidel_mg_coarse_gr_nl
 
 ! ------------------------------------------------------------------------
-! Residual restriction (bottom-up)
+! Compute the physical rhs of the coarse level, including the corrections
+! from the finer level, such as the residual etc.
+! The physical rhs is stored in active_mg(myid,ilevel)%u(:,2) 
 ! ------------------------------------------------------------------------
 
-subroutine restrict_residual_coarse_reverse_gr(ifinelevel)
+subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
+   use amr_commons
+   use pm_commons
+   use poisson_commons
+   use gr_commons
+   use gr_parameters
+   
+   implicit none
+
+   integer, intent(in) :: ilevel, igrp
+   integer, dimension(1:3,1:2,1:8) :: iii,jjj
+   
+   integer  :: ngrid
+   integer  :: ind
+   integer  :: igshift,inbor,idim
+   integer  :: iskip_mg,igrid_mg,icell_mg
+   integer  :: iskip_amr,igrid_amr,icell_amr
+   integer  :: icell_nbor_mg,igrid_nbor_mg
+   integer  :: icell_nbor_amr,igrid_nbor_amr
+   integer  :: cpu_nbor_amr
+
+   real(dp) :: dx,dx2,oneoverdx2
+   real(dp) :: dtwondim = (twondim)
+   real(dp) :: eta1,eta2,eta3,ctilde,ctilde2,o_l,op,dens
+   real(dp) :: sfc,nb_sum_sf2 
+
+   if(igrp<5.or.igrp>6) then
+      print '(A)','igrp out of range. Check.'
+      call clean_stop
+   end if
+
+   iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
+   iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
+   iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
+   iii(2,2,1:8)=(/0,0,4,4,0,0,4,4/); jjj(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
+   iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
+   iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
+
+   dx         = 0.5d0**ilevel                                   ! cell size
+   dx2        = dx**2                                           ! cell size squared
+   oneoverdx2 = 1.0d0/dx2                                       ! one over dx2
+
+   ctilde     = sol/boxlen_ini/100000.0d0                       ! speed of light in code unit
+   ctilde2    = ctilde**2                                       ! speed of light squared
+
+   o_l        = 1.0d0-omega_m                                   ! Omega_l
+   eta1       = omega_m  *aexp                                  ! numerical coeff 25/04/2018 rearragning ctilde2
+   eta2       = 4.0d0*o_l*aexp**4                               ! numerical coeff 25/04/2018 rearragning ctilde2
+
+   eta3       = eta1*aexp**4*dsqrt(fr_c1oc22)/3.0d0             ! numerical coeff
+
+   ngrid=active_mg(myid,ilevel)%ngrid
+
+   ! Loop over cells
+   do ind=1,twotondim
+      iskip_mg  = (ind-1)*ngrid
+      iskip_amr = (ind-1)*ngridmax+ncoarse
+
+      ! Loop over active grids
+      do igrid_mg=1,ngrid
+         igrid_amr = active_mg(myid,ilevel)%igrid(igrid_mg)     ! amr grid index
+         icell_amr = iskip_amr+igrid_amr                        ! amr cell index
+         icell_mg  = iskip_mg+igrid_mg                          ! mg cell index
+
+         if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then
+            sfc = active_mg(myid,ilevel)%u(icell_mg,5)
+            nb_sum_sf2 = 0.0d0
+
+            do inbor=1,2
+               do idim=1,ndim
+                  igshift = iii(idim,inbor,ind)
+                  if(igshift==0) then
+                     igrid_nbor_amr = igrid_amr
+                     cpu_nbor_amr   = myid
+                  else
+                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
+                     cpu_nbor_amr   = cpu_map(nbor(igrid_amr,igshift))
+                  end if
+                  igrid_nbor_mg = lookup_mg(igrid_nbor_amr)
+                  icell_nbor_mg = igrid_nbor_mg+(jjj(idim,inbor,ind)-1)*active_mg(cpu_nbor_amr,ilevel)%ngrid
+
+                  nb_sum_sf2 = nb_sum_sf2+(active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,5))**2
+               end do
+            end do
+
+            dens = active_mg(myid,ilevel)%u(icell_mg,6)         ! density in coarse cell
+            op   = nb_sum_sf2-6.0d0*sfc**2
+            op   = op*oneoverdx2*ctilde2                        ! 25/04/2018 rearragning ctilde2
+            op   = op-eta1*(dens+1.0d0)
+            op   = op-eta2
+            op   = op+eta3/sfc
+         else
+            op = 0.0d0
+         end if
+
+         active_mg(myid,ilevel)%u(icell_mg,2) = active_mg(myid,ilevel)%u(icell_mg,2)+op
+      end do
+   end do
+
+end subroutine make_physical_rhs_coarse_gr_nl
+
+!-------------------------------------------------------------------
+! Restriction of the gr_pot
+!------------------------------------------------------------------
+
+subroutine restrict_gr_pot_coarse_reverse_gr_nl(ifinelevel)
+
    use amr_commons
    use poisson_commons
+   use gr_commons
+   use gr_parameters
+
    implicit none
    integer, intent(in) :: ifinelevel
 
    integer :: ind_c_cell, ind_f_cell, cpu_amr
-
+   
    integer :: iskip_c_mg
    integer :: igrid_c_amr, igrid_c_mg
    integer :: icell_c_amr, icell_c_mg
@@ -363,11 +474,28 @@ subroutine restrict_residual_coarse_reverse_gr(ifinelevel)
    integer :: igrid_f_amr, igrid_f_mg
    integer :: icell_f_mg
 
-   real(dp) :: res
+   real(dp) :: sf1
    real(dp) :: dtwotondim = (twotondim)
+   integer,dimension(:),allocatable::n_masked
 
    integer :: icoarselevel
    icoarselevel=ifinelevel-1
+
+   allocate(n_masked(1:active_mg(myid,ifinelevel)%ngrid))
+   n_masked(1:active_mg(myid,ifinelevel)%ngrid)=0
+
+   ! Loop over fine cells of the myid active comm
+   do ind_f_cell=1,twotondim
+      iskip_f_mg =(ind_f_cell-1)*active_mg(myid,ifinelevel)%ngrid
+      ! Loop over fine grids of myid
+      do igrid_f_mg=1,active_mg(myid,ifinelevel)%ngrid
+         icell_f_mg=iskip_f_mg+igrid_f_mg
+         ! Count the number of masked fine cells in each fine grid
+         if(active_mg(myid,ifinelevel)%u(icell_f_mg,4)<=0d0) then
+            n_masked(igrid_f_mg)=n_masked(igrid_f_mg)+1
+         end if
+      end do
+   end do
 
    ! Loop over fine cells of the myid active comm
    do ind_f_cell=1,twotondim
@@ -375,43 +503,48 @@ subroutine restrict_residual_coarse_reverse_gr(ifinelevel)
 
       ! Loop over fine grids of myid
       do igrid_f_mg=1,active_mg(myid,ifinelevel)%ngrid
-         icell_f_mg=iskip_f_mg+igrid_f_mg
-         ! Is fine cell masked?
+         icell_f_mg=iskip_f_mg+igrid_f_mg                                  ! mg fine cell index
+
          if(active_mg(myid,ifinelevel)%u(icell_f_mg,4)<=0d0) cycle
 
          ! Get coarse grid AMR index and CPU id
-         igrid_f_amr=active_mg(myid,ifinelevel)%igrid(igrid_f_mg)
-         icell_c_amr=father(igrid_f_amr)
-         ind_c_cell=(icell_c_amr-ncoarse-1)/ngridmax+1
-         igrid_c_amr=icell_c_amr-ncoarse-(ind_c_cell-1)*ngridmax
-         cpu_amr=cpu_map(father(igrid_c_amr))
+         igrid_f_amr=active_mg(myid,ifinelevel)%igrid(igrid_f_mg)          ! amr fine grid index
+         icell_c_amr=father(igrid_f_amr)                                   ! amr coarse cell index
+!        ind_c_cell=(icell_c_amr-ncoarse-1)/ngridmax+1                     ! amr coarse cell position
+         ind_c_cell=(icell_c_amr-ncoarse)/ngridmax+1                     ! amr coarse cell position
+         igrid_c_amr=icell_c_amr-ncoarse-(ind_c_cell-1)*ngridmax           ! amr coarse grid index
+         cpu_amr=cpu_map(father(igrid_c_amr))                              ! coarse cell cpu index
 
-         ! Convert to MG index, get MG coarse cell id
+         ! Convert to MG index, get MG coarse cell id                      ! mg coarse grid index
          igrid_c_mg=lookup_mg(igrid_c_amr)
          iskip_c_mg=(ind_c_cell-1)*active_mg(cpu_amr,icoarselevel)%ngrid
-         icell_c_mg=iskip_c_mg+igrid_c_mg
+         icell_c_mg=iskip_c_mg+igrid_c_mg                                  ! mg coarse cell index
 
-         ! Is coarse cell masked?
-         if(active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,4)<=0d0) cycle
+         ! If coarse cell is masked, it is boundary and R\tilde{u} is not needed
+         if(active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,4)<=0d0.or.n_masked(igrid_f_mg)==8) cycle
 
-         ! Stack fine cell residual in coarse cell rhs
-         res=active_mg(myid,ifinelevel)%u(icell_f_mg,3)/dtwotondim
-         active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,2)=&
-            active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,2)+res
+         ! Restriction to compute the sf value in the coarse cell 
+         sf1=active_mg(myid,ifinelevel)%u(icell_f_mg,1)/(dtwotondim-dble(n_masked(igrid_f_mg)))
+         active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,5)=&
+            active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,5)+sf1
       end do
    end do
 
-end subroutine restrict_residual_coarse_reverse_gr
+   deallocate(n_masked)   
+
+end subroutine restrict_gr_pot_coarse_reverse_gr_nl
+
 
 ! ------------------------------------------------------------------------
 ! Interpolation and correction
 ! ------------------------------------------------------------------------
 
-subroutine interpolate_and_correct_coarse(ifinelevel)
+subroutine interpolate_and_correct_coarse_gr_nl(ifinelevel,igrp)
    use amr_commons
    use poisson_commons
+   use gr_commons   
    implicit none
-   integer, intent(in) :: ifinelevel
+   integer, intent(in) :: ifinelevel, igrp
 
    integer  :: i, ind_father, ind_average, ind_f, iskip_f_amr, ngrid_f, istart, nbatch
    integer  :: icell_c_amr, igrid_c_amr, igrid_c_mg, icell_c_mg, iskip_f_mg, icell_f_mg
@@ -492,7 +625,10 @@ subroutine interpolate_and_correct_coarse(ifinelevel)
                if(igrid_c_mg<=0) cycle
 
                icell_c_mg  = (ind_c-1)*active_mg(cpu_c_amr,icoarselevel)%ngrid + igrid_c_mg
-               corr(i)=corr(i)+coeff*active_mg(cpu_c_amr,icoarselevel)%u(icell_c_mg,1)
+               ! only unmasked coarse cells contribute to the fine-cell correction
+               if(active_mg(cpu_c_amr,icoarselevel)%u(icell_c_mg,4)<=0.0) cycle
+               corr(i)=corr(i)+coeff*active_mg(cpu_c_amr,icoarselevel)%u(icell_c_mg,1) &
+                      &       -coeff*active_mg(cpu_c_amr,icoarselevel)%u(icell_c_mg,5)
             end do
          end do
 
@@ -507,4 +643,4 @@ subroutine interpolate_and_correct_coarse(ifinelevel)
 
    end do
    ! End loop over grids
-end subroutine interpolate_and_correct_coarse
+end subroutine interpolate_and_correct_coarse_gr_nl

@@ -135,7 +135,7 @@ end subroutine cmp_residual_mg_fine_gr_ln
 ! Gauss-Seidel smoothing
 ! ------------------------------------------------------------------------
 
-subroutine gauss_seidel_mg_fine_gr(ilevel,redstep,igr)
+subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -260,7 +260,7 @@ subroutine gauss_seidel_mg_fine_gr(ilevel,redstep,igr)
          end if
       end do
    end do
-end subroutine gauss_seidel_mg_fine_gr
+end subroutine gauss_seidel_mg_fine_gr_ln
 
 ! ------------------------------------------------------------------------
 ! Interpolation and correction
