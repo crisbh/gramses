@@ -6,22 +6,26 @@
 ! Used variables:
 !                       finest(AMR)level     coarse(MG)levels
 !     -----------------------------------------------------------------
-!     GR geometric fields  gr_pot(:,igr)  active_mg(myid,ilevel)%u(:,1)
+!     GR pot fields        gr_pot(:,igr)  active_mg(myid,ilevel)%u(:,1)
 !     physical RHS         rho            active_mg(myid,ilevel)%u(:,2)
 !     residual             f(:,1)         active_mg(myid,ilevel)%u(:,3)
 !     BC-modified RHS      f(:,2)                  N/A
 !     mask                 f(:,3)         active_mg(myid,ilevel)%u(:,4)
+!     restricted GR pot    N/A            active_mg(myid,ilevel)%u(:,5)
+!     restricted coeff     N/A            active_mg(myid,ilevel)%u(:,6)
 !
 ! ------------------------------------------------------------------------
 
-! ------------------------------------------------------------------------
-! Residual computation
-! ------------------------------------------------------------------------
+! --------------------------------------------------------------------------------
+! Compute residual for MG levels, and stores it into active_mg(myid,ilevel)%u(:,3)
+! --------------------------------------------------------------------------------
 
 subroutine cmp_residual_mg_coarse_gr_nl(ilevel)
-   ! Computes the residual for pure MG levels, and stores it into active_mg(myid,ilevel)%u(:,3)
    use amr_commons
    use poisson_commons
+   use gr_commons
+   use gr_parameters
+
    implicit none
    integer, intent(in) :: ilevel
 
@@ -260,6 +264,7 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep)
          igrid_amr = active_mg(myid,ilevel)%igrid(igrid_mg)
          icell_mg  = iskip_mg  + igrid_mg
 
+         potc = active_mg(myid,ilevel)%u(icell_mg,1)
          nb_sum=0.0d0                       ! Sum of phi on neighbors
          ! Read scan flag
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then
@@ -286,58 +291,20 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep)
                       active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,1)
                end do
             end do
+            if(igrp==5) then 
+               op = (nb_sum-6.0D0*potc)*(1.0D0+potc) &
+                    - dx2*(gr_a + gr_b/(1.0D0+potc)**6 + gr_c*((1.0D0+potc)**6-1.0D0))
+           
+               dop = - 6.0D0 - 12.0D0*potc + 6.0D0*dx2*gr_b/(1.0D0+potc)**7 &
+                     - 6.0D0*dx2*gr_c*(1.0D0+potc)**5
+            else
+               op = !TO DO alpha eq
+            end if
+
             ! Update the potential, solving for potential on icell_amr
-            active_mg(myid,ilevel)%u(icell_mg,1)=(nb_sum-dx2*active_mg(myid,ilevel)%u(icell_mg,2))/dtwondim
+            active_mg(myid,ilevel)%u(icell_mg,1)=active_mg(myid,ilevel)%u(icell_mg,1)-op/dop
          else
-            ! Use the finer "solve" Gauss-Seidel near boundaries,
-            ! with all necessary checks
-
-            if(active_mg(myid,ilevel)%u(icell_mg,4)<=0.0) cycle
-            if(safe .and. active_mg(myid,ilevel)%u(icell_mg,4)<1.0) cycle
-
-            weight=0.0d0                       ! Central weight for "Solve G-S"
-
-            do inbor=1,2
-               do idim=1,ndim
-                  ! Get neighbor grid shift
-                  igshift = iii(idim,inbor,ind)
-
-                  ! Get neighbor grid
-                  if(igshift==0) then
-                     igrid_nbor_amr = igrid_amr
-                     cpu_nbor_amr   = myid
-                  else
-                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
-                     cpu_nbor_amr   = cpu_map(nbor(igrid_amr,igshift))
-                  end if
-
-                  if(igrid_nbor_amr==0) then
-                     ! No neighbor cell, set mask=-1 on nonexistent neighbor cell
-                     weight = weight - 1.0d0/active_mg(myid,ilevel)%u(icell_mg,4)
-                  else
-                     ! Fetch neighbor cell
-                     igrid_nbor_mg  = lookup_mg(igrid_nbor_amr)
-                     if(igrid_nbor_mg<=0) then
-                        ! No MG neighbor
-                        weight = weight - 1.0d0/active_mg(myid,ilevel)%u(icell_mg,4)
-                     else
-                        icell_nbor_mg  = igrid_nbor_mg  + (jjj(idim,inbor,ind)-1)*active_mg(cpu_nbor_amr,ilevel)%ngrid
-
-                        if(active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,4)<=0.0) then
-                           ! Neighbor cell is masked
-                           weight = weight + &
-                                 active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,4)/active_mg(myid,ilevel)%u(icell_mg,4)
-                        else
-                           ! Neighbor cell is active, increment neighbor sum
-                           nb_sum = nb_sum + active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,1)
-                        end if
-                     end if
-                  end if
-               end do
-            end do
-            ! Update the potential, solving for potential on icell_amr
-            active_mg(myid,ilevel)%u(icell_mg,1) = (nb_sum - dx2*active_mg(myid,ilevel)%u(icell_mg,2)) &
-                     / (dtwondim - weight)
+         
          end if
       end do
    end do
@@ -533,6 +500,86 @@ subroutine restrict_gr_pot_coarse_reverse_gr_nl(ifinelevel)
    deallocate(n_masked)   
 
 end subroutine restrict_gr_pot_coarse_reverse_gr_nl
+
+subroutine restrict_coeff_coarse_reverse_gr_nl(ifinelevel)
+   use amr_commons
+   use poisson_commons
+   use gr_commons
+   use gr_parameters
+
+   implicit none
+   integer, intent(in) :: ifinelevel
+
+   integer :: ind_c_cell, ind_f_cell, cpu_amr
+   
+   integer :: iskip_c_mg
+   integer :: igrid_c_amr, igrid_c_mg
+   integer :: icell_c_amr, icell_c_mg
+
+   integer :: iskip_f_mg
+   integer :: igrid_f_amr, igrid_f_mg
+   integer :: icell_f_mg
+
+   real(dp) :: rho1
+   real(dp) :: dtwotondim = (twotondim)
+
+   integer :: icoarselevel
+   integer,dimension(:),allocatable::n_masked
+
+   icoarselevel=ifinelevel-1
+
+   allocate(n_masked(1:active_mg(myid,ifinelevel)%ngrid))
+   n_masked(1:active_mg(myid,ifinelevel)%ngrid)=0
+
+   ! Loop over fine cells of the myid active comm
+   do ind_f_cell=1,twotondim
+      iskip_f_mg =(ind_f_cell-1)*active_mg(myid,ifinelevel)%ngrid
+      ! Loop over fine grids of myid
+      do igrid_f_mg=1,active_mg(myid,ifinelevel)%ngrid
+         icell_f_mg=iskip_f_mg+igrid_f_mg
+         ! Count the number of masked fine cells in each fine grid
+         if(active_mg(myid,ifinelevel)%u(icell_f_mg,4)<=0d0) then
+            n_masked(igrid_f_mg)=n_masked(igrid_f_mg)+1
+         end if
+      end do
+   end do
+
+   ! Loop over fine cells of the myid active comm
+   do ind_f_cell=1,twotondim
+      iskip_f_mg =(ind_f_cell-1)*active_mg(myid,ifinelevel)%ngrid
+
+      ! Loop over fine grids of myid
+      do igrid_f_mg=1,active_mg(myid,ifinelevel)%ngrid
+         icell_f_mg=iskip_f_mg+igrid_f_mg                                  ! mg fine cell index
+         ! Is fine cell masked?
+         if(active_mg(myid,ifinelevel)%u(icell_f_mg,4)<=0d0) cycle
+
+         ! Get coarse grid AMR index and CPU id
+         igrid_f_amr=active_mg(myid,ifinelevel)%igrid(igrid_f_mg)          ! amr fine grid index
+         icell_c_amr=father(igrid_f_amr)                                   ! amr coarse cell index
+!        ind_c_cell=(icell_c_amr-ncoarse-1)/ngridmax+1                     ! amr coarse cell position
+         ind_c_cell=(icell_c_amr-ncoarse)/ngridmax+1                     ! amr coarse cell position
+         igrid_c_amr=icell_c_amr-ncoarse-(ind_c_cell-1)*ngridmax           ! amr coarse grid index
+         cpu_amr=cpu_map(father(igrid_c_amr))                              ! coarse cell cpu index
+
+         ! Convert to MG index, get MG coarse cell id                      ! mg coarse grid index
+         igrid_c_mg=lookup_mg(igrid_c_amr)
+         iskip_c_mg=(ind_c_cell-1)*active_mg(cpu_amr,icoarselevel)%ngrid
+         icell_c_mg=iskip_c_mg+igrid_c_mg                                  ! mg coarse cell index
+
+         ! If coarse cell is masked, it's outside boundary and R\rho is not needed
+         if(active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,4)<=0d0.or.n_masked(igrid_f_mg)==8) cycle
+
+         ! Restriction to compute the sf value in the coarse cell 
+         rho1=active_mg(myid,ifinelevel)%u(icell_f_mg,6)/(dtwotondim-dble(n_masked(igrid_f_mg)))
+         active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,6)=&
+            active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,6)+rho1
+      end do
+   end do
+
+   deallocate(n_masked)
+
+end subroutine restrict_coeff_coarse_reverse_gr_nl
 
 
 ! ------------------------------------------------------------------------
