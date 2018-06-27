@@ -39,7 +39,7 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
    real(dp) :: dtwondim = (twondim)
 
-   real(dp) :: ctilde,ctilde2,omoverac2,omoverac22,onevera4,7over8a4,a2K2,5a2K2,lhs2F
+   real(dp) :: ctilde,ctilde2,omoverac2,onevera4,7over8a4,a2K2,5a2K2
    real(dp) :: potc,gr_a,gr_b,gr_c,op
    
    ! Set constants
@@ -47,12 +47,10 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
    ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
    ctilde2    = ctilde**2                         ! Speed of light squared
    omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
-   omoverac22 = 1.5D0*omega_m/(aexp*ctilde2)      ! Numerical coeff for S_0 in alp Eq.
    oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
    7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
    a2K2       = aexp**2*K**2/12.0D0               ! Background factor a^2K^2/12
    5a2k2      = 5.0D0*a2K2
-   lhs2F      = aexp**2*(K**2/3.0D0-dotK/ctilde)  ! LHS of 2nd Friedmann Eq. 
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -70,11 +68,6 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
       call clean_stop
    end if
 
-   ! Calculate constant GR coefficients
-   if(igrp==5) then 
-      gr_c=a2K2
-   end if
-
    ! Loop over cells
    do ind=1,twotondim
       iskip_amr = ncoarse+(ind-1)*ngridmax
@@ -83,25 +76,27 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
       do igrid_mg=1,ngrid
          igrid_amr = active(ilevel)%igrid(igrid_mg)     ! amr grid index
          icell_amr = iskip_amr + igrid_amr              ! amr cell index
-      
+
          ! Calculate space-dependent coefficients
          if(igrp==5) then 
-            gr_a =  a2K2 - omoverac2*rho(icell_amr)
+            gr_a = -omoverac2*(rho(icell_amr)-1.0d0)
             gr_b = -oneovera4*gr_mat(icell_amr,4)
          else
-            gr_a = omoverac22*(rho(icell_amr) + &
-                   gr_mat(icell_amr,5))/(1.0D0+gr_pot(icell_amr,5)) + &
-                   lhs2F*(1.0D0+gr_pot(icell_amr,5))**5 + &
-                   oneovera4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**7
-            gr_b = omoverac2*(rho(icell_amr)+&
+            gr_a = omoverac2*(rho(icell_amr)-1.0D0+2.0D0*gr_mat(icell_amr,5)) + &
+                   ((1.0D0+gr_pot(icell_amr,5))**6-1.0D0)*(5a2K2-Kdot) + &
+                   7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**6
+            gr_a = gr_a/(1.0D0+gr_pot(icell_amr,5))*dx2
+            gr_b = omoverac2*(rho(icell_amr) + &
                    2.0D0*gr_mat(icell_amr,5))/(1.0D0+gr_pot(icell_amr,5)) + &
-                   5a2K2*(1.0D0+gr_pot(icell_amr,5))**5 + &   
+                   5a2K2*(1.0D0+gr_pot(icell_amr,5))**5 + &
                    7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**7
          end if
-         
+
          ! SCAN FLAG TEST
          if(flag2(icell_amr)/ngridmax==0) then
-
+            if(igrp==6) then
+               gr_a = gr_a + 6.0d0*gr_pot(icell_amr,5)  ! Sum of GR field on neighbors
+            end if
             potc  = gr_pot(icell_amr,igrp)   ! Value of GR field on center cell
             nb_sum=0.0d0                     ! Sum of GR field on eighbors
 
@@ -118,6 +113,7 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
                       (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
                   if(igrp==5) then 
                      nb_sum = nb_sum + gr_pot(icell_nbor_amr,igrp)
+                     gr_a   = gr_a   - gr_pot(icell_nbor_amr,5   )
                   else
                      nb_sum = nb_sum + gr_pot(icell_nbor_amr,igrp)*(1.0D0+gr_pot(icell_nbor_amr,5))
                   end if
@@ -127,10 +123,9 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
          if(igrp==5) then 
             op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
-                 dx2*(gr_a+gr_b/(1.0D0+potc)**6 + gr_c*((1.0D0+potc)**6-1.0D0))
+                  dx2*(gr_a+gr_b/(1.0D0+potc)**6 + a2K2*((1.0D0+potc)**6-1.0D0))
          else
-            op = nb_sum - 6.0D0*potc*(1.0D0+gr_pot(icell_nbor_amr,5)) - &
-                 dx2*(gr_a+potc*gr_b)
+            op = nb_sum - 6.0D0*potc*(1.0D0+gr_pot(icell_amr,5)) - dx2*potc*gr_b - gr_a
          end if
             f(icell_amr,1) = -op*oneoverdx2
          else
@@ -168,20 +163,19 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
 
    real(dp) :: dtwondim = (twondim)
-   real(dp) :: ctilde,ctilde2,omoverac2,omoverac22,onevera4,7over8a4,a2K2,5a2K2,lhs2F
-   real(dp) :: potc,gr_a,gr_b,gr_c,op,dop
+   real(dp) :: ctilde,ctilde2,omoverac2,onevera4,7over8a4,a2K2,5a2K2
+   real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
    dx2        = (0.5d0**ilevel)**2                ! Cell size squared
    ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
    ctilde2    = ctilde**2                         ! Speed of light squared
    omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
-   omoverac22 = 1.5D0*omega_m/(aexp*ctilde2)      ! Numerical coeff for S_0 in alp Eq.
    oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
    7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
    a2K2       = aexp**2*K**2/12.0D0               ! Background factor a^2K^2/12
    5a2K2      = 5.0D0*a2K2
-   lhs2F      = aexp**2*(K**2/3.0D0-dotK/ctilde)  ! LHS of 2nd Friedmann Eq. 
+   Kdot       = dotK/ctilde                        ! LHS of 2nd Friedmann Eq. 
 
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
@@ -206,11 +200,6 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
       call clean_stop
    end if
    
-   ! Calculate constant GR coefficients
-   if(igrp==5) then 
-      gr_c=a2K2
-   end if    
-
    ! Loop over cells, with red/black ordering
    do ind0=1,twotondim/2      ! Only half of the cells for a red or black sweep
       if(redstep) then
@@ -228,16 +217,16 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
          
          ! Calculate space-dependent coefficients
          if(igrp==5) then 
-            gr_a =  a2K2 - omoverac2*rho(icell_amr)
+            gr_a = -omoverac2*(rho(icell_amr)-1.0d0)
             gr_b = -oneovera4*gr_mat(icell_amr,4)
          else
-            gr_a = omoverac22*(rho(icell_amr) + &
-                   gr_mat(icell_amr,5))/(1.0D0+gr_pot(icell_amr,5)) + &
-                   lhs2F*(1.0D0+gr_pot(icell_amr,5))**5 + &
-                   oneovera4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**7
-            gr_b = omoverac2*(rho(icell_amr)+&
+            gr_a = omoverac2*(rho(icell_amr)-1.0D0+2.0D0*gr_mat(icell_amr,5)) + &
+                   ((1.0D0+gr_pot(icell_amr,5))**6-1.0D0)*(5a2K2-Kdot) + &
+                   7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**6
+            gr_a = gr_a/(1.0D0+gr_pot(icell_amr,5))*dx2
+            gr_b = omoverac2*(rho(icell_amr) + &
                    2.0D0*gr_mat(icell_amr,5))/(1.0D0+gr_pot(icell_amr,5)) + &
-                   5a2K2*(1.0D0+gr_pot(icell_amr,5))**5 + &   
+                   5a2K2*(1.0D0+gr_pot(icell_amr,5))**5 + &
                    7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**7
          end if
 
@@ -246,8 +235,11 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
             ! Use max-speed "dumb" Gauss-Seidel for "inner" cells
             ! Those cells are active, have all their neighbors active
             ! and all neighbors are in the AMR+MG trees
+            if(igrp==6) then
+               gr_a = gr_a + 6.0d0*gr_pot(icell_amr,5)  ! Sum of GR field on neighbors
+            end if
             potc = gr_pot(icell_amr,igrp)
-            nb_sum=0.0d0                       ! Sum of GR field on neighbors
+            nb_sum=0.0d0                                ! Sum of GR field on neighbors
 
             do inbor=1,2
                do idim=1,ndim
@@ -265,21 +257,21 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
                   if(igrp==5) then 
                      nb_sum = nb_sum + gr_pot(icell_nbor_amr,igrp)
                   else
+                     gr_a   = gr_a   - gr_pot(icell_nbor_amr,5   )
                      nb_sum = nb_sum + gr_pot(icell_nbor_amr,igrp)*(1.0D0+gr_pot(icell_nbor_amr,5))
                   end if
                end do
             end do
             if(igrp==5) then 
-               op  = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
-                     dx2*(gr_a+gr_b/(1.0D0+potc)**6 + gr_c*((1.0D0+potc)**6-1.0D0))
+               op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
+                     dx2*(gr_a+gr_b/(1.0D0+potc)**6 + a2K2*((1.0D0+potc)**6-1.0D0))
            
-               dop = nb_sum - 6.0D0 - 12.0D0*potc + 6.0D0*dx2*gr_b/(1.0D0+potc)**7 &
-                     - 6.0D0*dx2*gr_c*(1.0D0+potc)**5
+               dop= nb_sum - 6.0D0 - 12.0D0*potc + 6.0D0*dx2*gr_b/(1.0D0+potc)**7 &
+                     - 6.0D0*dx2*a2K2*(1.0D0+potc)**5
             else
-               op  = nb_sum - 6.0D0*potc*(1.0D0+gr_pot(icell_nbor_amr,5)) - &
-                     dx2*(gr_a+potc*gr_b)
+               op = nb_sum - 6.0D0*potc*(1.0D0+gr_pot(icell_amr,5)) - dx2*potc*gr_b - gr_a
 
-               dop = - 6.0D0*(1.0D0+gr_pot(icell_nbor_amr,5)) - dx2*gr_b
+               dop= - 6.0D0*(1.0D0+gr_pot(icell_amr,5)) - dx2*gr_b
             end if
 
             ! Update the GR potential, solving for potential on icell_amr

@@ -210,12 +210,16 @@ end subroutine cmp_fvar_norm2_coarse_gr_nl
 ! Gauss-Seidel smoothing
 ! ------------------------------------------------------------------------
 
-subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep)
+subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
    use amr_commons
    use pm_commons
    use poisson_commons
+   use gr_commons
+   use gr_parameters
+
    implicit none
-   integer, intent(in) :: ilevel
+   integer, intent(in) :: ilevel, igr
+   integer :: igrp
    logical, intent(in) :: safe
    logical, intent(in) :: redstep
 
@@ -229,9 +233,21 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep)
    integer  :: iskip_mg, igrid_nbor_mg, icell_mg, icell_nbor_mg
    integer  :: igshift, igrid_nbor_amr
    real(dp) :: dtwondim = (twondim)
+   
+   real(dp) :: ctilde,ctilde2,omoverac2,omoverac22,onevera4,7over8a4,a2K2,5a2K2,lhs2F
+   real(dp) :: potc,gr_a,gr_b,gr_c,op,dop
 
    ! Set constants
-   dx2  = (0.5d0**ilevel)**2
+   dx2        = (0.5d0**ilevel)**2                ! Cell size squared
+   ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
+   ctilde2    = ctilde**2                         ! Speed of light squared
+   omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
+   omoverac22 = 1.5D0*omega_m/(aexp*ctilde2)      ! Numerical coeff for S_0 in alp Eq.
+   oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
+   7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
+   a2K2       = aexp**2*K**2/12.0D0               ! Background factor a^2K^2/12
+   5a2k2      = 5.0D0*a2K2
+   lhs2F      = aexp**2*(K**2/3.0D0-dotK/ctilde)  ! LHS of 2nd Friedmann Eq. 
 
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
@@ -248,6 +264,18 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep)
    iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
 
    ngrid=active_mg(myid,ilevel)%ngrid
+   
+   ! Set field index
+   igrp = igr
+   if(igr>6.or.igr<5) then
+      print '(A)','igr out of range. Check.'             
+      call clean_stop
+   end if
+   
+   ! Calculate constant GR coefficients
+   if(igrp==5) then 
+      gr_c=a2K2
+   end if    
 
    ! Loop over cells, with red/black ordering
    do ind0=1,twotondim/2      ! Only half of the cells for a red or black sweep
@@ -266,6 +294,22 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep)
 
          potc = active_mg(myid,ilevel)%u(icell_mg,1)
          nb_sum=0.0d0                       ! Sum of phi on neighbors
+   
+         ! Calculate space-dependent coefficients
+         if(igrp==5) then 
+            gr_a =  a2K2 - omoverac2*rho(icell_amr)
+            gr_b = -oneovera4*gr_mat(icell_amr,4)
+         else
+            gr_a = omoverac22*(rho(icell_amr) + &
+                   gr_mat(icell_amr,5))/(1.0D0+gr_pot(icell_amr,5)) + &
+                   lhs2F*(1.0D0+gr_pot(icell_amr,5))**5 + &
+                   oneovera4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**7
+            gr_b = omoverac2*(rho(icell_amr)+&
+                   2.0D0*gr_mat(icell_amr,5))/(1.0D0+gr_pot(icell_amr,5)) + &
+                   5a2K2*(1.0D0+gr_pot(icell_amr,5))**5 + &   
+                   7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**7
+         end if
+
          ! Read scan flag
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then
             ! Use max-speed "dumb" Gauss-Seidel for "inner" cells
@@ -291,18 +335,23 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep)
                       active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,1)
                end do
             end do
+            
             if(igrp==5) then 
-               op = (nb_sum-6.0D0*potc)*(1.0D0+potc) &
-                    - dx2*(gr_a + gr_b/(1.0D0+potc)**6 + gr_c*((1.0D0+potc)**6-1.0D0))
+               op  = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
+                     dx2*(gr_a+gr_b/(1.0D0+potc)**6 + gr_c*((1.0D0+potc)**6-1.0D0))
            
-               dop = - 6.0D0 - 12.0D0*potc + 6.0D0*dx2*gr_b/(1.0D0+potc)**7 &
+               dop = nb_sum - 6.0D0 - 12.0D0*potc + 6.0D0*dx2*gr_b/(1.0D0+potc)**7 &
                      - 6.0D0*dx2*gr_c*(1.0D0+potc)**5
             else
-               op = !TO DO alpha eq
+               op  = nb_sum - 6.0D0*potc*(1.0D0+gr_pot(icell_nbor_amr,5)) - &
+                     dx2*(gr_a+potc*gr_b)
+
+               dop = - 6.0D0*(1.0D0+gr_pot(icell_nbor_amr,5)) - dx2*gr_b
             end if
 
-            ! Update the potential, solving for potential on icell_amr
-            active_mg(myid,ilevel)%u(icell_mg,1)=active_mg(myid,ilevel)%u(icell_mg,1)-op/dop
+            ! Update the GR potential, solving for potential on icell_amr
+            active_mg(myid,ilevel)%u(icell_mg,1)=active_mg(myid,ilevel)%u(icell_mg,1) -&
+                                                 op/dop
          else
          
          end if
