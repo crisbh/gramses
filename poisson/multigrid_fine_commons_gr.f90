@@ -384,7 +384,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
       if(ifinelevel>levelmin_mg) then
          print '(A,I2,A,I2)','V-cycle: entering coarse multigrid at level ',ifinelevel, ' for gr_pot ',igr
       else
-         print '(A,I2,A,I2)','V-cycle: entering coarsest multigrid level ',ifinelevel, ' for gr_pot ', igr
+         print '(A,I2,A,I2)','V-cycle: entering coarsest multigrid level ' ,ifinelevel, ' for gr_pot ',igr
       end if
    end if
    

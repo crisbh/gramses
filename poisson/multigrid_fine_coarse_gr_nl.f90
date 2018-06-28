@@ -20,15 +20,15 @@
 ! Compute residual for MG levels, and stores it into active_mg(myid,ilevel)%u(:,3)
 ! --------------------------------------------------------------------------------
 
-subroutine cmp_residual_mg_coarse_gr_nl(ilevel)
+subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    use amr_commons
    use poisson_commons
    use gr_commons
    use gr_parameters
 
    implicit none
-   integer, intent(in) :: ilevel
-
+   integer, intent(in) :: ilevel,igr
+   integer :: igrp
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
    real(dp) :: dx, oneoverdx2, phi_c, nb_sum
@@ -39,10 +39,22 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel)
    integer  :: igshift, igrid_nbor_amr
 
    real(dp) :: dtwondim = (twondim)
+   real(dp) :: ctilde,ctilde2,omoverac2,onevera4,7over8a4,a2K2,5a2K2,Kdot
+   real(dp) :: potc,gr_a,gr_b,op,dop
 
-   ! Set constants
    dx  = 0.5d0**ilevel
    oneoverdx2 = 1.0d0/(dx*dx)
+
+   ! Set constants
+   dx2        = (0.5d0**ilevel)**2                ! Cell size squared
+   ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
+   ctilde2    = ctilde**2                         ! Speed of light squared
+   omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
+   oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
+   7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
+   a2K2       = aexp**2*K**2/12.0D0               ! Background factor a^2K^2/12
+   5a2K2      = 5.0D0*a2K2
+   Kdot       = dotK/ctilde                       
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -52,6 +64,13 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel)
    iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
 
    ngrid=active_mg(myid,ilevel)%ngrid
+   
+   ! Set field index
+   igrp = igr
+   if(igr>6.or.igr<5) then
+      print '(A)','igr out of range. Check.'             
+      call clean_stop
+   end if
 
    ! Loop over cells myid
    do ind=1,twotondim
@@ -62,9 +81,16 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel)
       do igrid_mg=1,ngrid
          igrid_amr = active_mg(myid,ilevel)%igrid(igrid_mg)
          icell_mg = igrid_mg + iskip_mg
-
-         phi_c = active_mg(myid,ilevel)%u(icell_mg,1)
-         nb_sum=0.0d0  ! Sum of phi on neighbors
+        
+         ! Coefficients in coarse cell (restricted) 
+         if(igrp==5) then 
+            gr_b = -oneovera4*active_mg(myid,ilevel)%u(icell_mg,6)
+         else
+            gr_b =  active_mg(myid,ilevel)%u(icell_mg,6) 
+         end if
+         
+         potc = active_mg(myid,ilevel)%u(icell_mg,1)  ! Value of GR field on center cell
+         nb_sum=0.0d0                                 ! Sum of GR field on neighbors
 
          ! SCAN FLAG TEST
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then ! NO SCAN
@@ -80,131 +106,27 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel)
                      cpu_nbor_amr   = cpu_map(nbor(igrid_amr,igshift))
                   end if
                   igrid_nbor_mg = lookup_mg(igrid_nbor_amr)
-                  ! Add up
                   icell_nbor_mg = igrid_nbor_mg + &
                       (jjj(idim,inbor,ind)-1)*active_mg(cpu_nbor_amr,ilevel)%ngrid
                   nb_sum = nb_sum + &
-                      active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,1)
+                              active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,1)
                end do
             end do
-         else ! PERFORM SCAN
-            if(active_mg(myid,ilevel)%u(icell_mg,4)<=0.0) then
-               active_mg(myid,ilevel)%u(icell_mg,3)=0.0
-               cycle
+          
+            if(igrp==5) then 
+               op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
+                    dx2*(gr_b/(1.0D0+potc)**6 + a2K2*((1.0D0+potc)**6-1.0D0))
+            else
+               op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
-            do idim=1,ndim
-               do inbor=1,2
-                  ! Get neighbor grid
-                  igshift = iii(idim,inbor,ind)
-                  if(igshift==0) then
-                     igrid_nbor_amr = igrid_amr
-                     cpu_nbor_amr   = myid
-                  else
-                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
-                     cpu_nbor_amr   = cpu_map(nbor(igrid_amr,igshift))
-                  end if
-
-                  if(igrid_nbor_amr==0) then
-                     ! No neighbor cell !
-                     ! Virtual phi value on unrefnd neighbor cell : -phi_c/mask_c
-                     ! (simulates mask=-1.0 for the nonexistent refined cell)
-                     nb_sum = nb_sum - phi_c/active_mg(myid,ilevel)%u(icell_mg,4)
-                  else
-                     ! Fetch neighbor cell
-                     igrid_nbor_mg  = lookup_mg(igrid_nbor_amr)
-                     if(igrid_nbor_mg<=0) then
-                        nb_sum=nb_sum-phi_c/active_mg(myid,ilevel)%u(icell_mg,4)
-                        cycle
-                     end if
-
-                     icell_nbor_mg  = igrid_nbor_mg + &
-                       (jjj(idim,inbor,ind)-1)*active_mg(cpu_nbor_amr,ilevel)%ngrid
-                     if(active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,4)<=0.0) then
-                        ! Neighbor cell is masked : compute its virtual phi with the mask
-                        nb_sum = nb_sum + phi_c * &
-                           (active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,4)/active_mg(myid,ilevel)%u(icell_mg,4))
-                     else
-                        ! Neighbor cell is active, use its true potential
-                        nb_sum = nb_sum + active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,1)
-                     end if
-                  end if
-               end do
-            end do
          end if ! END SCAN TEST
 
          ! Store ***MINUS THE RESIDUAL***
-         active_mg(myid,ilevel)%u(icell_mg,3) = &
-          -oneoverdx2*( nb_sum - dtwondim*phi_c )+active_mg(myid,ilevel)%u(icell_mg,2)
+         active_mg(myid,ilevel)%u(icell_mg,3) = -op*oneoverdx2 + active_mg(myid,ilevel)%u(icell_mg,2)
       end do
    end do
 
 end subroutine cmp_residual_mg_coarse_gr_nl
-
-! ##################################################################
-! ##################################################################
-
-subroutine cmp_uvar_norm2_coarse_gr_nl(ivar, ilevel, norm2)
-   use amr_commons
-   use poisson_commons
-   implicit none
-
-   integer,  intent(in)  :: ilevel, ivar
-   real(dp), intent(out) :: norm2
-
-   real(dp) :: dx2
-   integer  :: ngrid
-   integer  :: ind, igrid_mg, icell_mg, iskip_mg
-
-   ! Set constants
-   dx2  = (0.5d0**ilevel)**ndim
-   ngrid=active_mg(myid,ilevel)%ngrid
-
-   norm2 = 0.0d0
-   ! Loop over cells
-   do ind=1,twotondim
-      iskip_mg = (ind-1)*ngrid
-      ! Loop over active grids
-      do igrid_mg=1,ngrid
-         icell_mg = iskip_mg + igrid_mg
-         if(active_mg(myid,ilevel)%u(icell_mg,4)<=0.0 .and. ivar/=4) cycle
-         norm2 = norm2 + active_mg(myid,ilevel)%u(icell_mg,ivar)**2
-      end do
-   end do
-   norm2 = dx2*norm2
-end subroutine cmp_uvar_norm2_coarse_gr_nl
-
-! ##################################################################
-! ##################################################################
-
-subroutine cmp_fvar_norm2_coarse_gr_nl(ivar, ilevel, norm2)
-   use amr_commons
-   use poisson_commons
-   implicit none
-
-   integer,  intent(in)  :: ilevel, ivar
-   real(dp), intent(out) :: norm2
-
-   real(dp) :: dx2
-   integer  :: ngrid
-   integer  :: ind, igrid_mg, icell_mg, iskip_mg
-
-   ! Set constants
-   dx2  = (0.5d0**ilevel)**ndim
-   ngrid=active_mg(myid,ilevel)%ngrid
-
-   norm2 = 0.0d0
-   ! Loop over cells
-   do ind=1,twotondim
-      iskip_mg = (ind-1)*ngrid
-      ! Loop over active grids
-      do igrid_mg=1,ngrid
-         icell_mg = iskip_mg + igrid_mg
-         if(active_mg(myid,ilevel)%u(icell_mg,4)<=0.0) cycle
-         norm2 = norm2 + active_mg(myid,ilevel)%f(icell_mg,ivar)**2
-      end do
-   end do
-   norm2 = dx2*norm2
-end subroutine cmp_fvar_norm2_coarse_gr_nl
 
 ! ------------------------------------------------------------------------
 ! Gauss-Seidel smoothing
@@ -233,21 +155,20 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
    integer  :: iskip_mg, igrid_nbor_mg, icell_mg, icell_nbor_mg
    integer  :: igshift, igrid_nbor_amr
    real(dp) :: dtwondim = (twondim)
-   
-   real(dp) :: ctilde,ctilde2,omoverac2,omoverac22,onevera4,7over8a4,a2K2,5a2K2,lhs2F
-   real(dp) :: potc,gr_a,gr_b,gr_c,op,dop
+
+   real(dp) :: ctilde,ctilde2,omoverac2,onevera4,7over8a4,a2K2,5a2K2,Kdot
+   real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
    dx2        = (0.5d0**ilevel)**2                ! Cell size squared
    ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
    ctilde2    = ctilde**2                         ! Speed of light squared
    omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
-   omoverac22 = 1.5D0*omega_m/(aexp*ctilde2)      ! Numerical coeff for S_0 in alp Eq.
    oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
    7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
    a2K2       = aexp**2*K**2/12.0D0               ! Background factor a^2K^2/12
-   5a2k2      = 5.0D0*a2K2
-   lhs2F      = aexp**2*(K**2/3.0D0-dotK/ctilde)  ! LHS of 2nd Friedmann Eq. 
+   5a2K2      = 5.0D0*a2K2
+   Kdot       = dotK/ctilde                       
 
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
@@ -272,11 +193,6 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
       call clean_stop
    end if
    
-   ! Calculate constant GR coefficients
-   if(igrp==5) then 
-      gr_c=a2K2
-   end if    
-
    ! Loop over cells, with red/black ordering
    do ind0=1,twotondim/2      ! Only half of the cells for a red or black sweep
       if(redstep) then
@@ -292,27 +208,19 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
          igrid_amr = active_mg(myid,ilevel)%igrid(igrid_mg)
          icell_mg  = iskip_mg  + igrid_mg
 
-         potc = active_mg(myid,ilevel)%u(icell_mg,1)
-         nb_sum=0.0d0                       ! Sum of phi on neighbors
-   
-         ! Calculate space-dependent coefficients
+         ! Coefficients in coarse cell (restricted) 
          if(igrp==5) then 
-            gr_a =  a2K2 - omoverac2*rho(icell_amr)
-            gr_b = -oneovera4*gr_mat(icell_amr,4)
+            gr_b = -oneovera4*active_mg(myid,ilevel)%u(icell_mg,6)
          else
-            gr_a = omoverac22*(rho(icell_amr) + &
-                   gr_mat(icell_amr,5))/(1.0D0+gr_pot(icell_amr,5)) + &
-                   lhs2F*(1.0D0+gr_pot(icell_amr,5))**5 + &
-                   oneovera4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**7
-            gr_b = omoverac2*(rho(icell_amr)+&
-                   2.0D0*gr_mat(icell_amr,5))/(1.0D0+gr_pot(icell_amr,5)) + &
-                   5a2K2*(1.0D0+gr_pot(icell_amr,5))**5 + &   
-                   7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**7
+            gr_b =  active_mg(myid,ilevel)%u(icell_mg,6) 
          end if
-
          ! Read scan flag
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then
-            ! Use max-speed "dumb" Gauss-Seidel for "inner" cells
+         
+         potc = active_mg(myid,ilevel)%u(icell_mg,1)  ! Value of GR field on center cell
+         nb_sum=0.0d0                                 ! Sum of GR field on neighbors
+
+           ! Use max-speed "dumb" Gauss-Seidel for "inner" cells
             ! Those cells are active, have all their neighbors active
             ! and all neighbors are in the AMR+MG trees
             do inbor=1,2
@@ -332,28 +240,26 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
                   icell_nbor_mg  = igrid_nbor_mg + &
                       (jjj(idim,inbor,ind)-1)*active_mg(cpu_nbor_amr,ilevel)%ngrid
                   nb_sum = nb_sum + &
-                      active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,1)
+                              active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,1)
                end do
             end do
             
             if(igrp==5) then 
-               op  = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
-                     dx2*(gr_a+gr_b/(1.0D0+potc)**6 + gr_c*((1.0D0+potc)**6-1.0D0))
+               op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
+                    dx2*(gr_b/(1.0D0+potc)**6 + a2K2*((1.0D0+potc)**6-1.0D0))
            
-               dop = nb_sum - 6.0D0 - 12.0D0*potc + 6.0D0*dx2*gr_b/(1.0D0+potc)**7 &
-                     - 6.0D0*dx2*gr_c*(1.0D0+potc)**5
+               dop= nb_sum - 6.0D0 - 12.0D0*potc + 6.0D0*dx2*gr_b/(1.0D0+potc)**7 &
+                    - 6.0D0*dx2*a2K2*(1.0D0+potc)**5
             else
-               op  = nb_sum - 6.0D0*potc*(1.0D0+gr_pot(icell_nbor_amr,5)) - &
-                     dx2*(gr_a+potc*gr_b)
+               op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
 
-               dop = - 6.0D0*(1.0D0+gr_pot(icell_nbor_amr,5)) - dx2*gr_b
+               dop= - 6.0D0 - dx2*gr_b
             end if
-
+            
+            op = op - active_mg(myid,ilevel)%u(icell_mg,2)*dx2
             ! Update the GR potential, solving for potential on icell_amr
             active_mg(myid,ilevel)%u(icell_mg,1)=active_mg(myid,ilevel)%u(icell_mg,1) -&
                                                  op/dop
-         else
-         
          end if
       end do
    end do
@@ -390,11 +296,19 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
    real(dp) :: dtwondim = (twondim)
    real(dp) :: eta1,eta2,eta3,ctilde,ctilde2,o_l,op,dens
    real(dp) :: sfc,nb_sum_sf2 
+   real(dp) :: ctilde,ctilde2,omoverac2,onevera4,7over8a4,a2K2,5a2K2,Kdot
+   real(dp) :: potc,gr_a,gr_b,op,dop
 
-   if(igrp<5.or.igrp>6) then
-      print '(A)','igrp out of range. Check.'
-      call clean_stop
-   end if
+   ! Set constants
+   dx2        = (0.5d0**ilevel)**2                ! Cell size squared
+   ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
+   ctilde2    = ctilde**2                         ! Speed of light squared
+   omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
+   oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
+   7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
+   a2K2       = aexp**2*K**2/12.0D0               ! Background factor a^2K^2/12
+   5a2K2      = 5.0D0*a2K2
+   Kdot       = dotK/ctilde                       
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -403,20 +317,12 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
    iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
    iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
 
-   dx         = 0.5d0**ilevel                                   ! cell size
-   dx2        = dx**2                                           ! cell size squared
-   oneoverdx2 = 1.0d0/dx2                                       ! one over dx2
-
-   ctilde     = sol/boxlen_ini/100000.0d0                       ! speed of light in code unit
-   ctilde2    = ctilde**2                                       ! speed of light squared
-
-   o_l        = 1.0d0-omega_m                                   ! Omega_l
-   eta1       = omega_m  *aexp                                  ! numerical coeff 25/04/2018 rearragning ctilde2
-   eta2       = 4.0d0*o_l*aexp**4                               ! numerical coeff 25/04/2018 rearragning ctilde2
-
-   eta3       = eta1*aexp**4*dsqrt(fr_c1oc22)/3.0d0             ! numerical coeff
-
    ngrid=active_mg(myid,ilevel)%ngrid
+
+   if(igrp<5.or.igrp>6) then
+      print '(A)','igrp out of range. Check.'
+      call clean_stop
+   end if
 
    ! Loop over cells
    do ind=1,twotondim
@@ -429,9 +335,16 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
          icell_amr = iskip_amr+igrid_amr                        ! amr cell index
          icell_mg  = iskip_mg+igrid_mg                          ! mg cell index
 
+         ! Coefficients in coarse cell (restricted) 
+         if(igrp==5) then 
+            gr_b = -oneovera4*active_mg(myid,ilevel)%u(icell_mg,6)
+         else
+            gr_b =  active_mg(myid,ilevel)%u(icell_mg,6) 
+         end if
+
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then
-            sfc = active_mg(myid,ilevel)%u(icell_mg,5)
-            nb_sum_sf2 = 0.0d0
+         potc = active_mg(myid,ilevel)%u(icell_mg,5)  ! Value of GR field on center cell
+         nb_sum=0.0d0                                 ! Sum of GR field on neighbors
 
             do inbor=1,2
                do idim=1,ndim
@@ -445,22 +358,19 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
                   end if
                   igrid_nbor_mg = lookup_mg(igrid_nbor_amr)
                   icell_nbor_mg = igrid_nbor_mg+(jjj(idim,inbor,ind)-1)*active_mg(cpu_nbor_amr,ilevel)%ngrid
-
-                  nb_sum_sf2 = nb_sum_sf2+(active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,5))**2
+                  nb_sum = nb_sum + active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,5)
                end do
             end do
 
-            dens = active_mg(myid,ilevel)%u(icell_mg,6)         ! density in coarse cell
-            op   = nb_sum_sf2-6.0d0*sfc**2
-            op   = op*oneoverdx2*ctilde2                        ! 25/04/2018 rearragning ctilde2
-            op   = op-eta1*(dens+1.0d0)
-            op   = op-eta2
-            op   = op+eta3/sfc
-         else
-            op = 0.0d0
+            if(igrp==5) then 
+               op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
+                    dx2*(gr_b/(1.0D0+potc)**6 + a2K2*((1.0D0+potc)**6-1.0D0))
+            else
+               op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
+            end if
          end if
-
-         active_mg(myid,ilevel)%u(icell_mg,2) = active_mg(myid,ilevel)%u(icell_mg,2)+op
+         
+         active_mg(myid,ilevel)%u(icell_mg,2) = active_mg(myid,ilevel)%u(icell_mg,2)+op/dx2
       end do
    end do
 
