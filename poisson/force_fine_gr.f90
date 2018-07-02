@@ -264,8 +264,8 @@ subroutine gradient_phi(ind_grid,ngrid,ilevel,icount)
   ! Interpolate potential from upper level
   if (ilevel>levelmin)then
      do idim=1,ndim
-        call interpol_phi(ind_left (1,idim),phi_left (1,1,idim),ngrid,ilevel,icount)
-        call interpol_phi(ind_right(1,idim),phi_right(1,1,idim),ngrid,ilevel,icount)
+        call interpol_gr_pot(ind_left (1,idim),phi_left (1,1,idim),ngrid,ilevel,icount,igrp)
+        call interpol_gr_pot(ind_right(1,idim),phi_right(1,1,idim),ngrid,ilevel,icount,igrp)
      end do
   end if
   ! Loop over cells
@@ -287,36 +287,51 @@ subroutine gradient_phi(ind_grid,ngrid,ilevel,icount)
         ! Gather potential
         do i=1,ngrid
            if(igridn(i,ig1)>0)then
-              phi1(i)=phi(igridn(i,ig1)+ih1)
+              phi1(i)=gr_pot(igridn(i,ig1)+ih1,igrp)
            else
               phi1(i)=phi_left(i,id1,idim)
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig2)>0)then
-              phi2(i)=phi(igridn(i,ig2)+ih2)
+              phi2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)
            else
               phi2(i)=phi_right(i,id2,idim)
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig3)>0)then
-              phi3(i)=phi(igridn(i,ig3)+ih3)
+              phi3(i)=gr_pot(igridn(i,ig3)+ih3,igrp)
            else
               phi3(i)=phi_left(i,id3,idim)
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig4)>0)then
-              phi4(i)=phi(igridn(i,ig4)+ih4)
+              phi4(i)=gr_pot(igridn(i,ig4)+ih4,igrp)
            else
               phi4(i)=phi_right(i,id4,idim)
            end if
         end do
-        do i=1,ngrid
-           f(ind_cell(i),idim)=a*(phi1(i)-phi2(i)) &
-                &             -b*(phi3(i)-phi4(i))
-        end do
+        if(igrp==1) then
+           do i=1,ngrid
+              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
+           end do
+        else if(igrp==2) then
+
+        else if(igrp==3) then
+           
+
+        else if(igrp==5) then
+        else if(igrp==6) then
+           do i=1,ngrid
+              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
+           end do
+        
+        else
+           !TO DO MESSAGE
+           call clean_stop        
+        end if        
      end do
   end do
 
