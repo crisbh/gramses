@@ -160,7 +160,7 @@ end subroutine move_fine_static
 !#########################################################################
 !#########################################################################
 !#########################################################################
-subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
+subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igr)
   use amr_commons
   use pm_commons
   use poisson_commons
@@ -191,6 +191,12 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
+
+  integer,intent(in) :: igr
+  integer :: igrp
+
+  ! Set field index
+  igrp=igr
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -505,7 +511,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
      end do
   end do
 
-end subroutine move1
+end subroutine move1_gr
 !#########################################################################
 !#########################################################################
 !#########################################################################

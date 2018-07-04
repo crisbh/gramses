@@ -9,7 +9,7 @@ subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igrp)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! Routine for interpolation at level-boundaries. Interpolation is used for
   ! - boundary conditions for solving poisson equation at fine level
-  ! - computing force (gradient_phi) at fine level for cells close to boundary
+  ! - computing force (gradient_gr_pot) at fine level for cells close to boundary
   ! Interpolation is performed in space (CIC) and - if adaptive timestepping is on -
   ! time (linear extrapolation of the change in phi during the last coarse step
   ! onto the first fine step)

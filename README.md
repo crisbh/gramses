@@ -5,7 +5,9 @@
 [5]: https://bitbucket.org/vperret/dice
 [6]: https://bitbucket.org/ohahn/music
 
-## This is the [ramses](https://bitbucket.org/rteyssie/ramses) bitbucket repository.
+## This is the GR-Ramses [ramses](https://bitbucket.org/rteyssie/ramses) Gitlab repository.
+
+This code implements GR equations into Ramses.
 
 Ramses is an open source code to model astrophysical systems, featuring self-gravitating, magnetised, compressible,
 radiative fluid flows. It is based  on the Adaptive Mesh Refinement (AMR)  technique on a  fully-threaded graded octree. 

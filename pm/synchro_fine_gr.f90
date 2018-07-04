@@ -1,4 +1,4 @@
-subroutine synchro_fine(ilevel)
+subroutine synchro_fine_gr(ilevel,igrp)
   use pm_commons
   use amr_commons
   implicit none
@@ -13,6 +13,7 @@ subroutine synchro_fine(ilevel)
   ! in level ilevel, then use inverse CIC at fine level to compute
   ! the force. Otherwise, use coarse level force and coarse level CIC.
   !--------------------------------------------------------------------
+  integer,intent(in) :: igrp
   integer::igrid,jgrid,ipart,jpart
   integer::ig,ip,npart1,isink
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
@@ -45,7 +46,7 @@ subroutine synchro_fine(ilevel)
            ind_part(ip)=ipart
            ind_grid_part(ip)=ig
            if(ip==nvector)then
-              call sync(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+              call sync_gr(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,igrp)
               ip=0
               ig=0
            end if
@@ -56,7 +57,7 @@ subroutine synchro_fine(ilevel)
      igrid=next(igrid)   ! Go to next grid
   end do
   ! End loop over grids
-  if(ip>0)call sync(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+  if(ip>0)call sync_gr(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,igrp)
 
   !sink cloud particles are used to average the grav. acceleration
   if(sink)then
@@ -76,12 +77,12 @@ subroutine synchro_fine(ilevel)
 
 111 format('   Entering synchro_fine for level ',I2)
 
-end subroutine synchro_fine
+end subroutine synchro_fine_gr
 !####################################################################
 !####################################################################
 !####################################################################
 !####################################################################
-subroutine synchro_fine_static(ilevel)
+subroutine synchro_fine_static_gr(ilevel,igrp)
   use pm_commons
   use amr_commons
   implicit none
@@ -96,6 +97,8 @@ subroutine synchro_fine_static(ilevel)
   ! in level ilevel, then use inverse CIC at fine level to compute
   ! the force. Otherwise, use coarse level force and coarse level CIC.
   !--------------------------------------------------------------------
+  integer,intent(in) :: igrp
+
   integer::igrid,jgrid,ipart,jpart
   integer::ig,ip,next_part,npart1,npart2,isink
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
@@ -168,7 +171,7 @@ subroutine synchro_fine_static(ilevel)
               endif
            endif
            if(ip==nvector)then
-              call sync(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+              call sync_gr(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,igrp)
               ip=0
               ig=0
            end if
@@ -179,7 +182,7 @@ subroutine synchro_fine_static(ilevel)
      igrid=next(igrid)   ! Go to next grid
   end do
   ! End loop over grids
-  if(ip>0)call sync(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+  if(ip>0)call sync_gr(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,igrp)
 
   !sink cloud particles are used to average the grav. acceleration
   if(sink)then
@@ -199,16 +202,18 @@ subroutine synchro_fine_static(ilevel)
 
 111 format('   Entering synchro_fine for level ',I2)
 
-end subroutine synchro_fine_static
+end subroutine synchro_fine_static_gr
 !####################################################################
 !####################################################################
 !####################################################################
 !####################################################################
-subroutine sync(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
+subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   use amr_commons
   use pm_commons
   use poisson_commons
   implicit none
+  integer,intent(in) :: igrp 
+  
   integer::ng,np,ilevel
   integer,dimension(1:nvector)::ind_grid
   integer,dimension(1:nvector)::ind_grid_part,ind_part
@@ -231,6 +236,9 @@ subroutine sync(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
+ 
+  real(dp),dimension(1:nvector) :: W            ! Lorentz factor
+  real(dp),dimension(1:nvector,1:5) :: coeff    ! Coefficients for force contributions
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -465,6 +473,36 @@ subroutine sync(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   end do
 #endif
 
+  ! Calculate Lorentz factor from the 4-velocity normalisation
+  if(igrp==5.or.igrp==6)then
+     do i=1,np
+        do idim=1,ndim
+           W(i) = W(i) + (vp(ind_part(i),idim))**2
+        end do
+           W(i) = 1.0D0 + 1.0D0/(gr_pot(ind_part(i),5))**4*W(i)
+     end do
+  end if
+
+  ! Compute coefficients for force contributions coming from gr_pot
+  do j=1,np
+     do idim=1,ndim
+        if(igrp==1)then
+           coeff(j,igrp)  =vp(ind_part(j),idim)*f(indp(j,ind),idim)
+        else if(igrp==2)then
+           coeff(j,igrp)  =vp(ind_part(j),idim)*f(indp(j,ind),idim)
+        else if(igrp==3)then
+           coeff(j,igrp)  =vp(ind_part(j),idim)*f(indp(j,ind),idim)
+        else if(igrp==5)then
+           coeff(j,igrp-1)=-2.0D0*(((W(i))**2-1.0D0)/W(i))*f(indp(j,ind),idim)
+        else if(igrp==6)then
+           coeff(j,igrp-1)=W(j)*f(indp(j,ind),idim)
+        else
+           print'(A)','igr out of range. Please check.'
+           call clean_stop
+        end if
+     end do
+  end do
+
   ! Gather 3-force
   ff(1:np,1:ndim)=0.0D0
   do ind=1,twotondim
@@ -534,4 +572,4 @@ subroutine sync(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
      end do
   end if
 
-end subroutine sync
+end subroutine sync_gr
