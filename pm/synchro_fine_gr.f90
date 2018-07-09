@@ -237,8 +237,9 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
  
-  real(dp),dimension(1:nvector) :: W            ! Lorentz factor
-  real(dp),dimension(1:nvector,1:5) :: coeff    ! Coefficients for force contributions
+  real(dp),dimension(1:nvector), save :: W            ! Lorentz factor
+  real(dp),dimension(1:nvector), save :: gr_psi       ! Psi factor
+  real(dp),dimension(1:nvector), save :: coeff        ! Coefficients for force contributions
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -474,33 +475,39 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
 #endif
 
   ! Calculate Lorentz factor from the 4-velocity normalisation
+  W(1:np)     =0.0D0
+  gr_psi(1:np)=0.0D0
+  do ind=1,twotondim
+     do j=1,np
+        gr_psi(j)=gr_psi(j)+gr_pot(indp(j,ind),5)*vol(j,ind)
+     end do
+  end do
+  
   if(igrp==5.or.igrp==6)then
-     do i=1,np
+     do j=1,np
         do idim=1,ndim
-           W(i) = W(i) + (vp(ind_part(i),idim))**2
+           W(j) = W(j) + (vp(ind_part(j),idim))**2
         end do
-           W(i) = 1.0D0 + 1.0D0/(gr_pot(ind_part(i),5))**4*W(i)
+        W(j) = ctilde2 + W(j)/(1.0D0+gr_psi(j,5))**4
      end do
   end if
 
   ! Compute coefficients for force contributions coming from gr_pot
   do j=1,np
-     do idim=1,ndim
-        if(igrp==1)then
-           coeff(j,igrp)  =vp(ind_part(j),idim)*f(indp(j,ind),idim)
-        else if(igrp==2)then
-           coeff(j,igrp)  =vp(ind_part(j),idim)*f(indp(j,ind),idim)
-        else if(igrp==3)then
-           coeff(j,igrp)  =vp(ind_part(j),idim)*f(indp(j,ind),idim)
-        else if(igrp==5)then
-           coeff(j,igrp-1)=-2.0D0*(((W(i))**2-1.0D0)/W(i))*f(indp(j,ind),idim)
-        else if(igrp==6)then
-           coeff(j,igrp-1)=W(j)*f(indp(j,ind),idim)
-        else
-           print'(A)','igr out of range. Please check.'
-           call clean_stop
-        end if
-     end do
+     if(igrp==1)then
+        coeff(j)  =-vp(ind_part(j),1)
+     else if(igrp==2)then
+        coeff(j)  =-vp(ind_part(j),2)
+     else if(igrp==3)then
+        coeff(j)  =-vp(ind_part(j),3)
+     else if(igrp==5)then
+        coeff(j)=-2.0D0*(((W(j))**2-1.0D0)/W(j)
+     else if(igrp==6)then
+        coeff(j)=W(j)
+     else
+        print'(A)','igr out of range in force coeff computation. Please check.'
+        call clean_stop
+     end if
   end do
 
   ! Gather 3-force
@@ -508,7 +515,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   do ind=1,twotondim
      do idim=1,ndim
         do j=1,np
-           ff(j,idim)=ff(j,idim)+f(indp(j,ind),idim)*vol(j,ind)
+           ff(j,idim)=ff(j,idim)+coeff(j)*f(indp(j,ind),idim)*vol(j,ind)
         end do
      end do
   end do
@@ -536,10 +543,12 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      endif
   end do
 
-  ! Update particles level
-  do j=1,np
-     levelp(ind_part(j))=ilevel
-  end do
+  ! Update particles level during the last interation
+  if(igrp==6)then
+     do j=1,np
+        levelp(ind_part(j))=ilevel
+     end do
+  end if
 
   ! Update 3-velocity
   do idim=1,ndim

@@ -2,16 +2,17 @@
 !#########################################################
 !#########################################################
 !#########################################################
-subroutine force_fine(ilevel,icount)
+subroutine force_fine_gr(ilevel,icount,igrp)
   use amr_commons
   use pm_commons
   use poisson_commons
+  use gr_commons
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
   integer::info
 #endif
-  integer::ilevel,icount
+  integer::ilevel,icount,igrp
   !----------------------------------------------------------
   ! This routine computes the gravitational acceleration,
   ! the maximum density rho_max, and the potential energy
@@ -190,22 +191,20 @@ subroutine force_fine(ilevel,icount)
 
 111 format('   Entering force_fine for level ',I2)
 
-end subroutine force_fine
+end subroutine force_fine_gr
 !#########################################################
 !#########################################################
 !#########################################################
 !#########################################################
-subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igr)
+subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   use amr_commons
   use pm_commons
   use hydro_commons
   use poisson_commons
+  use gr_commons
   implicit none
 
-  integer, intent(in) :: igr
-  integer :: igrp
-
-  integer::ngrid,ilevel,icount
+  integer::ngrid,ilevel,icount,igrp
   integer,dimension(1:nvector)::ind_grid
   !-------------------------------------------------
   ! This routine compute the 3-force for all cells
@@ -224,11 +223,6 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igr)
   integer ,dimension(1:nvector,0:twondim),save::igridn
   real(dp),dimension(1:nvector),save::phi1,phi2,phi3,phi4
   real(dp),dimension(1:nvector,1:twotondim,1:ndim),save::phi_left,phi_right
-
-  real(dp),dimension(1:nvector,1:twotondim,1:ndim),save::alp_left,alp_right,psi_left,psi_right
-
-  ! Set field index
-  igrp = igr
 
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
@@ -275,12 +269,6 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igr)
      do idim=1,ndim
         call    interpol_gr_pot(ind_left (1,idim),phi_left   (1,1,idim),ngrid,ilevel,icount,igrp)
         call    interpol_gr_pot(ind_right(1,idim),phi_right  (1,1,idim),ngrid,ilevel,icount,igrp)
-        if(igrp==5)then 
-           call interpol_gr_pot(ind_left (1,idim),psi_left (1,1,idim),ngrid,ilevel,icount,5)
-           call interpol_gr_pot(ind_right(1,idim),psi_right(1,1,idim),ngrid,ilevel,icount,5)
-           call interpol_gr_pot(ind_left (1,idim),alp_left (1,1,idim),ngrid,ilevel,icount,6)
-           call interpol_gr_pot(ind_right(1,idim),alp_right(1,1,idim),ngrid,ilevel,icount,6)
-        end if
      end do
   end if
 
@@ -301,90 +289,48 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igr)
         id4=hhh(idim,4,ind); ig4=ggg(idim,4,ind); ih4=ncoarse+(id4-1)*ngridmax
 
         ! Gather potential
+        ! REVERT IGRP CASES TO NORMAL
         do i=1,ngrid
-           if(igrp==5)then
-              if(igridn(i,ig1)>0)then
-                 phi1(i)=gr_pot(igridn(i,ig1)+ih1,igrp)*gr_pot(igridn(i,ig1)+ih1,6)/gr_pot(igridn(i,ig1)+ih1,5)
-              else
-                 phi1(i)=phi_left(i,id1,idim)*alp_left(i,id1,idim)*psi_left(i,id1,idim)
-              end if
+           if(igridn(i,ig1)>0)then
+              phi1(i)=gr_pot(igridn(i,ig1)+ih1,igrp)
            else
-              if(igridn(i,ig1)>0)then
-                 phi1(i)=gr_pot(igridn(i,ig1)+ih1,igrp)
-              else
-                 phi1(i)=phi_left(i,id1,idim)
+              phi1(i)=phi_left(i,id1,idim)
            end if
         end do
 
         do i=1,ngrid
-           if(igrp==5)then
-              if(igridn(i,ig2)>0)then
-                 phi2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)*gr_pot(igridn(i,ig2)+ih2,6)/gr_pot(igridn(i,ig2)+ih2,5)
-              else
-                 phi2(i)=phi_left(i,id2,idim)*alp_left(i,id2,idim)*psi_left(i,id2,idim)
-              end if
+           if(igridn(i,ig2)>0)then
+              phi2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)
            else
-              if(igridn(i,ig2)>0)then
-                 phi2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)
-              else
-                 phi2(i)=phi_left(i,id2,idim)
+              phi2(i)=phi_left(i,id2,idim)
            end if
         end do
 
         do i=1,ngrid
-           if(igrp==5)then
-              if(igridn(i,ig3)>0)then
-                 phi3(i)=gr_pot(igridn(i,ig3)+ih3,igrp)*gr_pot(igridn(i,ig3)+ih3,6)/gr_pot(igridn(i,ig3)+ih3,5)
-              else
-                 phi3(i)=phi_left(i,id3,idim)*alp_left(i,id3,idim)*psi_left(i,id3,idim)
-              end if
+           if(igridn(i,ig3)>0)then
+              phi3(i)=gr_pot(igridn(i,ig3)+ih3,igrp)
            else
-              if(igridn(i,ig3)>0)then
-                 phi3(i)=gr_pot(igridn(i,ig3)+ih3,igrp)
-              else
-                 phi3(i)=phi_left(i,id3,idim)
+              phi3(i)=phi_left(i,id3,idim)
            end if
         end do
         
         do i=1,ngrid
-           if(igrp==5)then
-              if(igridn(i,ig4)>0)then
-                 phi4(i)=gr_pot(igridn(i,ig4)+ih4,igrp)*gr_pot(igridn(i,ig4)+ih4,6)/gr_pot(igridn(i,ig4)+ih4,5)
-              else
-                 phi4(i)=phi_left(i,id4,idim)*alp_left(i,id4,idim)*psi_left(i,id4,idim)
-              end if
+           if(igridn(i,ig4)>0)then
+              phi4(i)=gr_pot(igridn(i,ig4)+ih4,igrp)
            else
-              if(igridn(i,ig4)>0)then
-                 phi4(i)=gr_pot(igridn(i,ig4)+ih4,igrp)
-              else
-                 phi4(i)=phi_left(i,id4,idim)
+              phi4(i)=phi_left(i,id4,idim)
            end if
         end do
 
         ! Calculate the force contribution from each gr_pot
-        if(igrp==1)then
+        if(igrp==5)then
            do i=1,ngrid
-              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
-           end do
-        else if(igrp==2)then
-           do i=1,ngrid
-              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
-           end do
-        else if(igrp==3)then
-           do i=1,ngrid
-              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
-           end do
-        else if(igrp==5)then
-           do i=1,ngrid
-              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
-           end do
-        else if(igrp==6)then
-           do i=1,ngrid
-              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
+              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))*(1.0D0+gr_pot(ind_cell(i),6))/(1.0D0+gr_pot(ind_cell(i),5))
            end do
         else
-           print '(A)','igr out of range. Check.' 
-           call clean_stop        
+           do i=1,ngrid
+              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
+           end do
         end if        
      end do
   end do
