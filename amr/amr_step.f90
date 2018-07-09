@@ -3,6 +3,7 @@ recursive subroutine amr_step(ilevel,icount)
   use pm_commons
   use hydro_commons
   use poisson_commons
+  use gr_commons
 #ifdef RT
   use rt_hydro_commons
   use SED_module
@@ -16,6 +17,7 @@ recursive subroutine amr_step(ilevel,icount)
   integer::mpi_err
 #endif
   integer::ilevel,icount
+  integer::igrp
   !-------------------------------------------------------------------!
   ! This routine is the adaptive-mesh/adaptive-time-step main driver. !
   ! Each routine is called using a specific order, don't change it,   !
@@ -236,21 +238,39 @@ recursive subroutine amr_step(ilevel,icount)
      !when there is no old potential...
      if (nstep==0)call save_phi_old(ilevel)
 
-     ! Compute gravitational acceleration
-     call force_fine(ilevel,icount)
+     if(.not.gr)then
+        ! Compute gravitational acceleration
+        call force_fine(ilevel,icount)
 
-     ! Synchronize remaining particles for gravity
-     if(pic)then
-                               call timer('particles','start')
-        if(static_dm.or.static_stars)then
-           call synchro_fine_static(ilevel)
-        else
-           call synchro_fine(ilevel)
+        ! Synchronize remaining particles for gravity
+        if(pic)then
+                                  call timer('particles','start')
+           if(static_dm.or.static_stars)then
+              call synchro_fine_static(ilevel)
+           else
+              call synchro_fine(ilevel)
+           end if
         end if
-     end if
+     else
+        do igrp=1,6     
+           if(igrp==4) cycle
+           ! Compute force contribution from gr_pot
+           call force_fine_gr(ilevel,icount,igrp)
+
+           ! Synchronize remaining particles for gravity
+           if(pic)then
+                                     call timer('particles','start')
+              if(static_dm.or.static_stars)then
+                 call synchro_fine_static(ilevel)
+              else
+                 call synchro_fine_gr(ilevel,igrp)
+              end if
+           end if
+        end do   
+     end if        
 
      if(hydro)then
-                               call timer('poisson','start')
+                                  call timer('poisson','start')
 
         ! Add gravity source term with half time step and new force
         call synchro_hydro_fine(ilevel,+0.5*dtnew(ilevel))
@@ -422,15 +442,31 @@ recursive subroutine amr_step(ilevel,icount)
   !---------------
   ! Move particles
   !---------------
-  if(pic)then
-                               call timer('particles','start')
-     if(static_dm.or.static_stars)then
-        call move_fine_static(ilevel) ! Only remaining particles
-     else
-        call move_fine(ilevel) ! Only remaining particles
+  if(.not.gr)then
+     if(pic)then
+                                  call timer('particles','start')
+        if(static_dm.or.static_stars)then
+           call move_fine_static(ilevel) ! Only remaining particles
+        else
+           call move_fine(ilevel)        ! Only remaining particles
+        end if
      end if
-  end if
-
+  else
+     do igrp=1,6     
+        if(igrp==4) cycle
+        ! Compute force contribution from gr_pot
+        call force_fine_gr(ilevel,icount,igrp)
+        if(pic)then
+                                  call timer('particles','start')
+           if(static_dm.or.static_stars)then
+              call move_fine_static(ilevel) ! Only remaining particles
+           else
+              call move_fine_gr(ilevel)     ! Only remaining particles
+           end if
+        end if
+     end do
+  end if 
+    
   !----------------------------------
   ! Star formation in leaf cells only
   !----------------------------------

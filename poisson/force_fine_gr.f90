@@ -189,7 +189,7 @@ subroutine force_fine_gr(ilevel,icount,igrp)
      epot_tot=epot_tot+epot_loc
      rho_max(ilevel)=rho_loc
 
-111 format('   Entering force_fine for level ',I2)
+111 format('   Entering force_fine_gr for level ',I2)
 
 end subroutine force_fine_gr
 !#########################################################
@@ -267,8 +267,8 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   ! Interpolate potential from upper level
   if (ilevel>levelmin)then
      do idim=1,ndim
-        call    interpol_gr_pot(ind_left (1,idim),phi_left   (1,1,idim),ngrid,ilevel,icount,igrp)
-        call    interpol_gr_pot(ind_right(1,idim),phi_right  (1,1,idim),ngrid,ilevel,icount,igrp)
+        call interpol_gr_pot(ind_left (1,idim),phi_left  (1,1,idim),ngrid,ilevel,icount,igrp)
+        call interpol_gr_pot(ind_right(1,idim),phi_right (1,1,idim),ngrid,ilevel,icount,igrp)
      end do
   end if
 
@@ -288,8 +288,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
         id3=hhh(idim,3,ind); ig3=ggg(idim,3,ind); ih3=ncoarse+(id3-1)*ngridmax
         id4=hhh(idim,4,ind); ig4=ggg(idim,4,ind); ih4=ncoarse+(id4-1)*ngridmax
 
-        ! Gather potential
-        ! REVERT IGRP CASES TO NORMAL
+        ! Gather GR potential
         do i=1,ngrid
            if(igridn(i,ig1)>0)then
               phi1(i)=gr_pot(igridn(i,ig1)+ih1,igrp)
@@ -297,7 +296,6 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
               phi1(i)=phi_left(i,id1,idim)
            end if
         end do
-
         do i=1,ngrid
            if(igridn(i,ig2)>0)then
               phi2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)
@@ -305,7 +303,6 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
               phi2(i)=phi_left(i,id2,idim)
            end if
         end do
-
         do i=1,ngrid
            if(igridn(i,ig3)>0)then
               phi3(i)=gr_pot(igridn(i,ig3)+ih3,igrp)
@@ -313,7 +310,6 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
               phi3(i)=phi_left(i,id3,idim)
            end if
         end do
-        
         do i=1,ngrid
            if(igridn(i,ig4)>0)then
               phi4(i)=gr_pot(igridn(i,ig4)+ih4,igrp)
@@ -325,7 +321,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
         ! Calculate the force contribution from each gr_pot
         if(igrp==5)then
            do i=1,ngrid
-              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))*(1.0D0+gr_pot(ind_cell(i),6))/(1.0D0+gr_pot(ind_cell(i),5))
+              f(ind_cell(i),idim)=(a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i)))*(1.0D0+gr_pot(ind_cell(i),6))/(1.0D0+gr_pot(ind_cell(i),5))
            end do
         else
            do i=1,ngrid
@@ -336,4 +332,3 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   end do
 
 end subroutine gradient_gr_pot
-

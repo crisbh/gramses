@@ -153,20 +153,21 @@ subroutine move_fine_static(ilevel)
   ! End loop over grids
   if(ip>0)call move1(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
 
-111 format('   Entering move_fine for level ',I2)
+111 format('   Entering move_fine_gr for level ',I2)
 
 end subroutine move_fine_static
 !#########################################################################
 !#########################################################################
 !#########################################################################
 !#########################################################################
-subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igr)
+subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   use amr_commons
   use pm_commons
   use poisson_commons
+  use gr_commons
   use hydro_commons, ONLY: uold,smallr
   implicit none
-  integer::ng,np,ilevel
+  integer::ng,np,ilevel,igrp
   integer,dimension(1:nvector)::ind_grid
   integer,dimension(1:nvector)::ind_grid_part,ind_part
   !------------------------------------------------------------
@@ -192,11 +193,12 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igr)
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
 
-  integer,intent(in) :: igr
-  integer :: igrp
-
-  ! Set field index
-  igrp=igr
+  real(dp),dimension(1:nvector), save :: W        ! Lorentz factor
+  real(dp),dimension(1:nvector), save :: gr_psi   ! Psi factor
+  real(dp),dimension(1:nvector), save :: coeff    ! Coefficients for force contributions
+  
+  ctilde     = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
+  ctilde2    = ctilde**2                          ! Speed of light squared
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -434,6 +436,38 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igr)
   end do
 #endif
 
+  ! Calculate Lorentz factor from the 4-velocity normalisation
+  W(1:np)     =0.0D0
+  gr_psi(1:np)=0.0D0
+  if(igrp==5.or.igrp==6)then
+     do ind=1,twotondim
+        do j=1,np
+           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
+        end do
+     end do
+     do j=1,np
+        do idim=1,ndim
+           W(j)=W(j) + vp(ind_part(j),idim)**2
+        end do
+        W(j)=ctilde2 + W(j)/(1.0D0+gr_psi(j))**4
+        W(j)=dsqrt(W(j))
+     end do
+  end if
+
+  ! Calculate coefficients for force contributions coming from gr_pot
+  do j=1,np
+     if(igrp<4)then
+        coeff(j) = - vp(ind_part(j),igrp)
+     else if(igrp==5)then
+        coeff(j) = - 2.0D0*((W(j))**2-ctilde2)/W(j)
+     else if(igrp==6)then
+        coeff(j) =   W(j)
+     else
+        print'(A)','igrp out of range in force coeff computation. Please check.'
+        call clean_stop
+     end if
+  end do
+
   ! Gather 3-force
   ff(1:np,1:ndim)=0.0D0
   if(tracer.and.hydro)then
@@ -449,7 +483,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igr)
      do ind=1,twotondim
         do idim=1,ndim
            do j=1,np
-              ff(j,idim)=ff(j,idim)+f(indp(j,ind),idim)*vol(j,ind)
+              ff(j,idim)=ff(j,idim)+coeff(j)*f(indp(j,ind),idim)*vol(j,ind)
            end do
         end do
 #ifdef OUTPUT_PARTICLE_POTENTIAL
@@ -460,7 +494,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igr)
      end do
   endif
 
-  ! Update velocity
+  ! Update 3-velocity
   do idim=1,ndim
      if(static.or.tracer)then
         do j=1,np
@@ -512,7 +546,3 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igr)
   end do
 
 end subroutine move1_gr
-!#########################################################################
-!#########################################################################
-!#########################################################################
-!#########################################################################
