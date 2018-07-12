@@ -239,9 +239,12 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   real(dp),dimension(1:nvector), save :: W        ! Lorentz factor
   real(dp),dimension(1:nvector), save :: gr_psi   ! Psi factor
   real(dp),dimension(1:nvector), save :: coeff    ! Coefficients for force contributions
+  real(dp) :: ctilde,ctilde2,a2,ac2
 
-  ctilde     = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
-  ctilde2    = ctilde**2                          ! Speed of light squared
+  ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
+  ctilde2  = ctilde**2                          ! Speed of light squared
+  a2       = aexp**2                            ! Scale factor squared 
+  ac2      = a2*ctilde2                         ! (ac)^2 factor
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -489,7 +492,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         do idim=1,ndim
            W(j)=W(j) + vp(ind_part(j),idim)**2
         end do
-        W(j)=ctilde2 + W(j)/(1.0D0+gr_psi(j))**4
+        W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
         W(j)=dsqrt(W(j))
      end do
   end if
@@ -497,11 +500,11 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   ! Calculate coefficients for force contributions coming from gr_pot
   do j=1,np
      if(igrp<4)then
-        coeff(j) = - vp(ind_part(j),igrp)
+        coeff(j) = - vp(ind_part(j),igrp)/ctilde
      else if(igrp==5)then
-        coeff(j) = - 2.0D0*((W(j))**2-ctilde2)/W(j)
+        coeff(j) = - 2.0D0*((W(j))**2-ctilde2)/(W(j)*ctilde)
      else if(igrp==6)then
-        coeff(j) =   W(j)
+        coeff(j) =   W(j)/ctilde
      else
         print'(A)','igrp out of range in force coeff computation. Please check.'
         call clean_stop

@@ -1,11 +1,11 @@
-subroutine move_fine(ilevel)
+subroutine move_fine_gr(ilevel,igrp)
   use amr_commons
   use pm_commons
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
 #endif
-  integer::ilevel
+  integer::ilevel,igrp
   !----------------------------------------------------------------------
   ! Update particle position and time-centred velocity at level ilevel.
   ! If particle sits entirely in level ilevel, then use fine grid force
@@ -40,7 +40,7 @@ subroutine move_fine(ilevel)
            ind_part(ip)=ipart
            ind_grid_part(ip)=ig
            if(ip==nvector)then
-              call move1(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+              call move1_gr(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,igrp)
               ip=0
               ig=0
            end if
@@ -51,11 +51,11 @@ subroutine move_fine(ilevel)
      igrid=next(igrid)   ! Go to next grid
   end do
   ! End loop over grids
-  if(ip>0)call move1(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+  if(ip>0)call move1_gr(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,igrp)
 
 111 format('   Entering move_fine for level ',I2)
 
-end subroutine move_fine
+end subroutine move_fine_gr
 !#########################################################################
 !#########################################################################
 !#########################################################################
@@ -196,9 +196,12 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   real(dp),dimension(1:nvector), save :: W        ! Lorentz factor
   real(dp),dimension(1:nvector), save :: gr_psi   ! Psi factor
   real(dp),dimension(1:nvector), save :: coeff    ! Coefficients for force contributions
-  
-  ctilde     = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
-  ctilde2    = ctilde**2                          ! Speed of light squared
+  real(dp) :: ctilde,ctilde2,a2,ac2
+
+  ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
+  ctilde2  = ctilde**2                          ! Speed of light squared
+  a2       = aexp**2                            ! Scale factor squared 
+  ac2      = a2*ctilde2                         ! (ac)^2 factor
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -449,7 +452,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         do idim=1,ndim
            W(j)=W(j) + vp(ind_part(j),idim)**2
         end do
-        W(j)=ctilde2 + W(j)/(1.0D0+gr_psi(j))**4
+        W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
         W(j)=dsqrt(W(j))
      end do
   end if
@@ -457,11 +460,11 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   ! Calculate coefficients for force contributions coming from gr_pot
   do j=1,np
      if(igrp<4)then
-        coeff(j) = - vp(ind_part(j),igrp)
+        coeff(j) = - vp(ind_part(j),igrp)/ctilde
      else if(igrp==5)then
-        coeff(j) = - 2.0D0*((W(j))**2-ctilde2)/W(j)
+        coeff(j) = - 2.0D0*((W(j))**2-ctilde2)/(W(j)*ctilde)
      else if(igrp==6)then
-        coeff(j) =   W(j)
+        coeff(j) =   W(j)/ctilde
      else
         print'(A)','igrp out of range in force coeff computation. Please check.'
         call clean_stop
@@ -526,23 +529,31 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         vp(ind_part(j),idim)=new_vp(j,idim)
      end do
   end do
-
-  ! Update position
-  do idim=1,ndim
-     if(static)then
+  
+  ! Update position only after velocity has been fully updated 
+  gr_alp(1:np)     =0.0D0
+  gr_bet(1:np,idim)=0.0D0
+  if(igrp==6)then
+     do ind=1,twotondim
         do j=1,np
-           new_xp(j,idim)=xp(ind_part(j),idim)
+           gr_alp(j)=gr_alp(j) + gr_alp(indp(j,ind),6)*vol(j,ind)
         end do
-     else
-        do j=1,np
-           new_xp(j,idim)=xp(ind_part(j),idim)+new_vp(j,idim)*dtnew(ilevel)
-        end do
-     endif
-  end do
-  do idim=1,ndim
-     do j=1,np
-        xp(ind_part(j),idim)=new_xp(j,idim)
      end do
-  end do
-
+     do idim=1,ndim
+        if(static)then
+           do j=1,np
+              new_xp(j,idim)=xp(ind_part(j),idim)
+           end do
+        else
+           do j=1,np
+              new_xp(j,idim)=xp(ind_part(j),idim) + ((1.0D0+gr_alp(j)/ac2)*new_vp(j,idim)*ctilde/W(j) - gr_bet(j,idim)/ctilde)*dtnew(ilevel)
+           end do
+        endif
+     end do
+     do idim=1,ndim
+        do j=1,np
+           xp(ind_part(j),idim)=new_xp(j,idim)
+        end do
+     end do
+  end if
 end subroutine move1_gr

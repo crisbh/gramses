@@ -223,6 +223,11 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   integer ,dimension(1:nvector,0:twondim),save::igridn
   real(dp),dimension(1:nvector),save::phi1,phi2,phi3,phi4
   real(dp),dimension(1:nvector,1:twotondim,1:ndim),save::phi_left,phi_right
+  real(dp):: ctilde,ctilde2,ac2
+
+  ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
+  ctilde2  = ctilde**2                          ! Speed of light squared
+  ac2      = aexp**2*ctilde2                    ! (ac)^2 factor
 
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
@@ -321,7 +326,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
         ! Calculate the force contribution from each gr_pot
         if(igrp==5)then
            do i=1,ngrid
-              f(ind_cell(i),idim)=(a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i)))*(1.0D0+gr_pot(ind_cell(i),6))/(1.0D0+gr_pot(ind_cell(i),5))
+              f(ind_cell(i),idim)=(a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i)))*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)
            end do
         else
            do i=1,ngrid

@@ -221,14 +221,13 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
             gr_b = -oneovera4*gr_mat(icell_amr,4)
          else
             gr_a = omoverac2*(rho(icell_amr)-1.0D0+2.0D0*gr_mat(icell_amr,5)) + &
-                   ((1.0D0+gr_pot(icell_amr,5))**6-1.0D0)*(5a2K2-Kdot) + &
+                   (5a2K2-Kdot)*((1.0D0+gr_pot(icell_amr,5))**6-1.0D0) + &
                    7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**6
             gr_a = gr_a/(1.0D0+gr_pot(icell_amr,5))*dx2
-            gr_b = omoverac2*(rho(icell_amr) + &
-                   2.0D0*gr_mat(icell_amr,5))/(1.0D0+gr_pot(icell_amr,5)) + &
-                   5a2K2*(1.0D0+gr_pot(icell_amr,5))**5 + &
-                   7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**7
-            gr_b = gr_b/(1.0D0+gr_pot(icell_amr,5))
+            gr_b = omoverac2*(rho(icell_amr)+      2.0D0*gr_mat(icell_amr,5)) + &
+                   5a2K2*(1.0D0+gr_pot(icell_amr,5))**6 + &
+                   7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**6
+            gr_b = gr_b/(1.0D0+gr_pot(icell_amr,5))**2
          end if
 
          ! Read scan flag
@@ -237,10 +236,10 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
             ! Those cells are active, have all their neighbors active
             ! and all neighbors are in the AMR+MG trees
             if(igrp==6) then
-               gr_a = gr_a + 6.0d0*gr_pot(icell_amr,5) ! Include psi source term for alpha
+               gr_a = gr_a + 6.0d0*gr_pot(icell_amr,5)             ! Include psi source term from \nabla^2\psi
             end if
-            potc = gr_pot(icell_amr,igrp)              ! Value of GR field on center cell
-            nb_sum=0.0d0                               ! Sum of GR field on neighbors
+            potc = gr_pot(icell_amr,igrp)                          ! Value of GR field on center cell
+            nb_sum=0.0d0                                           ! Sum of GR field on neighbors
 
             do inbor=1,2
                do idim=1,ndim
@@ -256,7 +255,7 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
                       (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
 
                   if(igrp==6) then 
-                     gr_a = gr_a - gr_pot(icell_nbor_amr,5)
+                     gr_a = gr_a - gr_pot(icell_nbor_amr,5)        ! Include psi source term from \nabla^2\psi
                   end if
                   nb_sum = nb_sum + gr_pot(icell_nbor_amr,igrp)
                end do
