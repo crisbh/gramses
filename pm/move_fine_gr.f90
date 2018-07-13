@@ -193,9 +193,11 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
 
-  real(dp),dimension(1:nvector), save :: W        ! Lorentz factor
-  real(dp),dimension(1:nvector), save :: gr_psi   ! Psi factor
-  real(dp),dimension(1:nvector), save :: coeff    ! Coefficients for force contributions
+  real(dp),dimension(1:nvector),        save :: W        ! Lorentz factor
+  real(dp),dimension(1:nvector),        save :: gr_psi   ! Psi on particles 
+  real(dp),dimension(1:nvector),        save :: gr_alp   ! Alpha on particles 
+  real(dp),dimension(1:nvector,1:ndim), save :: gr_bet   ! Beta components on particles 
+  real(dp),dimension(1:nvector),        save :: coeff    ! Coefficients for force contributions
   real(dp) :: ctilde,ctilde2,a2,ac2
 
   ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
@@ -529,14 +531,18 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         vp(ind_part(j),idim)=new_vp(j,idim)
      end do
   end do
-  
+ 
   ! Update position only after velocity has been fully updated 
-  gr_alp(1:np)     =0.0D0
-  gr_bet(1:np,idim)=0.0D0
   if(igrp==6)then
+     gr_alp(1:np)       =0.0D0
+     gr_bet(1:np,1:ndim)=0.0D0
+     ! Compute contributions to the 3-velocity
      do ind=1,twotondim
         do j=1,np
-           gr_alp(j)=gr_alp(j) + gr_alp(indp(j,ind),6)*vol(j,ind)
+           gr_alp(j)=gr_alp(j) + gr_pot(indp(j,ind),6)*vol(j,ind)
+           do idim=1,ndim
+              gr_bet(j,idim)=gr_bet(j,idim)+gr_pot(indp(j,ind),idim)*vol(j,ind)
+           end do
         end do
      end do
      do idim=1,ndim
@@ -546,7 +552,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
            end do
         else
            do j=1,np
-              new_xp(j,idim)=xp(ind_part(j),idim) + ((1.0D0+gr_alp(j)/ac2)*new_vp(j,idim)*ctilde/W(j) - gr_bet(j,idim)/ctilde)*dtnew(ilevel)
+              new_xp(j,idim)=xp(ind_part(j),idim) + (ctilde/W(j)*(1.0D0+gr_alp(j)/ac2)/(1.0D0+gr_psi(j)/ac2)**4*new_vp(j,idim) - gr_bet(j,idim)/ctilde)*dtnew(ilevel)
            end do
         endif
      end do

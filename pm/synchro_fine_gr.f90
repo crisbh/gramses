@@ -237,7 +237,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   real(dp),dimension(1:3)::skip_loc
  
   real(dp),dimension(1:nvector), save :: W        ! Lorentz factor
-  real(dp),dimension(1:nvector), save :: gr_psi   ! Psi factor
+  real(dp),dimension(1:nvector), save :: gr_psi   ! Psi on particles
   real(dp),dimension(1:nvector), save :: coeff    ! Coefficients for force contributions
   real(dp) :: ctilde,ctilde2,a2,ac2
 
