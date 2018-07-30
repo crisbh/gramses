@@ -532,8 +532,8 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      end do
   end do
  
-  ! Update position only after velocity has been fully updated 
-  if(igrp==6)then
+  ! Update position only after velocity has been fully updated by this routine 
+  if(igrp==1)then
      gr_alp(1:np)       =0.0D0
      gr_bet(1:np,1:ndim)=0.0D0
      ! Compute contributions to the 3-velocity

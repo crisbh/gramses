@@ -62,6 +62,7 @@ subroutine rho_fine(ilevel,icount)
         ! Update boundaries
         call make_virtual_reverse_dp(rho(1),i)
         call make_virtual_fine_dp   (rho(1),i)
+        ! communicate gr_mat
      end do
   end if
 
@@ -120,6 +121,7 @@ subroutine rho_fine(ilevel,icount)
   !-------------------------------------------------------
   ! Initialize rho and phi to zero in virtual boundaries
   !-------------------------------------------------------
+  ! Initialize gr_mat
   do icpu=1,ncpu
      do ind=1,twotondim
         iskip=ncoarse+(ind-1)*ngridmax
@@ -322,6 +324,8 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   use amr_commons
   use pm_commons
   use poisson_commons
+  use gr_commons
+  use gr_parameters
   use hydro_commons, ONLY: mass_sph
   implicit none
   integer::ng,np,ilevel
@@ -348,6 +352,14 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
+  
+  real(dp),dimension(1:nvector),save :: W       ! Lorentz factor
+  real(dp) :: ctilde,ctilde2,a2,ac2
+
+  ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
+  ctilde2  = ctilde**2                          ! Speed of light squared
+  a2       = aexp**2                            ! Scale factor squared 
+  ac2      = a2*ctilde2                         ! (ac)^2 factor
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -359,7 +371,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   scale=boxlen/dble(nx_loc)
   dx_loc=dx*scale
   vol_loc=dx_loc**ndim
-
 
   ! Gather neighboring father cells (should be present anytime !)
   call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ng,ilevel)
@@ -381,7 +392,29 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      end do
   end do
 
+  if(gr)then
+     ! Calculate Lorentz factor from the 4-velocity normalisation.
+     ! We use the cell value of psi instead of their interpolated values.
+     W(1:np)     =0.0D0
+     gr_psi(1:np)=0.0D0
+     if(igrp==5.or.igrp==6)then
+         do ind=1,twotondim
+             do j=1,np
+                gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
+             end do
+         end do
+         do j=1,np
+             do idim=1,ndim
+                W(j)=W(j) + vp(ind_part(j),idim)**2
+             end do
+             W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
+             W(j)=dsqrt(W(j))
+         end do
+     end if
+  end if
+
   ! Gather particle mass
+  ! Include gr_mat
   do j=1,np
      mmm(j)=mp(ind_part(j))
   end do

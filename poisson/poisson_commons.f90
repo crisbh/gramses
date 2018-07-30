@@ -2,11 +2,11 @@ module poisson_commons
   use amr_commons
   use poisson_parameters
 
-  real(dp),allocatable,dimension(:)  ::phi,phi_old       ! Potential
-  real(dp),allocatable,dimension(:)  ::rho               ! Density
-  real(dp),allocatable,dimension(:,:)::f                 ! 3-force
+  real(dp),allocatable,dimension(:)  ::phi,phi_old      ! Potential
+  real(dp),allocatable,dimension(:)  ::rho              ! Density
+  real(dp),allocatable,dimension(:,:)::f                ! 3-force
 
-  real(dp),allocatable,dimension(:)  ::rho_top   ! Density at last CIC level
+  real(dp),allocatable,dimension(:)  ::rho_top          ! Density at last CIC level
 
   ! Multigrid lookup table for amr -> mg index mapping
   integer, allocatable, dimension(:) :: lookup_mg   ! Lookup table

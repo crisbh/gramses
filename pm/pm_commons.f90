@@ -39,6 +39,9 @@ module pm_commons
   real(dp),allocatable,dimension(:,:)::xp       ! Positions
   real(dp),allocatable,dimension(:,:)::vp       ! Velocities
   real(dp),allocatable,dimension(:)  ::mp       ! Masses
+  if(gr)then
+     real(dp),allocatable,dimension(:)::Wp      ! Lorentz factor for each particle
+  end if
 #ifdef OUTPUT_PARTICLE_POTENTIAL
   real(dp),allocatable,dimension(:)  ::ptcl_phi ! Potential of particle added by AP for output purposes
 #endif

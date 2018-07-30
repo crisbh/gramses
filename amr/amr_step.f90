@@ -225,20 +225,20 @@ recursive subroutine amr_step(ilevel,icount)
         call synchro_hydro_fine(ilevel,-0.5*dtnew(ilevel))
      endif
 
-     ! Compute gravitational potential
-     if(ilevel>levelmin)then
-        if(ilevel .ge. cg_levelmin) then
-           call phi_fine_cg(ilevel,icount)
-        else
-           call multigrid_fine(ilevel,icount)
-        end if
-     else
-        call multigrid_fine(levelmin,icount)
-     end if
-     !when there is no old potential...
-     if (nstep==0)call save_phi_old(ilevel)
-
      if(.not.gr)then
+        ! Compute gravitational potential
+        if(ilevel>levelmin)then
+           if(ilevel .ge. cg_levelmin) then
+              call phi_fine_cg(ilevel,icount)
+           else
+              call multigrid_fine(ilevel,icount)
+           end if
+        else
+           call multigrid_fine(levelmin,icount)
+        end if
+        !when there is no old potential...
+        if (nstep==0)call save_phi_old(ilevel)
+
         ! Compute gravitational acceleration
         call force_fine(ilevel,icount)
 
@@ -252,6 +252,9 @@ recursive subroutine amr_step(ilevel,icount)
            end if
         end if
      else
+        do igr=1,10
+           call multigrid_fine_gr(ilevel,icount,igr)
+        end do
         do igrp=1,6     
            if(igrp==4) cycle
            ! Compute force contribution from gr_pot
@@ -267,7 +270,7 @@ recursive subroutine amr_step(ilevel,icount)
               end if
            end if
         end do   
-     end if        
+     end if  
 
      if(hydro)then
                                   call timer('poisson','start')
@@ -453,15 +456,15 @@ recursive subroutine amr_step(ilevel,icount)
      end if
   else
      do igrp=1,6     
-        if(igrp==4) cycle
+        if(igrp==3) cycle
         ! Compute force contribution from gr_pot
-        call force_fine_gr(ilevel,icount,igrp)
+        call force_fine_gr(ilevel,icount,7-igrp)
         if(pic)then
                                   call timer('particles','start')
            if(static_dm.or.static_stars)then
-              call move_fine_static(ilevel)      ! Only remaining particles
+              call move_fine_static(ilevel)        ! Only remaining particles
            else
-              call move_fine_gr(ilevel,igrp)     ! Only remaining particles
+              call move_fine_gr(ilevel,7-igrp)     ! Only remaining particles
            end if
         end if
      end do
