@@ -7,6 +7,7 @@ subroutine rho_fine(ilevel,icount)
   use pm_commons
   use hydro_commons
   use poisson_commons
+  use gr_commons
   use cooling_module
   implicit none
 #ifndef WITHOUTMPI
@@ -15,6 +16,7 @@ subroutine rho_fine(ilevel,icount)
   real(kind=8),dimension(1:ndim+1)::multipole_in,multipole_out
 #endif
   integer::ilevel,icount
+  integer::igrm
   !------------------------------------------------------------------
   ! This routine computes the density field at level ilevel using
   ! the CIC scheme. Particles that are not entirely in
@@ -62,7 +64,15 @@ subroutine rho_fine(ilevel,icount)
         ! Update boundaries
         call make_virtual_reverse_dp(rho(1),i)
         call make_virtual_fine_dp   (rho(1),i)
-        ! communicate gr_mat
+        
+        ! Update boundaries for gr_mat
+        if(gr.and.gr2)then
+           do igrm=1,5
+              if(igrm==4) cycle
+              call make_virtual_reverse_dp(gr_mat(1,igrm),i)
+              call make_virtual_fine_dp   (gr_mat(1,igrm),i)
+           end do       
+        end if
      end do
   end if
 
@@ -129,6 +139,14 @@ subroutine rho_fine(ilevel,icount)
            rho(reception(icpu,ilevel)%igrid(i)+iskip)=0.0D0
            phi(reception(icpu,ilevel)%igrid(i)+iskip)=0.0D0
         end do
+        if(gr.and.gr2)then
+           do i=1,reception(icpu,ilevel)%ngrid
+                 gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
+                 gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
+                 gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
+                 gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,5)=0.0D0
+           end do
+        end if
         if(ilevel==cic_levelmax)then
            do i=1,reception(icpu,ilevel)%ngrid
               rho_top(reception(icpu,ilevel)%igrid(i)+iskip)=0.0D0
@@ -147,6 +165,16 @@ subroutine rho_fine(ilevel,icount)
   ! Update boudaries
   call make_virtual_reverse_dp(rho(1),ilevel)
   call make_virtual_fine_dp   (rho(1),ilevel)
+  
+  ! Update boundaries for gr_mat
+  if(gr.and.gr2)then
+     do igrm=1,5
+        if(igrm==4) cycle
+        call make_virtual_reverse_dp(gr_mat(1,igrm),ilevel)
+        call make_virtual_fine_dp   (gr_mat(1,igrm),ilevel)
+     end do 
+  end if
+  
   if(ilevel==cic_levelmax)then
      call make_virtual_reverse_dp(rho_top(1),ilevel)
   endif
@@ -329,6 +357,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   use hydro_commons, ONLY: mass_sph
   implicit none
   integer::ng,np,ilevel
+  integer::igrm
   integer ,dimension(1:nvector)::ind_cell,ind_grid_part,ind_part
   real(dp),dimension(1:nvector,1:ndim)::x0
   !------------------------------------------------------------------
@@ -348,6 +377,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   real(dp),dimension(1:nvector),save::ttt=0d0
   real(dp),dimension(1:nvector),save::vol2
   real(dp),dimension(1:nvector,1:ndim),save::x,dd,dg
+  real(dp),dimension(1:nvector,1:ndim),save::vvv
   integer ,dimension(1:nvector,1:ndim),save::ig,id,igg,igd,icg,icd
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
@@ -392,32 +422,30 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      end do
   end do
 
-  if(gr)then
+  ! Gather particle mass
+  do j=1,np
+     mmm(j)=mp(ind_part(j))
+  end do
+
+  if(gr.and.gr2)then
      ! Calculate Lorentz factor from the 4-velocity normalisation.
      ! We use the cell value of psi instead of their interpolated values.
      W(1:np)     =0.0D0
      gr_psi(1:np)=0.0D0
-     if(igrp==5.or.igrp==6)then
-         do ind=1,twotondim
-             do j=1,np
-                gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
-             end do
-         end do
-         do j=1,np
-             do idim=1,ndim
-                W(j)=W(j) + vp(ind_part(j),idim)**2
-             end do
-             W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
-             W(j)=dsqrt(W(j))
-         end do
-     end if
+     do ind=1,twotondim
+        do j=1,np
+           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
+        end do
+     end do
+     do j=1,np
+        do idim=1,ndim
+           vvv(j,idim)=vp(ind_part(j),idim)     ! gather velocity
+           W(j)=W(j) + vp(ind_part(j),idim)**2  ! Lorentz factor
+        end do
+        W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
+        W(j)=dsqrt(W(j))
+     end do
   end if
-
-  ! Gather particle mass
-  ! Include gr_mat
-  do j=1,np
-     mmm(j)=mp(ind_part(j))
-  end do
 
   if(ilevel==levelmin)then
      do j=1,np
@@ -582,22 +610,52 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
         ok(j)=igrid(j,ind)>0
      end do
 
-     do j=1,np
-        vol2(j)=mmm(j)*vol(j,ind)/vol_loc
-     end do
+     if(gr.and.gr2)then
+        do j=1,np
+           vol2(j)=(mmm(j)*W(j)/ctilde)                  *vol(j,ind)/vol_loc  ! s0
+           do idim=1,ndim
+              volv(j,idim)=(mmm(j)*vvv(j,idim)/ctilde)   *vol(j,ind)/vol_loc  ! s1,s2,s3
+           end do
+           vols(j)=mmm(j)*((W(j)**2-ctilde2)/W(j)*ctilde)*vol(j,ind)/vol_loc  ! s=trace(sij)
+        end do
+     else
+        do j=1,np
+           vol2(j)=mmm(j)*vol(j,ind)/vol_loc    ! Newtonian density
+        end do
+     end if
 
      if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
         do j=1,np
            if(ok(j))then
               rho(indp(j,ind))=rho(indp(j,ind))+vol2(j)
-           end if
+           end if   
         end do
+        if(gr.and.gr2)then
+           do j=1,np
+              if(ok(j))then
+                 do idim=1,ndim
+                    gr_mat(indp(j,ind),idim)=gr_mat(indp(j,ind),idim)+volv(j,idim)
+                 end do
+                 gr_mat   (indp(j,ind),5   )=gr_mat(indp(j,ind),5   )+vols(j)
+              end if   
+           end do
+        end if
      else if(ilevel>cic_levelmax)then
         do j=1,np
            if(ok(j).and.ttt(j).ne.0d0)then
               rho(indp(j,ind))=rho(indp(j,ind))+vol2(j)
-           end if
+           end if   
         end do
+        if(gr.and.gr2)then
+           do j=1,np
+              if(ok(j).and.ttt(j).ne.0d0)then
+                 do idim=1,ndim
+                    gr_mat(indp(j,ind),idim)=gr_mat(indp(j,ind),idim)+volv(j,idim)
+                 end do
+                 gr_mat   (indp(j,ind),5   )=gr_mat(indp(j,ind),5   )+vols(j)
+              end if   
+           end do
+        end if
      endif
 
      if(ilevel==cic_levelmax)then
@@ -611,6 +669,15 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      do j=1,np
         vol2(j)=vol(j,ind)
      end do
+
+     if(gr.and.gr2)then
+        do j=1,np
+           do idim=1,ndim
+              volv(j,idim)=vol(j,ind)
+           end do
+           vols(j)=vol(j,ind)
+        end do
+     end if
 
      ! Remove test particles for static runs
      if(static)then
@@ -834,6 +901,8 @@ subroutine cic_from_multipole(ilevel)
   use amr_commons
   use hydro_commons
   use poisson_commons
+  use gr_commons
+  use gr_parameters
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -861,6 +930,14 @@ subroutine cic_from_multipole(ilevel)
         do i=1,reception(icpu,ilevel)%ngrid
            rho(reception(icpu,ilevel)%igrid(i)+iskip)=0.0D0
         end do
+        if(gr.and.gr2)then
+           do i=1,reception(icpu,ilevel)%ngrid
+              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
+              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
+              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
+              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,5)=0.0D0
+           end do
+        end if        
      end do
   end do
   do ind=1,twotondim
@@ -868,14 +945,30 @@ subroutine cic_from_multipole(ilevel)
      do i=1,active(ilevel)%ngrid
         rho(active(ilevel)%igrid(i)+iskip)=0.0D0
      end do
+     if(gr.and.gr2)then
+        do i=1,active(ilevel)%ngrid
+           gr_mat(active(ilevel)%igrid(i)+iskip,1)=0.0D0
+           gr_mat(active(ilevel)%igrid(i)+iskip,2)=0.0D0
+           gr_mat(active(ilevel)%igrid(i)+iskip,3)=0.0D0
+           gr_mat(active(ilevel)%igrid(i)+iskip,5)=0.0D0
+        end do
+     end if 
   end do
   ! Reset rho in physical boundaries
   do ibound=1,nboundary
      do ind=1,twotondim
         iskip=ncoarse+(ind-1)*ngridmax
         do i=1,boundary(ibound,ilevel)%ngrid
-           rho(boundary(ibound,ilevel)%igrid(i)+iskip)=0.0
+           rho(boundary(ibound,ilevel)%igrid(i)+iskip)=0.0D0
         end do
+        if(gr.and.gr2)then
+           do i=1,boundary(ibound,ilevel)%ngrid
+              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,1)=0.0D0
+              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,2)=0.0D0
+              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,3)=0.0D0
+              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,5)=0.0D0
+           end do
+        end if        
      end do
   end do
 

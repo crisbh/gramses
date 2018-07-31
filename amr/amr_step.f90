@@ -200,7 +200,47 @@ recursive subroutine amr_step(ilevel,icount)
      !save old potential for time-extrapolation at level boundaries
      call save_phi_old(ilevel)
                                call timer('rho','start')
+     if(gr) gr2=.true.                          
+     if(gr.and.gr_newtonian) gr2=.false.                          
      call rho_fine(ilevel,icount)
+ 
+     ! Newtonian synchro
+     if(gr.and.gr_newtonian)then
+        ! Compute gravitational potential
+        if(ilevel>levelmin)then
+           if(ilevel .ge. cg_levelmin) then
+              call phi_fine_cg(ilevel,icount)
+           else
+              call multigrid_fine(ilevel,icount)
+           end if
+        else
+           call multigrid_fine(levelmin,icount)
+        end if
+
+        ! Compute gravitational acceleration
+        call force_fine(ilevel,icount)
+
+        ! Synchronize remaining particles for gravity
+        if(pic)then
+                                  call timer('particles','start')
+           if(static_dm.or.static_stars)then
+              call synchro_fine_static(ilevel)
+           else
+              call synchro_fine(ilevel)
+           end if
+        end if
+        gr2=.true.
+        call rho_fine(ilevel,icount)
+        ! Synchronize remaining particles for gravity
+        if(pic)then
+                                  call timer('particles','start')
+           if(static_dm.or.static_stars)then
+              call synchro_fine_static(ilevel)
+           else
+              call synchro_fine(ilevel)
+           end if
+        end if
+     end if
   endif
 
   !-------------------------------------------

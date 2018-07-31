@@ -55,23 +55,26 @@ module amr_parameters
   integer, parameter :: nstride = 65536
 
   ! Run control
-  logical::verbose =.false.   ! Write everything
-  logical::hydro   =.false.   ! Hydro activated
-  logical::pic     =.false.   ! Particle In Cell activated
-  logical::poisson =.false.   ! Poisson solver activated
-  logical::cosmo   =.false.   ! Cosmology activated
-  logical::star    =.false.   ! Star formation activated
-  logical::sink    =.false.   ! Sink particles activated
-  logical::rt      =.false.   ! Radiative transfer activated
-  logical::debug   =.false.   ! Debug mode activated
-  logical::static  =.false.   ! Static mode activated
-  logical::static_dm=.false.  ! Static mode for dm only activated
-  logical::static_gas=.false. ! Static mode for gas only activated
+  logical::verbose  =.false.   ! Write everything
+  logical::hydro    =.false.   ! Hydro activated
+  logical::pic      =.false.   ! Particle In Cell activated
+  logical::poisson  =.false.   ! Poisson solver activated
+  logical::cosmo    =.false.   ! Cosmology activated
+  logical::star     =.false.   ! Star formation activated
+  logical::sink     =.false.   ! Sink particles activated
+  logical::rt       =.false.   ! Radiative transfer activated
+  logical::debug    =.false.   ! Debug mode activated
+  logical::static   =.false.   ! Static mode activated
+  logical::static_dm=.false.   ! Static mode for dm only activated
+  logical::static_gas  =.false.! Static mode for gas only activated
   logical::static_stars=.false.! Static mode for stars only activated
-  logical::tracer  =.false.   ! Tracer particles activated
-  logical::lightcone=.false.  ! Enable lightcone generation
-  logical::clumpfind=.false.  ! Enable clump finder
-  logical::aton=.false.       ! Enable ATON coarse grid radiation transfer
+  logical::tracer   =.false.   ! Tracer particles activated
+  logical::lightcone=.false.   ! Enable lightcone generation
+  logical::clumpfind=.false.   ! Enable clump finder
+  logical::aton     =.false.   ! Enable ATON coarse grid radiation transfer
+  logical::gr          =.false.! Enable GR solver
+  logical::gr2         =.false.! Enable GR matter source terms calculation
+  logical::gr_newtonian=.false.! Enable Newtonian approximation (synchro) in GR solver
 
   ! Mesh parameters
   integer::geom=1             ! 1: cartesian, 2: cylindrical, 3: spherical

@@ -208,6 +208,8 @@ subroutine sync(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   use amr_commons
   use pm_commons
   use poisson_commons
+  use gr_commons
+  use gr_parameters
   implicit none
   integer::ng,np,ilevel
   integer,dimension(1:nvector)::ind_grid
@@ -496,6 +498,7 @@ subroutine sync(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
      else
         dteff(j)=dtold(levelp(ind_part(j)))
      endif
+     if(gr.and.gr_newtonian.and.gr2) dteff(j)=-dteff(j) ! Revert Newtonian synchro
   end do
 
   ! Update particles level
