@@ -131,7 +131,6 @@ subroutine rho_fine(ilevel,icount)
   !-------------------------------------------------------
   ! Initialize rho and phi to zero in virtual boundaries
   !-------------------------------------------------------
-  ! Initialize gr_mat
   do icpu=1,ncpu
      do ind=1,twotondim
         iskip=ncoarse+(ind-1)*ngridmax
@@ -213,6 +212,14 @@ subroutine rho_fine(ilevel,icount)
            phi(boundary(ibound,ilevel)%igrid(i)+iskip)=0.0
            rho(boundary(ibound,ilevel)%igrid(i)+iskip)=0.0
         end do
+        if(gr.and.gr2)then
+           do i=1,boundary(ibound,ilevel)%ngrid
+              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,1)=0.0
+              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,2)=0.0
+              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,3)=0.0
+              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,5)=0.0
+           end do
+        end if        
      end do
   end do
 
@@ -382,14 +389,14 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
-  
-  real(dp),dimension(1:nvector),save :: W       ! Lorentz factor
+  real(dp),dimension(1:nvector),save::W        ! Lorentz factor
+  real(dp),dimension(1:nvector),save::gr_psi   ! Psi on particles
   real(dp) :: ctilde,ctilde2,a2,ac2
 
-  ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
-  ctilde2  = ctilde**2                          ! Speed of light squared
-  a2       = aexp**2                            ! Scale factor squared 
-  ac2      = a2*ctilde2                         ! (ac)^2 factor
+  ctilde   = sol/boxlen_ini/100000.0d0        ! Speed of light in code units
+  ctilde2  = ctilde**2                        ! Speed of light squared
+  a2       = aexp**2                          ! Scale factor squared 
+  ac2      = a2*ctilde2                       ! (ac)^2 factor
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -427,25 +434,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      mmm(j)=mp(ind_part(j))
   end do
 
-  if(gr.and.gr2)then
-     ! Calculate Lorentz factor from the 4-velocity normalisation.
-     ! We use the cell value of psi instead of their interpolated values.
-     W(1:np)     =0.0D0
-     gr_psi(1:np)=0.0D0
-     do ind=1,twotondim
-        do j=1,np
-           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
-        end do
-     end do
-     do j=1,np
-        do idim=1,ndim
-           vvv(j,idim)=vp(ind_part(j),idim)     ! gather velocity
-           W(j)=W(j) + vp(ind_part(j),idim)**2  ! Lorentz factor
-        end do
-        W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
-        W(j)=dsqrt(W(j))
-     end do
-  end if
 
   if(ilevel==levelmin)then
      do j=1,np
@@ -603,6 +591,24 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      end do
   end do
 
+  if(gr.and.gr2)then
+     W(1:np)=0.0D0
+     gr_psi(1:np)=0.0D0
+     do ind=1,twotondim
+        do j=1,np
+           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
+        end do
+     end do
+     do j=1,np
+        do idim=1,ndim
+           vvv(j,idim)=vp(ind_part(j),idim)     ! gather velocity
+           W(j)=W(j) + vp(ind_part(j),idim)**2  ! Lorentz factor
+        end do
+        W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
+        W(j)=dsqrt(W(j))
+     end do
+  end if
+
   ! Update mass density and number density fields
   do ind=1,twotondim
 
@@ -616,7 +622,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
            do idim=1,ndim
               volv(j,idim)=(mmm(j)*vvv(j,idim)/ctilde)   *vol(j,ind)/vol_loc  ! s1,s2,s3
            end do
-           vols(j)=mmm(j)*((W(j)**2-ctilde2)/W(j)*ctilde)*vol(j,ind)/vol_loc  ! s=trace(sij)
+           vols(j)=mmm(j)*((W(j)**2-ctilde2)/W(j)/ctilde)*vol(j,ind)/vol_loc  ! s=trace(sij)
         end do
      else
         do j=1,np
@@ -670,15 +676,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
         vol2(j)=vol(j,ind)
      end do
 
-     if(gr.and.gr2)then
-        do j=1,np
-           do idim=1,ndim
-              volv(j,idim)=vol(j,ind)
-           end do
-           vols(j)=vol(j,ind)
-        end do
-     end if
-
+    
      ! Remove test particles for static runs
      if(static)then
         do j=1,np
