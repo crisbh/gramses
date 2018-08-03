@@ -10,27 +10,19 @@ subroutine source_fine_gr_scalar(ilevel,icount,igr)
 #endif
   integer::ilevel,icount,igr
   integer::igrm
-  !----------------------------------------------------------
-  !
-  !----------------------------------------------------------
+  !--------------------------------------------------------------------------
+  ! This subroutine calculates the source terms for some of the GR equations.
+  !--------------------------------------------------------------------------
   integer::igrid,ngrid,ncache,i
   integer ,dimension(1:nvector),save::ind_grid
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
-  if(igr==4)then
-     igrm=4 
-  else if(igr==7)then
-     igrm=1 
-  else if(igr==8)then
-     igrm=2
-  else if(igr==9)then
-     igrm=3
-  else if(igr==10)then
+  if(igr==4.or.igrm==10)then
      igrm=4
   else      
-     write(*,*) 'igr out of range in source_fine_gr. Please check.'     
+     write(*,*) 'igr out of range in source_fine_gr_scalar. Please check.'     
      call clean_stop
   end if
 
@@ -98,18 +90,10 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
   scale=boxlen/dble(nx_loc)
   dx_loc=dx*scale
   
-  if(igr==4)then
-     igrm=4 
-  else if(igr==7)then
-     igrm=1 
-  else if(igr==8)then
-     igrm=2
-  else if(igr==9)then
-     igrm=3
-  else if(igr==10)then
+  if(igr==4.or.igr==10)then
      igrm=4
   else      
-     write(*,*) 'igr out of range in source_from_gr_pot. Please check.'     
+     write(*,*) 'igr out of range in source_from_gr_pot_scalar. Please check.'     
      call clean_stop
   end if
 

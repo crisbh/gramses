@@ -495,6 +495,7 @@ recursive subroutine amr_step(ilevel,icount)
         end if
      end if
   else
+     ! Update positions using reverse order of gr fields
      do igrp=1,6     
         if(igrp==3) cycle
         ! Compute force contribution from gr_pot

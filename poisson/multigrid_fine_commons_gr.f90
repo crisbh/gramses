@@ -80,7 +80,27 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       call make_virtual_fine_dp(f(:,3),ilevel)          ! Communicate mask
       call make_boundary_mask(ilevel)                   ! Set mask to -1 in phys bounds
    end if
-   
+  
+   if(igr==4) then
+      call source_fine_gr_scalar
+      call make_virtual_fine_dp(gr_mat(1,4),ilevel)     ! Update boundaries
+   else if(igr==5) then
+      call source_fine_gr_scalar
+      call make_virtual_fine_dp(gr_mat(1,4),ilevel)     ! Update boundaries
+   else if(igr==7) then
+      do ivect=1,6
+         call calc_gr_mat5
+         call make_virtual_fine_dp(gr_mat(1,5),ilevel)  ! Update boundaries
+         call source_fine_gr_vector
+      enddo
+      call make_virtual_fine_dp(gr_mat(1,1),ilevel)     ! Update boundaries
+      call make_virtual_fine_dp(gr_mat(1,2),ilevel)     ! Update boundaries
+      call make_virtual_fine_dp(gr_mat(1,3),ilevel)     ! Update boundaries
+   else if(igr==10) then
+      call source_fine_gr_scalar
+      call make_virtual_fine_dp(gr_mat(1,4),ilevel)     ! Update boundaries
+   end if
+
    if(gr_lin) then
       call make_fine_bc_rhs_gr_ln(ilevel,icount,igrp)   ! Fill BC-modified RHS for linear
    end if
