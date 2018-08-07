@@ -54,6 +54,7 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
   use hydro_commons
   use poisson_commons
   use gr_commons
+  use gr_parameters
   implicit none
 
   integer::ngrid,ilevel,icount,igr

@@ -1,7 +1,5 @@
 !#########################################################
 !#########################################################
-!#########################################################
-!#########################################################
 subroutine force_fine_gr(ilevel,icount,igrp)
   use amr_commons
   use pm_commons
@@ -202,6 +200,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   use hydro_commons
   use poisson_commons
   use gr_commons
+  use gr_parameters
   implicit none
 
   integer::ngrid,ilevel,icount,igrp

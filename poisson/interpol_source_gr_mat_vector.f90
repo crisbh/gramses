@@ -1,24 +1,20 @@
-subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igrp)
+subroutine interpol_source_gr_mat5(ind_cell,phi_int,ncell,ilevel,icount)
   use amr_commons
-  use gr_commons, only:gr_pot
+  use gr_commons, only:gr_mat
   implicit none
-  integer::ncell,ilevel,icount,igrp
+  integer::ncell,ilevel,icount
   integer ,dimension(1:nvector)::ind_cell
   real(dp),dimension(1:nvector,1:twotondim)::phi_int
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! Routine for interpolation at level-boundaries. Interpolation is used for
-  ! - boundary conditions for solving poisson equation at fine level
-  ! - computing force (gradient_gr_pot) at fine level for cells close to boundary
-  ! Interpolation is performed in space (CIC) and - if adaptive timestepping is on -
-  ! time (linear extrapolation of the change in phi during the last coarse step
-  ! onto the first fine step)
+  ! computing vector source terms in source_fine_gr_mat_vector 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   integer::i,ind,indice,ind_average,ind_father
-  real(dp)::dx,tfrac
+  real(dp)::dx
   real(dp)::aa,bb,cc,dd,coeff,add
   integer,dimension(1:8,1:8)::ccc
   real(dp),dimension(1:8)::bbbb
@@ -45,18 +41,11 @@ subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igrp)
      call clean_stop
   endif
 
-  ! Compute fraction of timesteps for interpolation
-  ! if (dtold(ilevel-1)> 0)then
-  !   tfrac=1.0*dtnew(ilevel)/dtold(ilevel-1)*(icount-1)
-  ! else
-  !   tfrac=0.
-  ! end if
-
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
   call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ncell,ilevel)
 
-  ! Third order gr_pots interpolation
+  ! Third order gr_mat interpolation
   do ind=1,twotondim
      do i=1,ncell
         phi_int(i,ind)=0d0
@@ -67,15 +56,13 @@ subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igrp)
         do i=1,ncell
            indice=nbors_father_cells(i,ind_father)
            if (indice==0) then
-              add=coeff*gr_pot(ind_cell(i),igrp)
+              add=coeff*gr_mat(ind_cell(i),5)
            else
-              add=coeff*gr_pot(indice,igrp)
+              add=coeff*gr_mat(indice,5)
            endif
            phi_int(i,ind)=phi_int(i,ind)+add
         end do
      end do
   end do
 
- end subroutine interpol_gr_pot
- 
-
+end subroutine interpol_source_gr_mat5
