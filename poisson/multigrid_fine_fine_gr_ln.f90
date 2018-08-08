@@ -6,7 +6,7 @@
 ! Used variables:
 !                       finest(AMR)level     coarse(MG)levels
 !     -----------------------------------------------------------------
-!     GR geometric field   gr_pot(:,igr)  active_mg(myid,ilevel)%u(:,1)
+!     GR geometric field   gr_pot(:,igrp) active_mg(myid,ilevel)%u(:,1)
 !     physical RHS         rho            active_mg(myid,ilevel)%u(:,2)
 !     residual             f(:,1)         active_mg(myid,ilevel)%u(:,3)
 !     BC-modified RHS      f(:,2)                  N/A
@@ -64,7 +64,7 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
          icell_amr = iskip_amr + igrid_amr
 
          phi_c = gr_pot(icell_amr,igrp)   ! Value of GR field on center cell
-         nb_sum=0.0d0                     ! Sum of phi on neighbors
+         nb_sum=0.0d0                     ! Sum of GR field on neighbors
 
          ! SCAN FLAG TEST
          if(flag2(icell_amr)/ngridmax==0) then
