@@ -9,9 +9,9 @@ subroutine source_fine_gr_vector(ilevel,icount,ivect)
   integer::info
 #endif
   integer::ilevel,icount,ivect
-  !--------------------------------------------------------------------------
-  ! This subroutine calculates the source terms for some of the GR equations.
-  !--------------------------------------------------------------------------
+  !---------------------------------------------------------------------------------
+  ! This subroutine calculates the source terms for some of the GR equation for B^i.
+  !---------------------------------------------------------------------------------
   integer::igrid,ngrid,ncache,i
   integer ,dimension(1:nvector),save::ind_grid
 
@@ -55,9 +55,9 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
 
   integer::ngrid,ilevel,icount,ivect
   integer,dimension(1:nvector)::ind_grid
-  !-------------------------------------------------
-  ! 
-  !-------------------------------------------------
+  !---------------------------------------------------------------------------------
+  ! This subroutine calculates the source terms for some of the GR equation for B^i.
+  !---------------------------------------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc
   integer::id1,id2,id3,id4
   integer::ig1,ig2,ig3,ig4
@@ -108,7 +108,7 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
      igridn(i,0)=ind_grid(i)
   end do
   do idim=1,ndim
-     ! Skipe cases that are not needed
+     ! Skip cases that are not needed
      if(ivect==1.and.idim>=2) cycle
      if(ivect==2.and.idim==3) cycle
      if(ivect==3.and.idim==2) cycle
@@ -126,7 +126,7 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
   ! Interpolate potential from upper level
   if (ilevel>levelmin)then
      do idim=1,ndim
-        ! Skipe cases that are not needed
+        ! Skip cases that are not needed
         if(ivect==1.and.idim>=2) cycle
         if(ivect==2.and.idim==3) cycle
         if(ivect==3.and.idim==2) cycle
@@ -147,7 +147,7 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
 
      ! Loop over dimensions
      do idim=1,ndim
-        ! Skipe cases that are not needed
+        ! Skip cases that are not needed
         if(ivect==1.and.idim>=2) cycle
         if(ivect==2.and.idim==3) cycle
         if(ivect==3.and.idim==2) cycle
