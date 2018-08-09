@@ -1,6 +1,6 @@
 !#########################################################
 !#########################################################
-subroutine force_fine_gr(ilevel,icount,igrp)
+subroutine comp_aij_gr(ilevel,icount,ivect)
   use amr_commons
   use pm_commons
   use poisson_commons
@@ -10,7 +10,7 @@ subroutine force_fine_gr(ilevel,icount,igrp)
   include 'mpif.h'
   integer::info
 #endif
-  integer::ilevel,icount,igrp
+  integer::ilevel,icount,ivect
   !----------------------------------------------------------
   ! This routine computes the gravitational acceleration,
   ! the maximum density rho_max, and the potential energy
@@ -121,7 +121,7 @@ subroutine force_fine_gr(ilevel,icount,igrp)
            ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
         end do
         ! Compute gradient of gr_pot
-        call gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
+        call aij_fine_gr(ind_grid,ngrid,ilevel,icount,ivect)
      end do
      ! End loop over grids
 
@@ -189,12 +189,12 @@ subroutine force_fine_gr(ilevel,icount,igrp)
 
 111 format('   Entering force_fine_gr for level ',I2)
 
-end subroutine force_fine_gr
+end subroutine comp_aij_gr
 !#########################################################
 !#########################################################
 !#########################################################
 !#########################################################
-subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
+subroutine aij_fine_gr(ind_grid,ngrid,ilevel,icount,ivect)
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -203,12 +203,12 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   use gr_parameters
   implicit none
 
-  integer::ngrid,ilevel,icount,igrp
+  integer::ngrid,ilevel,icount,ivect
   integer,dimension(1:nvector)::ind_grid
   !-------------------------------------------------
-  ! This routine compute the 3-force for all cells
+  ! This routine compute the A_ij components from (U,V^i) 
   ! in grids ind_grid(:) at level ilevel, using a
-  ! 5 nodes kernel (5 points FDA).
+  ! 3 nodes kernel (3 points FDA).
   !-------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc
   integer::id1,id2,id3,id4
@@ -236,24 +236,36 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   scale=boxlen/dble(nx_loc)
   dx_loc=dx*scale
 
+  ! 27 neighbors in the 3-point kernel FDA
   a=0.50D0*4.0D0/3.0D0/dx
   b=0.25D0*1.0D0/3.0D0/dx
   !   |dim
   !   | |node
   !   | | |cell
   !   v v v
-  ggg(1,1,1:8)=(/1,0,1,0,1,0,1,0/); hhh(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
-  ggg(1,2,1:8)=(/0,2,0,2,0,2,0,2/); hhh(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
-  ggg(1,3,1:8)=(/1,1,1,1,1,1,1,1/); hhh(1,3,1:8)=(/1,2,3,4,5,6,7,8/)
-  ggg(1,4,1:8)=(/2,2,2,2,2,2,2,2/); hhh(1,4,1:8)=(/1,2,3,4,5,6,7,8/)
-  ggg(2,1,1:8)=(/3,3,0,0,3,3,0,0/); hhh(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
-  ggg(2,2,1:8)=(/0,0,4,4,0,0,4,4/); hhh(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
-  ggg(2,3,1:8)=(/3,3,3,3,3,3,3,3/); hhh(2,3,1:8)=(/1,2,3,4,5,6,7,8/)
-  ggg(2,4,1:8)=(/4,4,4,4,4,4,4,4/); hhh(2,4,1:8)=(/1,2,3,4,5,6,7,8/)
-  ggg(3,1,1:8)=(/5,5,5,5,0,0,0,0/); hhh(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
-  ggg(3,2,1:8)=(/0,0,0,0,6,6,6,6/); hhh(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
-  ggg(3,3,1:8)=(/5,5,5,5,5,5,5,5/); hhh(3,3,1:8)=(/1,2,3,4,5,6,7,8/)
-  ggg(3,4,1:8)=(/6,6,6,6,6,6,6,6/); hhh(3,4,1:8)=(/1,2,3,4,5,6,7,8/)
+  ! Parallel directions
+  ggg(1,1,1:8)=(/13,14,13,14,13,14,13,14/); hhh(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
+  ggg(1,2,1:8)=(/14,15,14,15,14,15,14,15/); hhh(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
+  ggg(2,1,1:8)=(/11,11,14,14,11,11,14,14/); hhh(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
+  ggg(2,2,1:8)=(/14,14,17,17,14,14,17,17/); hhh(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
+  ggg(3,1,1:8)=(/ 5, 5, 5, 5,14,14,14,14/); hhh(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
+  ggg(3,2,1:8)=(/14,14,14,14,23,23,23,23/); hhh(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
+  ! Diagonal directions
+  ! xy plane
+  ggg(4,1,1:8)=(/10,11,13,14,10,11,13,14/); hhh(4,1,1:8)=(/4,3,2,1,8,7,6,5/)
+  ggg(4,2,1:8)=(/14,15,17,18,14,15,17,18/); hhh(4,2,1:8)=(/4,3,2,1,8,7,6,5/)
+  ggg(5,1,1:8)=(/11,12,14,15,11,12,14,15/); hhh(5,1,1:8)=(/4,3,2,1,8,7,6,5/)
+  ggg(5,2,1:8)=(/13,14,16,17,13,14,16,17/); hhh(5,2,1:8)=(/4,3,2,1,8,7,6,5/)
+  ! zx plane
+  ggg(6,1,1:8)=(/ 4, 5, 4, 5,13,14,13,14/); hhh(6,1,1:8)=(/6,5,8,7,2,1,4,3/)
+  ggg(6,2,1:8)=(/14,15,14,15,23,24,23,24/); hhh(6,2,1:8)=(/6,5,8,7,2,1,4,3/)
+  ggg(7,1,1:8)=(/ 5, 6, 5, 6,14,15,14,15/); hhh(7,1,1:8)=(/6,5,8,7,2,1,4,3/)
+  ggg(7,2,1:8)=(/13,14,13,14,22,23,22,23/); hhh(7,2,1:8)=(/6,5,8,7,2,1,4,3/)
+  ! zy plane
+  ggg(8,1,1:8)=(/ 2, 2, 5, 5,11,11,14,14/); hhh(8,1,1:8)=(/7,8,5,6,3,4,1,2/)
+  ggg(8,2,1:8)=(/14,14,17,17,23,23,26,26/); hhh(8,2,1:8)=(/7,8,5,6,3,4,1,2/)
+  ggg(9,1,1:8)=(/ 5, 5, 8, 8,14,14,17,17/); hhh(9,1,1:8)=(/7,8,5,6,3,4,1,2/)
+  ggg(9,2,1:8)=(/11,11,14,14,20,20,23,23/); hhh(9,2,1:8)=(/7,8,5,6,3,4,1,2/)
 
   ! Gather neighboring grids
   do i=1,ngrid
@@ -323,16 +335,10 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
         end do
 
         ! Calculate the force contribution from each gr_pot
-        if(igrp==5)then
-           do i=1,ngrid
-              f(ind_cell(i),idim)=(a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i)))*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)
-           end do
-        else
-           do i=1,ngrid
-              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
-           end do
-        end if        
+        do i=1,ngrid
+           f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
+        end do
      end do
   end do
 
-end subroutine gradient_gr_pot
+end subroutine aij_fine_gr
