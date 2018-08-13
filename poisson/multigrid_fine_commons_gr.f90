@@ -19,7 +19,6 @@
 !     restricted dens          N/A           active_mg(myid,ilevel)%u(:,6)
 ! ------------------------------------------------------------------------
 
-
 ! ------------------------------------------------------------------------
 ! Main multigrid routine for GR geometric fields, called by amr_step
 ! ------------------------------------------------------------------------
@@ -54,7 +53,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    if(gravity_type>0)return
    if(numbtot(1,ilevel)==0)return
 
-   ! Set field index
+   ! Set GR field index
    igrp = igr
    if(igr>6) igrp = igr-6
 
@@ -62,7 +61,6 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    if(igrp==5 .or. igrp==6) gr_lin = .false.
 
    if(verbose) print '(A,I2)','Entering fine multigrid GR at level ',ilevel
-
 
    ! ---------------------------------------------------------------------
    ! Prepare first guess, mask and BCs at finest level
@@ -75,30 +73,30 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Update boundaries
    ! call make_boundary_gr(ilevel)                      ! Update physical boundaries
    
-   if(igr==1) then
+   if(igr==1     ) then
       call make_fine_mask  (ilevel)                     ! Fill the fine mask
       call make_virtual_fine_dp(f(:,3),ilevel)          ! Communicate mask
       call make_boundary_mask(ilevel)                   ! Set mask to -1 in phys bounds
    end if
   
-   if(igr==4) then
-      call source_fine_gr_scalar(ilevel,icount,igr)
+   if(igr==4     ) then
+      call source_fine_gr_scalar (ilevel,icount,igr)     ! Calculate div(V)
       call make_virtual_fine_dp(gr_mat(1,4),ilevel)      ! Update boundaries
    else if(igr==5) then
-      call source_fine_gr_scalar
+      call source_fine_gr_aij_aij(ilevel,icount    )     ! Calculate A_ij*A^ij
       call make_virtual_fine_dp(gr_mat(1,4),ilevel)      ! Update boundaries
    else if(igr==7) then
       do ivect=1,6
-         call calc_gr_mat5(ilevel,icount,ivect)          ! Calculate argument for vector sources
+         call comp_gr_mat5(ilevel,icount,ivect)          ! Calculate argument for vector sources
          call make_virtual_fine_dp(gr_mat(1,5),ilevel)   ! Update boundaries
-         call source_fine_gr_vector(ilevel,icount,ivect)
-      enddo
+         call source_fine_gr_vector(ilevel,icount,ivect) ! Calculate div(A_ij) vector sources
+      end do
       call make_virtual_fine_dp(gr_mat(1,1),ilevel)      ! Update boundaries
       call make_virtual_fine_dp(gr_mat(1,2),ilevel)      ! Update boundaries
       call make_virtual_fine_dp(gr_mat(1,3),ilevel)      ! Update boundaries
    else if(igr==10) then
-      call source_fine_gr_scalar(ilevel,icount,igr)
-      call make_virtual_fine_dp(gr_mat(1,4),ilevel)      ! Update boundaries
+      call source_fine_gr_scalar(ilevel,icount,igr)      ! Calculate div(B)
+      call make_virtual_fine_dp(gr_mat(1,5),ilevel)      ! Update boundaries
    end if
 
    if(gr_lin) then

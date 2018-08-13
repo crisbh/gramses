@@ -10,7 +10,7 @@ subroutine source_fine_gr_vector(ilevel,icount,ivect)
 #endif
   integer::ilevel,icount,ivect
   !---------------------------------------------------------------------------------
-  ! This subroutine calculates the source terms for some of the GR equation for B^i.
+  ! This subroutine calls the next one to calculate the div(A^ij) source terms 
   !---------------------------------------------------------------------------------
   integer::igrid,ngrid,ncache,i
   integer ,dimension(1:nvector),save::ind_grid
@@ -56,7 +56,7 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
   integer::ngrid,ilevel,icount,ivect
   integer,dimension(1:nvector)::ind_grid
   !---------------------------------------------------------------------------------
-  ! This subroutine calculates the source terms for some of the GR equation for B^i.
+  ! This subroutine calculates div(A^ij) source terms 
   !---------------------------------------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc
   integer::id1,id2,id3,id4

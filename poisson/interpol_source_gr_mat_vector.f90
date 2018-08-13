@@ -8,7 +8,7 @@ subroutine interpol_source_gr_mat5(ind_cell,phi_int,ncell,ilevel,icount)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! Routine for interpolation at level-boundaries. Interpolation is used for
-  ! computing vector source terms in source_fine_gr_mat_vector 
+  ! computing vector source terms div(A) in source_fine_gr_mat_vector 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids

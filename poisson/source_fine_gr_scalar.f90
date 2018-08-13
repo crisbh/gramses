@@ -10,17 +10,19 @@ subroutine source_fine_gr_scalar(ilevel,icount,igr)
 #endif
   integer::ilevel,icount,igr
   integer::igrm
-  !--------------------------------------------------------------------------
-  ! This subroutine calculates the source terms for some of the GR equations.
-  !--------------------------------------------------------------------------
+  !------------------------------------------------------------------------------------------
+  ! This subroutine calculates the source terms div(V) or div(B) for some of the GR equations.
+  !------------------------------------------------------------------------------------------
   integer::igrid,ngrid,ncache,i
   integer ,dimension(1:nvector),save::ind_grid
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
-  if(igr==4.or.igrm==10)then
+  if(igr==4)then
      igrm=4
+  else if(igr==10) then
+     igrm=5        
   else      
      write(*,*) 'igr out of range in source_fine_gr_scalar. Please check.'     
      call clean_stop
@@ -33,13 +35,13 @@ subroutine source_fine_gr_scalar(ilevel,icount,igr)
      do i=1,ngrid
         ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
      end do
-     ! Compute source term from gr_pot
+     ! Compute div( ) source term from gr_pot
      call source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
   end do
   ! End loop over grids
 
   ! Update boundaries
-  call make_virtual_fine_dp(gr_mat(1,igrm),ilevel)
+  ! call make_virtual_fine_dp(gr_mat(1,igrm),ilevel)
 
 111 format('   Entering source_fine_gr for level ',I2)
 
@@ -91,8 +93,10 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
   scale=boxlen/dble(nx_loc)
   dx_loc=dx*scale
   
-  if(igr==4.or.igr==10)then
+  if(igr==4)then
      igrm=4
+  else if(igr==10)then
+     igrm=5
   else      
      write(*,*) 'igr out of range in source_from_gr_pot_scalar. Please check.'     
      call clean_stop
@@ -149,6 +153,7 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
      ! Loop over dimensions
      do idim=1,ndim
 
+        ! Set correct component to calculate div( )
         igrp=idim
 
         ! Loop over nodes
@@ -187,7 +192,7 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
            end if
         end do
 
-        ! Calculate the force contribution from each gr_pot
+        ! Calculate the div( ) contributions from the GR potential 
         if(idim==1)then
            do i=1,ngrid
               gr_mat(ind_cell(i),igrm)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))

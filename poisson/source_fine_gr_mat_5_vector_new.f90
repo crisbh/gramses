@@ -1,6 +1,6 @@
 !#########################################################
 !#########################################################
-subroutine source_fine_gr_aij_aij(ilevel,icount)
+subroutine comp_gr_mat5(ilevel,icount,ivect)
   use amr_commons
   use pm_commons
   use poisson_commons
@@ -10,7 +10,7 @@ subroutine source_fine_gr_aij_aij(ilevel,icount)
   include 'mpif.h'
   integer::info
 #endif
-  integer::ilevel,icount
+  integer::ilevel,icount,ivect
   !----------------------------------------------------------
   ! This subroutine calls aij_gr to calculate A_ijA^ij
   !----------------------------------------------------------
@@ -119,8 +119,8 @@ subroutine source_fine_gr_aij_aij(ilevel,icount)
         do i=1,ngrid
            ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
         end do
-        ! Compute gradient of gr_pot
-        call comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
+        ! Compute gr_mat(5) components
+        call gr_mat5_components(ind_grid,ngrid,ilevel,icount,ivect)
      end do
      ! End loop over grids
 
@@ -186,14 +186,14 @@ subroutine source_fine_gr_aij_aij(ilevel,icount)
      epot_tot=epot_tot+epot_loc
      rho_max(ilevel)=rho_loc
 
-111 format('   Entering aij_fine_gr for level ',I2)
+111 format('   Entering comp_gr_mat5 for level ',I2)
 
-end subroutine source_fine_gr_aij_aij
+end subroutine comp_gr_mat5
 !#########################################################
 !#########################################################
 !#########################################################
 !#########################################################
-subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
+subroutine gr_mat5_components(ind_grid,ngrid,ilevel,icount,ivect)
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -202,7 +202,7 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
   use gr_parameters
   implicit none
 
-  integer::ngrid,ilevel,icount
+  integer::ngrid,ilevel,icount,ivect
   integer,dimension(1:nvector)::ind_grid
   !-------------------------------------------------
   ! This routine compute the A_ij components from (U,V^i) 
@@ -231,6 +231,12 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
   
   logical :: do_interpol
   integer :: sgn,igrp             
+ 
+  real(dp):: ctilde,ctilde2,ac2
+
+  ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
+  ctilde2  = ctilde**2                          ! Speed of light squared
+  ac2      = aexp**2*ctilde2                    ! (ac)^2 factor
 
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
@@ -322,6 +328,11 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
         end do
      end if
 
+     ! Skip igrp cases that are not needed for a given ivect
+     if(ivect==2.and.igrp==3) cycle
+     if(ivect==3.and.igrp==2) cycle
+     if(ivect==5.and.igrp==1) cycle
+
      ! Loop over fine cells
      do ind=1,twotondim
         aij(1:nvector,1:6)=0.0D0
@@ -333,6 +344,29 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
         do idim=1,9
            ! Only do idim=4-9 for igrp=4
            if(idim>3.and.igrp<4) cycle
+
+           ! Skip cases that are not needed for a given ivect
+           if(ivect==1.or.ivect==4.or.ivect==6)then
+              if(igrp<4.and.igrp.ne.idim                        ) cycle
+              if(igrp=4.and.idim.ne.FLOOR(dble((ivect+0.5D0)/2))) cycle
+              if(idim>3) cycle
+           end if
+           if(ivect==2)then
+              if(idim==3.or. idim>5    ) cycle 
+              if(igrp=<3.and.igrp==idim) cycle
+              if(igrp==4.and.idim<4    ) cycle
+           end if
+           if(ivect==3)then
+              if(idim.ne.1.or.idim.ne.3.or.idim.ne.6.or.idim.ne.7) cycle 
+              if(igrp=<3.and.igrp==idim      ) cycle
+              if(igrp==4.and.idim<6.or.idim>7) cycle
+           end if
+           if(ivect==5)then
+              if(idim.ne.2.or.idim.ne.3.or.idim.ne.8.or.idim.ne.9) cycle 
+              if(igrp=<3.and.igrp==idim) cycle
+              if(igrp==4.and.idim<8    ) cycle
+           end if
+
            ! Loop over nodes
            id1=hhh(idim,1,ind); ig1=ggg(idim,1,ind); ih1=ncoarse+(id1-1)*ngridmax
            id2=hhh(idim,2,ind); ig2=ggg(idim,2,ind); ih2=ncoarse+(id2-1)*ngridmax
@@ -476,12 +510,13 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
            end if
         end do
         
-        ! Calculate A_ijA^ij for fine cells
+        ! Store one of the Aij component with proper factors for div(A^ij)
         do i=1,ngrid
-           gr_mat(ind_cell(i),4) =        aij(i,1)**2+aij(i,4)**2+aij(i,6)**2 + &
-                                 & 2.0D0*(aij(i,2)**2+aij(i,3)**2+aij(i,5)**2)
+           gr_mat(ind_cell(i),5)=aij(i,ivect)
+           gr_mat(ind_cell(i),5)=gr_mat(ind_cell(i),5)*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)**6          
         end do
-     end do
-  end do
 
-end subroutine comp_fine_gr_aij_aij
+     end do ! End loop over idim 
+  end do ! End loop over igrp
+
+end subroutine gr_mat5_components
