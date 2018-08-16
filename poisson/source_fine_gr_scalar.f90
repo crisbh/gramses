@@ -74,16 +74,12 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
   real(dp)::dx,a,b,scale,dx_loc
   integer,dimension(1:3,1:4,1:8)::ggg,hhh
 
-  integer ,dimension(1:nvector),save::ind_cell
-  integer ,dimension(1:nvector,1:ndim),save::ind_left,ind_right
-  integer ,dimension(1:nvector,0:twondim),save::igridn
-  real(dp),dimension(1:nvector),save::phi1,phi2,phi3,phi4
-  real(dp),dimension(1:nvector,1:twotondim,1:ndim),save::phi_left,phi_right
-  real(dp):: ctilde,ctilde2,ac2
+  integer, dimension(1:nvector            ),save :: icelln
+  integer ,dimension(1:nvector            ),save :: ind_cell
+  integer ,dimension(1:nvector,0:twondim  ),save :: igridn
+  real(dp),dimension(1:nvector            ),save :: phi1,phi2,phi3,phi4
 
-  ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
-  ctilde2  = ctilde**2                          ! Speed of light squared
-  ac2      = aexp**2*ctilde2                    ! (ac)^2 factor
+  real(dp),dimension(1:nvector,1:twotondim),save::div_b_sons
 
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
@@ -125,22 +121,20 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
   do i=1,ngrid
      igridn(i,0)=ind_grid(i)
   end do
-  do idim=1,ndim
-     do i=1,ngrid
-        ind_left (i,idim)=nbor(ind_grid(i),2*idim-1)
-        ind_right(i,idim)=nbor(ind_grid(i),2*idim  )
-        igridn(i,2*idim-1)=son(ind_left (i,idim))
-        igridn(i,2*idim  )=son(ind_right(i,idim))
-     end do
+ 
+  ! Gather father cells of central grids
+  do i=1,ngrid
+     icelln(i)=father(ind_grid(i))
   end do
 
-  ! Interpolate potential from upper level
+  ! Interpolate div(V) or div(B) 
   if (ilevel>levelmin)then
-     do idim=1,ndim
-        igrp=idim
-        call interpol_gr_pot(ind_left (1,idim),phi_left  (1,1,idim),ngrid,ilevel,icount,igrp)
-        call interpol_gr_pot(ind_right(1,idim),phi_right (1,1,idim),ngrid,ilevel,icount,igrp)
-     end do
+     if(igr==10)then
+        call interpol_source_gr_mat(icelln(1),div_b_sons(1,1),ngrid,ilevel,icount,5)
+     else
+        write(*,*) 'igr out of range for interpolation in source_from_gr_pot_scalar. Please check.'     
+        call clean_stop
+     end if
   end if
 
   ! Loop over cells
@@ -167,42 +161,47 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
            if(igridn(i,ig1)>0)then
               phi1(i)=gr_pot(igridn(i,ig1)+ih1,igrp)
            else
-              phi1(i)=phi_left(i,id1,idim)
+              bdy(i,ind)=.true.      
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig2)>0)then
               phi2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)
            else
-              phi2(i)=phi_left(i,id2,idim)
+              bdy(i,ind)=.true.      
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig3)>0)then
               phi3(i)=gr_pot(igridn(i,ig3)+ih3,igrp)
            else
-              phi3(i)=phi_left(i,id3,idim)
+              bdy(i,ind)=.true.      
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig4)>0)then
               phi4(i)=gr_pot(igridn(i,ig4)+ih4,igrp)
            else
-              phi4(i)=phi_left(i,id4,idim)
+              bdy(i,ind)=.true.      
            end if
         end do
 
         ! Calculate the div( ) contributions from the GR potential 
-        if(idim==1)then
-           do i=1,ngrid
-              gr_mat(ind_cell(i),igrm)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))
-           end do
+        if(bdy(i,ind).ne.0)then
+           if(idim==1)then
+              do i=1,ngrid
+                 gr_mat(ind_cell(i),igrm)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))
+              end do
+           else
+              do i=1,ngrid
+                 gr_mat(ind_cell(i),igrm)=gr_mat(ind_cell(i),igrm)-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))
+              end do
+           end if        
         else
-           do i=1,ngrid
-              gr_mat(ind_cell(i),igrm)=gr_mat(ind_cell(i),igrm)-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))
-           end do
-        end if        
-     end do
-  end do
+           cycle
+        end if
+     end do ! End loop over idim
+  end do    ! End loop over cells
+
 
 end subroutine source_from_gr_pot_scalar

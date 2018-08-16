@@ -1,8 +1,8 @@
-subroutine interpol_source_gr_mat5(ind_cell,phi_int,ncell,ilevel,icount)
+subroutine interpol_source_gr_mat(ind_cell,phi_int,ncell,ilevel,icount,igrm)
   use amr_commons
   use gr_commons, only:gr_mat
   implicit none
-  integer::ncell,ilevel,icount
+  integer::ncell,ilevel,icount,igrm
   integer ,dimension(1:nvector)::ind_cell
   real(dp),dimension(1:nvector,1:twotondim)::phi_int
 
@@ -14,6 +14,7 @@ subroutine interpol_source_gr_mat5(ind_cell,phi_int,ncell,ilevel,icount)
   integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   integer::i,ind,indice,ind_average,ind_father
+  integer::igrm
   real(dp)::dx
   real(dp)::aa,bb,cc,dd,coeff,add
   integer,dimension(1:8,1:8)::ccc
@@ -56,13 +57,13 @@ subroutine interpol_source_gr_mat5(ind_cell,phi_int,ncell,ilevel,icount)
         do i=1,ncell
            indice=nbors_father_cells(i,ind_father)
            if (indice==0) then
-              add=coeff*gr_mat(ind_cell(i),5)
+              add=coeff*gr_mat(ind_cell(i),igrm)
            else
-              add=coeff*gr_mat(indice,5)
+              add=coeff*gr_mat(indice     ,igrm)
            endif
            phi_int(i,ind)=phi_int(i,ind)+add
         end do
      end do
   end do
 
-end subroutine interpol_source_gr_mat5
+end subroutine interpol_source_gr_mat

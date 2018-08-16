@@ -241,7 +241,7 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
   scale=boxlen/dble(nx_loc)
   dx_loc=dx*scale
 
-  ! 27 neighbors in the 3-point kernel FDA
+  ! 27 neighbors in the 3-point kernel FDA.
   !   |direction
   !   | |node
   !   | | |cell
@@ -474,14 +474,21 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
                  call clean_stop
               END SELECT
            end if
-        end do
+        end do ! End loop over idim
         
         ! Calculate A_ijA^ij for fine cells
-        do i=1,ngrid
-           gr_mat(ind_cell(i),4) =        aij(i,1)**2+aij(i,4)**2+aij(i,6)**2 + &
-                                 & 2.0D0*(aij(i,2)**2+aij(i,3)**2+aij(i,5)**2)
-        end do
-     end do
+!        do i=1,ngrid
+!           gr_mat(ind_cell(i),4) =        aij(i,1)**2+aij(i,4)**2+aij(i,6)**2 + &
+!                                 & 2.0D0*(aij(i,2)**2+aij(i,3)**2+aij(i,5)**2)
+!        end do
+
+     end do    ! End loop over fine cells
+  end do       ! End loop over igrp
+
+  ! Calculate A_ijA^ij for fine cells
+  do i=1,ngrid
+     gr_mat(ind_cell(i),4) =        aij(i,1)**2+aij(i,4)**2+aij(i,6)**2 + &
+                           & 2.0D0*(aij(i,2)**2+aij(i,3)**2+aij(i,5)**2)
   end do
 
 end subroutine comp_fine_gr_aij_aij

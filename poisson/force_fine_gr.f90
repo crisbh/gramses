@@ -304,7 +304,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
            if(igridn(i,ig2)>0)then
               phi2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)
            else
-              phi2(i)=phi_left(i,id2,idim)
+              phi2(i)=phi_right(i,id2,idim)
            end if
         end do
         do i=1,ngrid
@@ -318,21 +318,23 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
            if(igridn(i,ig4)>0)then
               phi4(i)=gr_pot(igridn(i,ig4)+ih4,igrp)
            else
-              phi4(i)=phi_left(i,id4,idim)
+              phi4(i)=phi_right(i,id4,idim)
            end if
         end do
 
-        ! Calculate the force contribution from each gr_pot
+        ! Calculate the 'force' contribution (-grad) from a given gr_pot
+        do i=1,ngrid
+           f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
+        end do
+        
+        ! Include factors for grad(Psi) contribution
         if(igrp==5)then
            do i=1,ngrid
-              f(ind_cell(i),idim)=(a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i)))*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)
-           end do
-        else
-           do i=1,ngrid
-              f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
+              f(ind_cell(i),idim)=f(ind_cell(i),idim)*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)
            end do
         end if        
-     end do
-  end do
+
+     end do ! End loop over idim
+  end do    ! End loop over cells
 
 end subroutine gradient_gr_pot

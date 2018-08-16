@@ -1,4 +1,4 @@
-subroutine source_fine_gr_vector(ilevel,icount,ivect)
+subroutine calc_gr_mat5(ilevel,icount,ivect)
   use amr_commons
   use pm_commons
   use poisson_commons
@@ -9,9 +9,10 @@ subroutine source_fine_gr_vector(ilevel,icount,ivect)
   integer::info
 #endif
   integer::ilevel,icount,ivect
-  !---------------------------------------------------------------------------------
-  ! This subroutine calls the next one to calculate the div(A^ij) source terms 
-  !---------------------------------------------------------------------------------
+  !----------------------------------------------------------------------------
+  ! This subroutine calculates que A_ij components that are used for the source
+  ! terms in the Minimum Distortion Condition equation.  
+  !----------------------------------------------------------------------------
   integer::igrid,ngrid,ncache,i
   integer ,dimension(1:nvector),save::ind_grid
 
@@ -26,25 +27,21 @@ subroutine source_fine_gr_vector(ilevel,icount,ivect)
         ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
      end do
      ! Compute source term from gr_pot
-     call source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
+     call calc_gr_mat5_tensor(ind_grid,ngrid,ilevel,icount,ivect)
   end do
   ! End loop over grids
 
-  ! Update boundaries when vector source terms are completed
-  !if(ivect==6)then
-  !   call make_virtual_fine_dp(gr_mat(1,1),ilevel)
-  !   call make_virtual_fine_dp(gr_mat(1,2),ilevel)
-  !   call make_virtual_fine_dp(gr_mat(1,3),ilevel)
-  !end if
+  ! Update boundaries
+  !call make_virtual_fine_dp(gr_mat(1,5),ilevel)
 
-111 format('   Entering source_fine_gr_vector for level ',I2)
+111 format('   Entering source_fine_gr_mat5_vector for level ',I2)
 
-end subroutine source_fine_gr_vector
+end subroutine calc_gr_mat5
 !#########################################################
 !#########################################################
 !#########################################################
 !#########################################################
-subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
+subroutine calc_gr_mat5_tensor(ind_grid,ngrid,ilevel,icount,ivect)
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -55,9 +52,10 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
 
   integer::ngrid,ilevel,icount,ivect
   integer,dimension(1:nvector)::ind_grid
-  !---------------------------------------------------------------------------------
-  ! This subroutine calculates div(A^ij) source terms 
-  !---------------------------------------------------------------------------------
+  !----------------------------------------------------------------------------
+  ! This subroutine calculates que A_ij components that are used for the source
+  ! terms in the Minimum Distortion Condition equation.  
+  !----------------------------------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc
   integer::id1,id2,id3,id4
   integer::ig1,ig2,ig3,ig4
@@ -108,7 +106,6 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
      igridn(i,0)=ind_grid(i)
   end do
   do idim=1,ndim
-     ! Skip cases that are not needed
      if(ivect==1.and.idim>=2) cycle
      if(ivect==2.and.idim==3) cycle
      if(ivect==3.and.idim==2) cycle
@@ -133,8 +130,31 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
         if(ivect==4.and.idim/=2) cycle
         if(ivect==5.and.idim==1) cycle
         if(ivect==6.and.idim<=2) cycle
-        call interpol_source_gr_mat(ind_left (1,idim),phi_left  (1,1,idim),ngrid,ilevel,icount,ivect)
-        call interpol_source_gr_mat(ind_right(1,idim),phi_right (1,1,idim),ngrid,ilevel,icount,ivect)
+
+        ! Pick correct V_i component to differentiate
+        if(ivect==1.or.ivect==4.or.ivect==6)then ! Diagonal terms (A_11,A_22,A_33)     
+           igrp==idim 
+        else if(ivect==2)then ! A_12
+           if(idim==1) then
+              igrp=2
+           else
+              igrp=1      
+           end if 
+        else if(ivect==3)then ! A_13
+           if(idim==1) then
+              igrp=3
+           else
+              igrp=1      
+           end if 
+        else if(ivect==5)then ! A_23
+           if(idim==2) then
+              igrp=3
+           else
+              igrp=2      
+           end if 
+        end if        
+        call interpol_gr_pot(ind_left (1,idim),phi_left  (1,1,idim),ngrid,ilevel,icount,igrp)
+        call interpol_gr_pot(ind_right(1,idim),phi_right (1,1,idim),ngrid,ilevel,icount,igrp)
      end do
   end if
 
@@ -155,6 +175,28 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
         if(ivect==5.and.idim==1) cycle
         if(ivect==6.and.idim<=2) cycle
 
+        ! Pick correct V_i component
+        if(ivect==1.or.ivect==4.or.ivect==6)then ! Diagonal terms (A_11,A_22,A_33)     
+           igrp==idim 
+        else if(ivect==2)then ! A_12
+           if(idim==1) then
+              igrp=2
+           else
+              igrp=1      
+           end if 
+        else if(ivect==3)then ! A_13
+           if(idim==1) then
+              igrp=3
+           else
+              igrp=1      
+           end if 
+        else if(ivect==5)then ! A_23
+           if(idim==2) then
+              igrp=3
+           else
+              igrp=2      
+           end if 
+        end if 
         ! Loop over nodes
         id1=hhh(idim,1,ind); ig1=ggg(idim,1,ind); ih1=ncoarse+(id1-1)*ngridmax
         id2=hhh(idim,2,ind); ig2=ggg(idim,2,ind); ih2=ncoarse+(id2-1)*ngridmax
@@ -164,80 +206,79 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
         ! Gather GR potential
         do i=1,ngrid
            if(igridn(i,ig1)>0)then
-              phi1(i)=gr_mat(igridn(i,ig1)+ih1,5)
+              phi1(i)=gr_pot(igridn(i,ig1)+ih1,igrp)
            else
               phi1(i)=phi_left(i,id1,idim)
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig2)>0)then
-              phi2(i)=gr_mat(igridn(i,ig2)+ih2,5)
+              phi2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)
            else
               phi2(i)=phi_left(i,id2,idim)
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig3)>0)then
-              phi3(i)=gr_mat(igridn(i,ig3)+ih3,5)
+              phi3(i)=gr_pot(igridn(i,ig3)+ih3,igrp)
            else
               phi3(i)=phi_left(i,id3,idim)
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig4)>0)then
-              phi4(i)=gr_mat(igridn(i,ig4)+ih4,5)
+              phi4(i)=gr_mat(igridn(i,ig4)+ih4,igrp)
            else
               phi4(i)=phi_left(i,id4,idim)
            end if
         end do
 
-        ! Calculate source term contribution from each one of the 6 A_ij components
+        ! Calculate divergence term contribution for diagonal terms
         if(ivect==1)then
+           call source_fine_gr_scalar(ilevel,icount,4)
+        end if
+
+        ! Diagonal terms (A_11,A_22,A_33)
+        if(ivect==1.or.ivect==4.or.ivect==6)then
            do i=1,ngrid
-              gr_mat(ind_cell(i),1)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))
+              gr_mat(ind_cell(i),5)=-2.0D0*(a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i)))-0.50D0*gr_mat(ind_cell(i),4)
            end do
         end if
-        if(ivect==2.and.idim==2)then
-           do i=1,ngrid
-              gr_mat(ind_cell(i),1)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i)) + gr_mat(ind_cell(i),1)
-           end do
-        end if
+
+        ! A_12
         if(ivect==2.and.idim==1)then
            do i=1,ngrid
-              gr_mat(ind_cell(i),2)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))
+              gr_mat(ind_cell(i),5)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))
            end do
-        end if
-        if(ivect==3.and.idim==3)then
+        else
            do i=1,ngrid
-              gr_mat(ind_cell(i),1)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i)) + gr_mat(ind_cell(i),1)
+              gr_mat(ind_cell(i),5)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i)) + gr_mat(ind_cell(i),5)
            end do
         end if
+
+        ! A_13
         if(ivect==3.and.idim==1)then
            do i=1,ngrid
-              gr_mat(ind_cell(i),3)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))
+              gr_mat(ind_cell(i),5)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))
            end do
-        end if
-        if(ivect==4)then        
+        else
            do i=1,ngrid
-              gr_mat(ind_cell(i),2)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i)) + gr_mat(ind_cell(i),2)
+              gr_mat(ind_cell(i),5)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i)) + gr_mat(ind_cell(i),5)
            end do
         end if
-        if(ivect==5.and.idim==3)then
-           do i=1,ngrid
-              gr_mat(ind_cell(i),2)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i)) + gr_mat(ind_cell(i),2)
-           end do
-        end if
+
+        ! A_23
         if(ivect==5.and.idim==2)then
            do i=1,ngrid
-              gr_mat(ind_cell(i),3)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i)) + gr_mat(ind_cell(i),3)
+              gr_mat(ind_cell(i),5)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i))
            end do
-        end if
-        if(ivect==6)then
+        else
            do i=1,ngrid
-              gr_mat(ind_cell(i),3)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i)) + gr_mat(ind_cell(i),3)
+              gr_mat(ind_cell(i),5)=-a*(phi1(i)-phi2(i))+b*(phi3(i)-phi4(i)) + gr_mat(ind_cell(i),5)
            end do
         end if
+        gr_mat(ind_cell(i),5)= gr_mat(ind_cell(i),5)*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)**6
      end do
   end do
 
-end subroutine source_from_gr_pot_vector
+end subroutine calc_gr_mat5_tensor

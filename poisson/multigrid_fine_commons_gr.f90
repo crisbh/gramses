@@ -10,17 +10,17 @@
 ! Used variables:
 !                          finest(AMR)level     coarse(MG)levels
 !     -----------------------------------------------------------------
-!     GR geometric field      gr_pot(:,igr)  active_mg(myid,ilevel)%u(:,1)
-!     Matter RHS for GR       gr_mat(:,)     active_mg(myid,ilevel)%u(:,2)
-!     residual                f(:,1)         active_mg(myid,ilevel)%u(:,3)
-!     BC-modified RHS         f(:,2)                  N/A
-!     mask                    f(:,3)         active_mg(myid,ilevel)%u(:,4)
-!     restricted NL GR field   N/A           active_mg(myid,ilevel)%u(:,5)
-!     restricted dens          N/A           active_mg(myid,ilevel)%u(:,6)
+!     GR field                gr_pot(:,igr )  active_mg(myid,ilevel)%u(:,1)
+!     Matter RHS for GR       gr_mat(:,igrm)  active_mg(myid,ilevel)%u(:,2)
+!     residual                f(:,1)          active_mg(myid,ilevel)%u(:,3)
+!     BC-modified RHS         f(:,2)                   N/A
+!     mask                    f(:,3)          active_mg(myid,ilevel)%u(:,4)
+!     restricted NL GR field   N/A            active_mg(myid,ilevel)%u(:,5)
+!     restricted dens          N/A            active_mg(myid,ilevel)%u(:,6)
 ! ------------------------------------------------------------------------
 
 ! ------------------------------------------------------------------------
-! Main multigrid routine for GR geometric fields, called by amr_step
+! Main multigrid routine for GR fields, called by amr_step
 ! ------------------------------------------------------------------------
 
 subroutine multigrid_fine_gr(ilevel,icount,igr)
@@ -58,7 +58,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    if(igr>6) igrp = igr-6
 
    gr_lin = .true.
-   if(igrp==5 .or. igrp==6) gr_lin = .false.
+   if(igrp==5.or.igrp==6) gr_lin = .false.
 
    if(verbose) print '(A,I2)','Entering fine multigrid GR at level ',ilevel
 
@@ -67,27 +67,28 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    ! ---------------------------------------------------------------------
 
    if(ilevel>levelmin)then
-      call make_initial_gr(ilevel,icount,igr)           ! Interpolate GR field
+      call make_initial_gr(ilevel,icount,igr)            ! Interpolate GR field
    endif
 
-   call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Update boundaries
-   ! call make_boundary_gr(ilevel)                      ! Update physical boundaries
+   call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)      ! Update boundaries
+   ! call make_boundary_gr(ilevel)                       ! Update physical boundaries
    
    if(igr==1     ) then
-      call make_fine_mask  (ilevel)                     ! Fill the fine mask
-      call make_virtual_fine_dp(f(:,3),ilevel)          ! Communicate mask
-      call make_boundary_mask(ilevel)                   ! Set mask to -1 in phys bounds
+      call make_fine_mask    (ilevel)                    ! Fill the fine mask
+      call make_virtual_fine_dp(f(:,3),ilevel)           ! Communicate mask
+      call make_boundary_mask(ilevel)                    ! Set mask to -1 in phys bounds
    end if
   
    if(igr==4     ) then
       call source_fine_gr_scalar (ilevel,icount,igr)     ! Calculate div(V)
       call make_virtual_fine_dp(gr_mat(1,4),ilevel)      ! Update boundaries
+      !call interpol_gr_div_v     (ilevel,icount,   )     ! Interpolate div(V) to the finer level
    else if(igr==5) then
       call source_fine_gr_aij_aij(ilevel,icount    )     ! Calculate A_ij*A^ij
       call make_virtual_fine_dp(gr_mat(1,4),ilevel)      ! Update boundaries
    else if(igr==7) then
       do ivect=1,6
-         call comp_gr_mat5(ilevel,icount,ivect)          ! Calculate argument for vector sources
+         call comp_gr_mat5         (ilevel,icount,ivect) ! Calculate argument for vector sources
          call make_virtual_fine_dp(gr_mat(1,5),ilevel)   ! Update boundaries
          call source_fine_gr_vector(ilevel,icount,ivect) ! Calculate div(A_ij) vector sources
       end do
@@ -721,5 +722,3 @@ subroutine restore_amr_level_gr(ilevel)
    end do
 
 end subroutine restore_amr_level_gr
-
-
