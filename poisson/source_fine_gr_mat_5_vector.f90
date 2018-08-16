@@ -11,9 +11,10 @@ subroutine comp_gr_mat5(ilevel,icount,ivect)
   integer::info
 #endif
   integer::ilevel,icount,ivect
-  !----------------------------------------------------------
-  ! This subroutine calls aij_gr to calculate A_ijA^ij
-  !----------------------------------------------------------
+  !------------------------------------------------------------
+  ! This subroutine calls comp_gr_mat5 to calculate the correct
+  ! Aij component and store it into gr_mat(5) for later use
+  !------------------------------------------------------------
   integer::igrid,ngrid,ncache,i,ind,iskip,ix,iy,iz
   integer::nx_loc,idim
   real(dp)::dx,dx_loc,scale,fact,fourpi
@@ -227,9 +228,8 @@ subroutine gr_mat5_components(ind_grid,ngrid,ilevel,icount,ivect)
   real(dp),dimension(1:nvector                          ),save :: dv
   real(dp),dimension(1:nvector                          ),save :: pot1,pot2
   real(dp),dimension(1:nvector,1:twotondim              ),save :: aij
-  real(dp),dimension(1:nvector,1:twotondim,1:threetondim),save :: pot_sons 
+  logical, dimension(1:nvector,1:twotondim              ),save :: bdy
   
-  logical :: do_interpol
   integer :: sgn,igrp             
  
   real(dp):: ctilde,ctilde2,ac2
@@ -301,38 +301,13 @@ subroutine gr_mat5_components(ind_grid,ngrid,ilevel,icount,ivect)
 
   ! Loop over the four GR potentials V1, V2, V3 and U
   do igrp=1,4
-     ! Interpolate potential from upper level, one each time
-     if(ilevel>levelmin) then
-        pot_sons(1:nvector,1:twotondim,1:27)=0.0D0
-        do inbor=1,27 
-           if(igrp<4) then
-              do_interpol = (inbor.eq. 5) .or.  &
-                          & (inbor.eq.11) .or.  &
-                          & (inbor.eq.13) .or.  &
-                          & (inbor.eq.15) .or.  &
-                          & (inbor.eq.17) .or.  &
-                          & (inbor.eq.23)
-           else
-              do_interpol = (inbor.ne. 1) .and. &
-                          & (inbor.ne. 3) .and. &
-                          & (inbor.ne. 7) .and. &
-                          & (inbor.ne. 9) .and. &
-                          & (inbor.ne.14) .and. &
-                          & (inbor.ne.19) .and. &
-                          & (inbor.ne.21) .and. &
-                          & (inbor.ne.25) .and. &
-                          & (inbor.ne.27)        
-           end if
-           ! Only do interpolation if do_interpol is true to save time
-           if(do_interpol) call interpol_gr_pot(nbors_cells(1,inbor),pot_sons(1,1,inbor),ngrid,ilevel,icount,igrp)
-        end do
-     end if
 
      ! Skip igrp cases that are not needed for a given ivect
      if(ivect==2.and.igrp==3) cycle
      if(ivect==3.and.igrp==2) cycle
      if(ivect==5.and.igrp==1) cycle
 
+     bdy(1:nvector,1:twotondim)=.false.
      ! Loop over fine cells
      do ind=1,twotondim
         aij(1:nvector,1:6)=0.0D0
@@ -376,7 +351,7 @@ subroutine gr_mat5_components(ind_grid,ngrid,ilevel,icount,ivect)
               if(igridn(i,ig1)>0)then
                  pot1(i)=gr_pot(igridn(i,ig1)+ih1,igrp)
               else
-                 pot1(i)=pot_sons(i,id1,idim)
+                 bdy(i,1:8)=.true.      
               end if
            end do
            ! Node 2    
@@ -384,7 +359,7 @@ subroutine gr_mat5_components(ind_grid,ngrid,ilevel,icount,ivect)
               if(igridn(i,ig2)>0)then
                  pot2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)
               else
-                 pot2(i)=pot_sons(i,id2,idim)
+                 bdy(i,1:8)=.true.      
               end if
            end do
 
@@ -521,19 +496,9 @@ subroutine gr_mat5_components(ind_grid,ngrid,ilevel,icount,ivect)
      end do
 
      do i=1,ngrid
-        if(igridn(i,ig1)>0.and.igridn(i,ig2)>0)then
-           bdy = .false.
-           if(flag2(ind_cell(i))/ngridmax==0) then
-              do jnbor=1,27
-                 if(flag2(nbors_cells(i,jnbor))/ngridmax.ne.0) then
-                    bdy = .true.
-                 end if
-              end do
-              if(bdy==.true.) cycle
-              gr_mat(ind_cell(i),5)=aij(i,ivect)
-              gr_mat(ind_cell(i),5)=gr_mat(ind_cell(i),5)*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)**6          
-        else
-
+        if(.not.bdy(i,ind))then
+           gr_mat(ind_cell(i),5)=aij(i,ivect)
+           gr_mat(ind_cell(i),5)=gr_mat(ind_cell(i),5)*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)**6          
         end if
      end do
   end do

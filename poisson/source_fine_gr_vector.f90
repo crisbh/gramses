@@ -72,6 +72,8 @@ subroutine source_from_gr_pot_vector(ind_grid,ngrid,ilevel,icount,ivect)
   real(dp),dimension(1:nvector,1:twotondim,1:ndim),save::phi_left,phi_right
   real(dp):: ctilde,ctilde2,ac2
 
+  logical, dimension(1:nvector,1:twotondim              ),save :: bdy
+
   ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
   ctilde2  = ctilde**2                          ! Speed of light squared
   ac2      = aexp**2*ctilde2                    ! (ac)^2 factor

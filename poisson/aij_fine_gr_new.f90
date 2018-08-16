@@ -295,7 +295,7 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
 
   ! Loop over the four GR potentials V1, V2, V3 and U
   do igrp=1,4
-     ! Interpolate potential from upper level, one each time
+     ! Interpolate A_ij*A^ij from upper level
      if(ilevel>levelmin) then
         aij_aij_sons(1:nvector,1:twotondim,1:27)=0.0D0
         do inbor=1,27 
