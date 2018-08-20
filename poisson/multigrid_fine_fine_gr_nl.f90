@@ -81,16 +81,16 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
          ! Calculate space-dependent coefficients
          if(igrp==5) then 
             gr_a = -omoverac2*(rho(icell_amr)-1.0d0)
-            gr_b = -oneovera4*gr_mat(icell_amr,4)
+            gr_b = -oneovera4*gr_mat(icell_amr,6)
          else
-            gr_a = omoverac2*(rho(icell_amr)-1.0D0+2.0D0*gr_mat(icell_amr,5)) + &
+            gr_a = omoverac2*(rho(icell_amr)-1.0D0+2.0D0*gr_mat(icell_amr,4)) + &
                    ((1.0D0+gr_pot(icell_amr,5))**6-1.0D0)*(5a2K2-Kdot) + &
-                   7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**6
+                   7over8a4*gr_mat(icell_amr,6)/(1.0D0+gr_pot(icell_amr,5))**6
             gr_a = gr_a/(1.0D0+gr_pot(icell_amr,5))*dx2
             gr_b = omoverac2*(rho(icell_amr) + &
-                   2.0D0*gr_mat(icell_amr,5))/(1.0D0+gr_pot(icell_amr,5)) + &
+                   2.0D0*gr_mat(icell_amr,4))/(1.0D0+gr_pot(icell_amr,5)) + &
                    5a2K2*(1.0D0+gr_pot(icell_amr,5))**5 + &
-                   7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**7
+                   7over8a4*gr_mat(icell_amr,6)/(1.0D0+gr_pot(icell_amr,5))**7
             gr_b = gr_b/(1.0D0+gr_pot(icell_amr,5))
          end if
 
@@ -218,15 +218,15 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
          ! Calculate space-dependent coefficients
          if(igrp==5) then 
             gr_a = -omoverac2*(rho(icell_amr)-1.0d0)
-            gr_b = -oneovera4*gr_mat(icell_amr,4)
+            gr_b = -oneovera4*gr_mat(icell_amr,6)
          else
-            gr_a = omoverac2*(rho(icell_amr)-1.0D0+2.0D0*gr_mat(icell_amr,5)) + &
+            gr_a = omoverac2*(rho(icell_amr)-1.0D0+2.0D0*gr_mat(icell_amr,4)) + &
                    (5a2K2-Kdot)*((1.0D0+gr_pot(icell_amr,5))**6-1.0D0) + &
-                   7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**6
+                   7over8a4*gr_mat(icell_amr,6)/(1.0D0+gr_pot(icell_amr,5))**6
             gr_a = gr_a/(1.0D0+gr_pot(icell_amr,5))*dx2
-            gr_b = omoverac2*(rho(icell_amr)+      2.0D0*gr_mat(icell_amr,5)) + &
+            gr_b = omoverac2*(rho(icell_amr)+      2.0D0*gr_mat(icell_amr,4)) + &
                    5a2K2*(1.0D0+gr_pot(icell_amr,5))**6 + &
-                   7over8a4*gr_mat(icell_amr,4)/(1.0D0+gr_pot(icell_amr,5))**6
+                   7over8a4*gr_mat(icell_amr,6)/(1.0D0+gr_pot(icell_amr,5))**6
             gr_b = gr_b/(1.0D0+gr_pot(icell_amr,5))**2
          end if
 
@@ -443,9 +443,9 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
          ! Calculate space-dependent coefficients
          if(igrp==6) then 
             gr_b = omoverac2*(rho(icell_f_amr)+&
-                   2.0D0*gr_mat(icell_f_amr,5))/(1.0D0+gr_pot(icell_f_amr,5)) + &
+                   2.0D0*gr_mat(icell_f_amr,4))/(1.0D0+gr_pot(icell_f_amr,5)) + &
                    5a2K2*(1.0D0+gr_pot(icell_f_amr,5))**5 + &   
-                   7over8a4*gr_mat(icell_f_amr,4)/(1.0D0+gr_pot(icell_f_amr,5))**7
+                   7over8a4*gr_mat(icell_f_amr,6)/(1.0D0+gr_pot(icell_f_amr,5))**7
             gr_b = gr_b/(1.0D0+gr_pot(icell_f_amr,5))
          end if
 
@@ -468,7 +468,7 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
 
          ! Restriction to compute the rho value in the coarse cell
          if(igrp==5) then
-            rho1=gr_mat(icell_f_amr,4)
+            rho1=gr_mat(icell_f_amr,6)
          else
             rho1=gr_b
          end if    

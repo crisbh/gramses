@@ -223,13 +223,13 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
   integer, dimension(1:nvector,            1:threetondim),save :: igridn
   integer, dimension(1:nvector,            1:threetondim),save :: nbors_cells
   integer, dimension(1:nvector,1:twotondim              ),save :: nbors_grids
- 
+  
   real(dp),dimension(1:nvector                          ),save :: dv
   real(dp),dimension(1:nvector                          ),save :: pot1,pot2
   real(dp),dimension(1:nvector,1:twotondim              ),save :: aij
-  real(dp),dimension(1:nvector,1:twotondim,1:threetondim),save :: pot_sons 
-  
-  logical :: do_interpol
+  real(dp),dimension(1:nvector,1:twotondim,1:threetondim),save :: aij_aij_sons 
+  logical, dimension(1:nvector                          ),save :: bdy
+
   integer :: sgn,igrp             
 
   ! Mesh size at level ilevel
@@ -293,42 +293,22 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
      end if
   end do
 
-  ! Loop over the four GR potentials V1, V2, V3 and U
-  do igrp=1,4
-     ! Interpolate potential from upper level, one each time
-     if(ilevel>levelmin) then
-        pot_sons(1:nvector,1:twotondim,1:27)=0.0D0
-        do inbor=1,27 
-           if(igrp<4) then
-              do_interpol = (inbor.eq. 5) .or.  &
-                          & (inbor.eq.11) .or.  &
-                          & (inbor.eq.13) .or.  &
-                          & (inbor.eq.15) .or.  &
-                          & (inbor.eq.17) .or.  &
-                          & (inbor.eq.23)
-           else
-              do_interpol = (inbor.ne. 1) .and. &
-                          & (inbor.ne. 3) .and. &
-                          & (inbor.ne. 7) .and. &
-                          & (inbor.ne. 9) .and. &
-                          & (inbor.ne.14) .and. &
-                          & (inbor.ne.19) .and. &
-                          & (inbor.ne.21) .and. &
-                          & (inbor.ne.25) .and. &
-                          & (inbor.ne.27)        
-           end if
-           ! Only do interpolation if do_interpol is true to save time
-           if(do_interpol) call interpol_gr_pot(nbors_cells(1,inbor),pot_sons(1,1,inbor),ngrid,ilevel,icount,igrp)
-        end do
-     end if
+  ! Interpolate A_ij*A^ij from upper level
+  if(ilevel>levelmin) then
+     aij_aij_sons(1:nvector,1:twotondim)=0.0D0
+     call interpol_gr_mat(icelln(1),aij_aij_sons(1,1),ngrid,ilevel,icount,6)
+  end if
 
-     ! Loop over fine cells
-     do ind=1,twotondim
-        aij(1:nvector,1:6)=0.0D0
-        iskip=ncoarse+(ind-1)*ngridmax
-        do i=1,ngrid
-           ind_cell(i)=iskip+ind_grid(i)
-        end do
+  ! Loop over fine cells
+  do ind=1,twotondim
+     bdy(1:nvector)=.false.
+     aij(1:nvector,1:6)=0.0D0
+     iskip=ncoarse+(ind-1)*ngridmax
+     do i=1,ngrid
+        ind_cell(i)=iskip+ind_grid(i)
+     end do
+     ! Loop over the four GR potentials V1, V2, V3 and U
+     do igrp=1,4
         ! Loop over 9 directions
         do idim=1,9
            ! Only do idim=4-9 for igrp=4
@@ -342,7 +322,7 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
               if(igridn(i,ig1)>0)then
                  pot1(i)=gr_pot(igridn(i,ig1)+ih1,igrp)
               else
-                 pot1(i)=pot_sons(i,id1,idim)
+                 bdy(i)=.true.      
               end if
            end do
            ! Node 2    
@@ -350,7 +330,7 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
               if(igridn(i,ig2)>0)then
                  pot2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)
               else
-                 pot2(i)=pot_sons(i,id2,idim)
+                 bdy(i)=.true.      
               end if
            end do
 
@@ -475,20 +455,18 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
               END SELECT
            end if
         end do ! End loop over idim
-        
-        ! Calculate A_ijA^ij for fine cells
-!        do i=1,ngrid
-!           gr_mat(ind_cell(i),4) =        aij(i,1)**2+aij(i,4)**2+aij(i,6)**2 + &
-!                                 & 2.0D0*(aij(i,2)**2+aij(i,3)**2+aij(i,5)**2)
-!        end do
+     end do    ! End loop over igrp
 
-     end do    ! End loop over fine cells
-  end do       ! End loop over igrp
+     ! Calculate A_ijA^ij for fine cells
+     do i=1,ngrid
+        if(.not.bdy(i)) then
+           gr_mat(ind_cell(i),6) =        aij(i,1)**2+aij(i,4)**2+aij(i,6)**2 + &
+                                 & 2.0D0*(aij(i,2)**2+aij(i,3)**2+aij(i,5)**2)
+        else
+           gr_mat(ind_cell(i),6) = aij_aij_sons(i,ind) 
+        end if
+     end do
 
-  ! Calculate A_ijA^ij for fine cells
-  do i=1,ngrid
-     gr_mat(ind_cell(i),4) =        aij(i,1)**2+aij(i,4)**2+aij(i,6)**2 + &
-                           & 2.0D0*(aij(i,2)**2+aij(i,3)**2+aij(i,5)**2)
-  end do
+  end do       ! End loop over cells
 
 end subroutine comp_fine_gr_aij_aij

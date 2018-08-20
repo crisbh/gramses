@@ -1,4 +1,4 @@
-subroutine interpol_source_gr_mat(ind_cell,phi_int,ncell,ilevel,icount,igrm)
+subroutine interpol_gr_mat(ind_cell,phi_int,ncell,ilevel,icount,igrm)
   use amr_commons
   use gr_commons, only:gr_mat
   implicit none
@@ -66,4 +66,4 @@ subroutine interpol_source_gr_mat(ind_cell,phi_int,ncell,ilevel,icount,igrm)
      end do
   end do
 
-end subroutine interpol_source_gr_mat
+end subroutine interpol_gr_mat

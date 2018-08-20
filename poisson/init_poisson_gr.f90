@@ -39,7 +39,7 @@ subroutine init_poisson_gr
   ! gr variables
   if(gr) then
      allocate(gr_pot(1:ncell,1:6))
-     allocate(gr_mat(1:ncell,1:5))
+     allocate(gr_mat(1:ncell,1:6))
      gr_pot=0.0d0
      gr_mat=0.0d0
   endif
@@ -167,5 +167,4 @@ subroutine init_poisson_gr
   end if
 
 end subroutine init_poisson_gr
-
 

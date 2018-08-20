@@ -176,8 +176,8 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
    ngrid=active(ilevel)%ngrid
    
    ! Set field index
-   igrp = igr
-   if(igr>6) igrp = igr-6
+   igrp=igr
+   if(igr>6) igrp=igr-6
 
    ! Loop over cells, with red/black ordering
    do ind0=1,twotondim/2      ! Only half of the cells for a red or black sweep
@@ -371,5 +371,3 @@ subroutine interpolate_and_correct_fine_gr_ln(ifinelevel,igr)
    end do
    ! End loop over grids
 end subroutine interpolate_and_correct_fine_gr_ln
-
-

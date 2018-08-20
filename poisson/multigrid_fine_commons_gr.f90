@@ -54,8 +54,8 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    if(numbtot(1,ilevel)==0)return
 
    ! Set GR field index
-   igrp = igr
-   if(igr>6) igrp = igr-6
+   igrp=igr
+   if(igr>6) igrp=igr-6
 
    gr_lin = .true.
    if(igrp==5.or.igrp==6) gr_lin = .false.
@@ -81,15 +81,14 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
   
    if(igr==4     ) then
       call source_fine_gr_scalar (ilevel,icount,igr)     ! Calculate div(V)
-      call make_virtual_fine_dp(gr_mat(1,4),ilevel)      ! Update boundaries
-      !call interpol_gr_div_v     (ilevel,icount,   )     ! Interpolate div(V) to the finer level
+      call make_virtual_fine_dp(gr_mat(1,5),ilevel)      ! Update boundaries
    else if(igr==5) then
       call source_fine_gr_aij_aij(ilevel,icount    )     ! Calculate A_ij*A^ij
-      call make_virtual_fine_dp(gr_mat(1,4),ilevel)      ! Update boundaries
+      call make_virtual_fine_dp(gr_mat(1,6),ilevel)      ! Update boundaries
    else if(igr==7) then
       do ivect=1,6
-         call comp_gr_mat5         (ilevel,icount,ivect) ! Calculate argument for vector sources
-         call make_virtual_fine_dp(gr_mat(1,5),ilevel)   ! Update boundaries
+         call comp_gr_mat4         (ilevel,icount,ivect) ! Calculate argument for div(A_ij) vector sources
+         call make_virtual_fine_dp(gr_mat(1,4),ilevel)   ! Update boundaries
          call source_fine_gr_vector(ilevel,icount,ivect) ! Calculate div(A_ij) vector sources
       end do
       call make_virtual_fine_dp(gr_mat(1,1),ilevel)      ! Update boundaries
@@ -97,7 +96,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       call make_virtual_fine_dp(gr_mat(1,3),ilevel)      ! Update boundaries
    else if(igr==10) then
       call source_fine_gr_scalar(ilevel,icount,igr)      ! Calculate div(B)
-      call make_virtual_fine_dp(gr_mat(1,5),ilevel)      ! Update boundaries
+      call make_virtual_fine_dp(gr_mat(1,4),ilevel)      ! Update boundaries
    end if
 
    if(gr_lin) then
