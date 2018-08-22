@@ -566,6 +566,7 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
   use amr_commons
   use hydro_commons
   use poisson_commons, ONLY:f, phi,phi_old
+  use gr_commons, ONLY: gr_pot, gr_mat
 #ifdef RT
   use rt_hydro_commons
 #endif
@@ -592,6 +593,7 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
   integer ,dimension(1:nvector,0:twondim),save::ind_fathers
   integer ,dimension(1:nvector,0:twondim),save::igridn
   integer ,dimension(1:nvector,1:twondim),save::indn
+  integer ::igrp,igrm
 
   real(dp)::dx,dx_loc,scale
   real(dp),dimension(1:3)::xc,skip_loc
@@ -871,6 +873,28 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
            end do
         end do
      end if
+     
+     !===============================
+     ! Interpolate GR variables
+     !===============================
+     if(gr)then
+        ! Scatter to children cells
+        do j=1,twotondim
+           iskip=ncoarse+(j-1)*ngridmax
+           do igrp=1,10
+              do i=1,nn
+                 gr_pot(iskip+ind_grid_son(i),igrp)=gr_pot(ind_fathers(i,0),igrp)
+              end do
+           end do
+           do igrm=1,4
+              do i=1,nn
+                 gr_mat(iskip+ind_grid_son(i),igrm)=gr_mat(ind_fathers(i,0),igrm)
+              end do
+           end do
+        end do
+     end if
+
+     
      !===========================
      ! Interpolate ATON variables
      !===========================
@@ -896,6 +920,7 @@ subroutine kill_grid(ind_cell,ilevel,nn,ibound,boundary_region)
   use pm_commons
   use hydro_commons
   use poisson_commons
+  use gr_commons
 #ifdef RT
   use rt_hydro_commons
   use rt_parameters
@@ -911,6 +936,7 @@ subroutine kill_grid(ind_cell,ilevel,nn,ibound,boundary_region)
   ! This routine destroy the grids at level ilevel
   ! contained in father cell ind_cell(:)
   !----------------------------------------------------
+  integer::igrm,igrp
   integer::igrid,iskip,icpu
   integer::i,j,idim,ind,ivar
   integer,dimension(1:nvector),save::ind_grid_son,ind_cell_son
@@ -1037,6 +1063,21 @@ subroutine kill_grid(ind_cell,ilevel,nn,ibound,boundary_region)
            end do
         end do
      end if
+     
+     ! GR variables
+     if(gr) then
+        do igrp=1,10
+           do i=1,nn
+              gr_pot(ind_cell_son(i),igrp)=0.0D0
+           end do
+        end do
+        do igrm=1,4 
+           do i=1,nn
+              gr_mat(ind_cell_son(i),igrm)=0.0D0
+           end do
+        end do
+     end if
+
      ! Hydro variables
      if(hydro)then
 #ifdef SOLVERmhd

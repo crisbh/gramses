@@ -1,5 +1,5 @@
 ! ------------------------------------------------------------------------
-! Multigrid Poisson solver for refined AMR levels
+! Multigrid GR solver for refined AMR levels
 ! ------------------------------------------------------------------------
 ! This file contains all generic fine multigrid routines, such as
 !   * multigrid iterations @ fine and coarse MG levels
@@ -8,7 +8,7 @@
 !   * helper functions
 !
 ! Used variables:
-!                          finest(AMR)level     coarse(MG)levels
+!                           finest(AMR)level     coarse(MG)levels
 !     -----------------------------------------------------------------
 !     GR field                gr_pot(:,igr )  active_mg(myid,ilevel)%u(:,1)
 !     Matter RHS for GR       gr_mat(:,igrm)  active_mg(myid,ilevel)%u(:,2)
@@ -40,7 +40,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    integer, parameter  :: MAXITER  = 50
    real(dp), parameter :: SAFE_FACTOR = 0.5
 
-   integer :: ifine, i, iter, icpu, igrp
+   integer :: ifine, i, iter, icpu
    logical :: allmasked, gr_lin
    real(kind=8) :: err, last_err
    real(kind=8) :: res_norm2, i_res_norm2
@@ -53,12 +53,8 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    if(gravity_type>0)return
    if(numbtot(1,ilevel)==0)return
 
-   ! Set GR field index
-   igrp=igr
-   if(igr>6) igrp=igr-6
-
    gr_lin = .true.
-   if(igrp==5.or.igrp==6) gr_lin = .false.
+   if(igr==5.or.igr==6) gr_lin = .false.
 
    if(verbose) print '(A,I2)','Entering fine multigrid GR at level ',ilevel
 
@@ -70,7 +66,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       call make_initial_gr(ilevel,icount,igr)            ! Interpolate GR field
    endif
 
-   call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)      ! Update boundaries
+   call make_virtual_fine_dp(gr_pot(:,igr),ilevel)       ! Update boundaries
    ! call make_boundary_gr(ilevel)                       ! Update physical boundaries
    
    if(igr==1     ) then
@@ -81,26 +77,26 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
   
    if(igr==4     ) then
       call source_fine_gr_scalar (ilevel,icount,igr)     ! Calculate div(V)
-      call make_virtual_fine_dp(gr_mat(1,5),ilevel)      ! Update boundaries
+      call make_virtual_fine_dp(f(:,2),ilevel)           ! Update boundaries
    else if(igr==5) then
       call source_fine_gr_aij_aij(ilevel,icount    )     ! Calculate A_ij*A^ij
-      call make_virtual_fine_dp(gr_mat(1,6),ilevel)      ! Update boundaries
+      call make_virtual_fine_dp(gr_mat(:,6),ilevel)      ! Update boundaries
    else if(igr==7) then
       do ivect=1,6
          call comp_gr_mat4         (ilevel,icount,ivect) ! Calculate argument for div(A_ij) vector sources
-         call make_virtual_fine_dp(gr_mat(1,4),ilevel)   ! Update boundaries
+         call make_virtual_fine_dp(gr_mat(:,4),ilevel)   ! Update boundaries
          call source_fine_gr_vector(ilevel,icount,ivect) ! Calculate div(A_ij) vector sources
       end do
-      call make_virtual_fine_dp(gr_mat(1,1),ilevel)      ! Update boundaries
-      call make_virtual_fine_dp(gr_mat(1,2),ilevel)      ! Update boundaries
-      call make_virtual_fine_dp(gr_mat(1,3),ilevel)      ! Update boundaries
+      call make_virtual_fine_dp(gr_mat(:,1),ilevel)      ! Update boundaries
+      call make_virtual_fine_dp(gr_mat(:,2),ilevel)      ! Update boundaries
+      call make_virtual_fine_dp(gr_mat(:,3),ilevel)      ! Update boundaries
    else if(igr==10) then
       call source_fine_gr_scalar(ilevel,icount,igr)      ! Calculate div(B)
-      call make_virtual_fine_dp(gr_mat(1,4),ilevel)      ! Update boundaries
+      call make_virtual_fine_dp(f(:,2),ilevel)           ! Update boundaries
    end if
 
    if(gr_lin) then
-      call make_fine_bc_rhs_gr_ln(ilevel,icount,igrp)    ! Fill BC-modified RHS for linear
+      call make_fine_bc_rhs_gr_ln(ilevel,icount,igr)     ! Fill BC-modified RHS for linear
    end if
 
    ! ---------------------------------------------------------------------
@@ -208,25 +204,25 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       ! Pre-smoothing
       if(gr_lin) then
          do i=1,ngs_fine_gr_ln_pre
-            call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igrp) ! Red step
-            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
-            call gauss_seidel_mg_fine_gr_ln(ilevel,.false.,igrp) ! Black step
-            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field 
+            call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igr) ! Red step
+            call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
+            call gauss_seidel_mg_fine_gr_ln(ilevel,.false.,igr) ! Black step
+            call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field 
          end do
       else
          do i=1,ngs_fine_gr_nl_pre
-            call gauss_seidel_mg_fine_gr_nl(ilevel,.true. ,igrp) ! Red step
-            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
-            call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igrp) ! Black step
-            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field 
+            call gauss_seidel_mg_fine_gr_nl(ilevel,.true. ,igr) ! Red step
+            call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
+            call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igr) ! Black step
+            call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field 
          end do
       end if
 
       ! Compute residual and restrict into upper level RHS
       if(gr_lin) then
-         call cmp_residual_mg_fine_gr_ln(ilevel,igrp)
+         call cmp_residual_mg_fine_gr_ln(ilevel,igr)
       else
-         call cmp_residual_mg_fine_gr_nl(ilevel,igrp)
+         call cmp_residual_mg_fine_gr_nl(ilevel,igr)
       end if   
       call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
       if(iter==1.and.gr_lin) then
@@ -276,27 +272,27 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
 
          ! Interpolate coarse solution and correct fine solution
          if(gr_lin) then
-            call interpolate_and_correct_fine_gr_ln(ilevel,igrp)
+            call interpolate_and_correct_fine_gr_ln(ilevel,igr)
          else
-            call interpolate_and_correct_fine_gr_nl(ilevel,igrp)
+            call interpolate_and_correct_fine_gr_nl(ilevel,igr)
          end if
-         call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)  ! Communicate GR field
+         call make_virtual_fine_dp(gr_pot(1,igr),ilevel)  ! Communicate GR field
       end if
 
       ! Post-smoothing
       if(gr_lin) then
          do i=1,ngs_fine_gr_ln_pst
-            call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igrp) ! Red step
-            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
-            call gauss_seidel_mg_fine_gr_ln(ilevel,.false.,igrp) ! Black step
-            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
+            call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igr) ! Red step
+            call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
+            call gauss_seidel_mg_fine_gr_ln(ilevel,.false.,igr) ! Black step
+            call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
          end do
       else
          do i=1,ngs_fine_gr_nl_pst
-            call gauss_seidel_mg_fine_gr_nl(ilevel,.true. ,igrp) ! Red step
-            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
-            call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igrp) ! Black step
-            call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)     ! Communicate GR field
+            call gauss_seidel_mg_fine_gr_nl(ilevel,.true. ,igr) ! Red step
+            call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
+            call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igr) ! Black step
+            call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
          end do
       end if    
 
@@ -388,15 +384,11 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
    integer, intent(in) :: ifinelevel, igr
    logical, intent(in) :: safe
 
-   integer :: i, icpu, icycle, ncycle, igrp
+   integer :: i, icpu, icycle, ncycle
    logical :: gr_lin
 
-   ! Set field index
-   igrp = igr
-   if(igr>6) igrp = igr-6
-
    gr_lin = .true.
-   if(igrp==5 .or. igrp==6) gr_lin = .false.
+   if(igr==5 .or. igr==6) gr_lin = .false.
 
    if(verbose) then
       if(ifinelevel>levelmin_mg) then
@@ -417,9 +409,9 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
          end do
       else
          do i=1,ngs_coarse_gr_nl_pst
-            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igrp) ! Red step
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igr)  ! Red step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
-            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igrp) ! Black step
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igr)  ! Black step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
          end do
       end if
@@ -444,9 +436,9 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
          end do
       else
          do i=1,ngs_coarse_gr_nl_pre
-            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igrp) ! Red step
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igr) ! Red step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
-            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igrp) ! Black step
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igr) ! Black step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
          end do
       end if
@@ -455,7 +447,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
       if(gr_lin) then
          call cmp_residual_mg_coarse      (ifinelevel)
       else
-         call cmp_residual_mg_coarse_gr_nl(ifinelevel,igrp)
+         call cmp_residual_mg_coarse_gr_nl(ifinelevel,igr)
       end if
       call make_virtual_mg_dp(3,ifinelevel)  ! Communicate residual
 
@@ -494,7 +486,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
       if(gr_lin) then
          call interpolate_and_correct_coarse      (ifinelevel)
       else
-         call interpolate_and_correct_coarse_gr_nl(ifinelevel,igrp)
+         call interpolate_and_correct_coarse_gr_nl(ifinelevel,igr)
       end if
       call make_virtual_mg_dp(1,ifinelevel)  ! Communicate solution
 
@@ -508,10 +500,10 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
          end do
       else
          do i=1,ngs_coarse_gr_nl_pst
-            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igrp) ! Red step
-            call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
-            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igrp) ! Black step
-            call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igr) ! Red step
+            call make_virtual_mg_dp(1,ifinelevel)                          ! Communicate
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igr) ! Black step
+            call make_virtual_mg_dp(1,ifinelevel)                          ! Communicate
          end do
       end if
       
@@ -561,7 +553,7 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
    real(dp), dimension(1:nvector,1:twotondim) :: phi_int
    integer,  dimension(1:nvector) :: ind_cell
 
-   integer  :: ngrid, igrp
+   integer  :: ngrid, igrm
    integer  :: ind, igrid_mg, idim, inbor
    integer  :: igrid_amr, icell_amr, iskip_amr
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
@@ -588,9 +580,10 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
 
    ngrid=active(ilevel)%ngrid
 
-   ! Set GR field index
-   igrp = igr
-   if(igr>6) igrp = igr-6
+   ! Pick correct gr_mat component where source term is stored 
+   igrm=0
+   if(igr<4           ) igrm=igr
+   if(igr<10.and.igr>6) igrm=igr-5
 
    ! Loop over cells
    do ind=1,twotondim
@@ -601,11 +594,9 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
          igrid_amr = active(ilevel)%igrid(igrid_mg)
          icell_amr = iskip_amr + igrid_amr
 
-         ! Init BC-modified RHS to rho - rho_tot :
-         if(igrp<5) then
-            f(icell_amr,2) = gr_mat(icell_amr,igrp) 
-         else
-            call clean_stop 
+         ! Init BC-modified RHS :
+         if(igrm>0) then
+            f(icell_amr,2) = gr_mat(icell_amr,igrm) 
          end if
 
          if(f(icell_amr,3)<=0.0) cycle ! Do not process masked cells
@@ -632,7 +623,7 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
 
                   ! Interpolate from upper level
                   ind_cell(1)=ifathercell_nbor_amr
-                  call interpol_gr_pot(ind_cell,phi_int,1,ilevel,icount,igrp)
+                  call interpol_gr_pot(ind_cell,phi_int,1,ilevel,icount,igr)
                   nb_phi = phi_int(1,jjj(idim,inbor,ind))
                else
                   ! Fetch neighbor cell id
@@ -640,11 +631,11 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
                   ! Check neighbor cell mask
                   nb_mask = f(icell_nbor_amr,3)
                   if(nb_mask>0) cycle ! Neighbor cell is active too: cycle
-                  nb_phi  = gr_pot(icell_nbor_amr,igrp)
+                  nb_phi  = gr_pot(icell_nbor_amr,igr)
                end if
                ! phi(#) interpolated with mask:
                w = nb_mask/(nb_mask-f(icell_amr,3)) ! Linear parameter
-               phi_b = ((1.0d0-w)*nb_phi + w*gr_pot(icell_amr,igrp))
+               phi_b = ((1.0d0-w)*nb_phi + w*gr_pot(icell_amr,igr))
 
                ! Increment correction for current cell
                f(icell_amr,2) = f(icell_amr,2) - 2.0d0*oneoverdx2*phi_b

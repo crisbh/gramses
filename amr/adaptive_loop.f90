@@ -3,6 +3,8 @@ subroutine adaptive_loop
   use hydro_commons
   use pm_commons
   use poisson_commons
+  use gr_commons
+  use gr_parameters
   use cooling_module
 #ifdef RT
   use rt_hydro_commons
@@ -17,6 +19,7 @@ subroutine adaptive_loop
   real(kind=8),save::tstart=0.0
 #endif
   integer::ilevel,idim,ivar
+  integer::igrp,igrm
 
 #ifndef WITHOUTMPI
   tt1=MPI_WTIME()
@@ -33,7 +36,7 @@ subroutine adaptive_loop
   if(rt.or.neq_chem) &
        & call rt_init_hydro          ! Initialize radiation variables
 #endif
-  if(poisson)call init_poisson       ! Initialize poisson variables
+  if(poisson)call init_poisson_gr    ! Initialize poisson and GR variables
 #ifdef ATON
   if(aton)call init_radiation        ! Initialize radiation variables
 #endif
@@ -122,6 +125,16 @@ subroutine adaptive_loop
                  call make_virtual_fine_dp(f(1,idim),ilevel)
               end do
            end if
+
+           if(gr)then
+              do igrp=1,10
+                 call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)
+              end do
+              do igrm=1,4
+                 call make_virtual_fine_dp(gr_mat(1,igrm),ilevel)
+              end do
+           end if
+
            if(ilevel<levelmin)call refine_fine(ilevel)
         end do
      endif
@@ -164,6 +177,15 @@ subroutine adaptive_loop
               call make_virtual_fine_dp(phi(1),ilevel)
               do idim=1,ndim
                  call make_virtual_fine_dp(f(1,idim),ilevel)
+              end do
+           end if
+
+           if(gr)then
+              do igrp=1,10
+                 call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)
+              end do
+              do igrm=1,4
+                 call make_virtual_fine_dp(gr_mat(1,igrm),ilevel)
               end do
            end if
         end do

@@ -17,7 +17,7 @@ recursive subroutine amr_step(ilevel,icount)
   integer::mpi_err
 #endif
   integer::ilevel,icount
-  integer::igrp
+  integer::igrp,igrm
   !-------------------------------------------------------------------!
   ! This routine is the adaptive-mesh/adaptive-time-step main driver. !
   ! Each routine is called using a specific order, don't change it,   !
@@ -78,6 +78,15 @@ recursive subroutine amr_step(ilevel,icount)
                     call make_virtual_fine_dp(f(1,idim),i)
                  end do
                  if(simple_boundary)call make_boundary_force(i)
+              end if
+             
+              if(gr)then
+                 do igrp=1,10
+                    call make_virtual_fine_dp(gr_pot(1,igrp),i)
+                 end do
+                 do igrm=1,4
+                    call make_virtual_fine_dp(gr_mat(1,igrm),i)
+                 end do
               end if
            end if
 

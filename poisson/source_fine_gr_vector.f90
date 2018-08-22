@@ -156,7 +156,7 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
   end do
 
   if(ilevel>levelmin.and.ivect==1) then
-     do igrm=1,3 
+     do igrm=2,4 
         call interpol_gr_mat(icelln(1),div_aij_sons(1,1),ngrid,ilevel,icount,igrm)
         do ind=1,twotondim
            iskip=ncoarse+(ind-1)*ngridmax
@@ -205,14 +205,14 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
         ! Gather A_ij
         do i=1,ngrid
            if(igridn(i,ig1)>0)then
-              if(ok_idim(idim,ivect)>0) phi1(i)=gr_mat(igridn(i,ig1)+ih1,4)
+              if(ok_idim(idim,ivect)>0) phi1(i)=f(igridn(i,ig1)+ih1,2)
            else
               bdy(i,1:8)=.true.      
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig2)>0)then
-              if(ok_idim(idim,ivect)>0) phi2(i)=gr_mat(igridn(i,ig2)+ih2,4)
+              if(ok_idim(idim,ivect)>0) phi2(i)=f(igridn(i,ig2)+ih2,2)
            else
               bdy(i,1:8)=.true.      
            end if
@@ -235,10 +235,10 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
      do i=1,ngrid
         if(.not.bdy(i,ind)) then
            if(i1.eq.i2) then
-              gr_mat(ind_cell(i),i2)=gr_mat(ind_cell(i),i2)*accl(ivect)+div_aij1(i,ind)
+              gr_mat(ind_cell(i),i2+1)=gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind)
            else
-              gr_mat(ind_cell(i),i2)=gr_mat(ind_cell(i),i2)*accl(ivect)+div_aij1(i,ind)
-              gr_mat(ind_cell(i),i1)=gr_mat(ind_cell(i),i1)            +div_aij2(i,ind)
+              gr_mat(ind_cell(i),i2+1)=gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind)
+              gr_mat(ind_cell(i),i1+1)=gr_mat(ind_cell(i),i1+1)            +div_aij2(i,ind)
            end if
         end if
      end do

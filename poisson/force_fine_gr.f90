@@ -217,10 +217,10 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   real(dp)::dx,a,b,scale,dx_loc
   integer,dimension(1:3,1:4,1:8)::ggg,hhh
 
-  integer ,dimension(1:nvector),save::ind_cell
-  integer ,dimension(1:nvector,1:ndim),save::ind_left,ind_right
-  integer ,dimension(1:nvector,0:twondim),save::igridn
-  real(dp),dimension(1:nvector),save::phi1,phi2,phi3,phi4
+  integer ,dimension(1:nvector                   ),save::ind_cell
+  integer ,dimension(1:nvector,            1:ndim),save::ind_left,ind_right
+  integer ,dimension(1:nvector,0:twondim         ),save::igridn
+  real(dp),dimension(1:nvector                   ),save::phi1,phi2,phi3,phi4
   real(dp),dimension(1:nvector,1:twotondim,1:ndim),save::phi_left,phi_right
   real(dp):: ctilde,ctilde2,ac2
 

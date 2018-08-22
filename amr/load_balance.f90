@@ -9,6 +9,7 @@ subroutine load_balance
 #ifndef WITHOUTMPI
   use hydro_commons, ONLY: uold, pstarold
   use poisson_commons, ONLY: phi, f
+  use gr_commons, ONLY: gr_pot, gr_mat
 #ifdef RT
   use rt_hydro_commons, ONLY: nrtvar, rtuold
 #endif
@@ -20,6 +21,7 @@ subroutine load_balance
   !------------------------------------------------
   ! This routine performs parallel load balancing.
   !------------------------------------------------
+  integer::igrm,igrp
   integer::igrid,ncache,ilevel,i,ind,info
   integer::idim,ivar,icpu,jcpu,kcpu
   integer::nxny,ix,iy,iz,iskip
@@ -106,6 +108,15 @@ subroutine load_balance
         call make_virtual_fine_dp(phi(1),ilevel)
         do idim=1,ndim
            call make_virtual_fine_dp(f(1,idim),ilevel)
+        end do
+     end if
+
+     if(gr) then
+        do igrp=1,10
+           call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)
+        end do
+        do igrm=1,4
+           call make_virtual_fine_dp(gr_mat(1,igrm),ilevel)
         end do
      end if
   end do
@@ -972,6 +983,7 @@ subroutine defrag
   use amr_commons
   use pm_commons
   use poisson_commons
+  use gr_commons
   use hydro_commons
 #ifdef RT
   use rt_hydro_commons
@@ -981,6 +993,7 @@ subroutine defrag
   integer::ncache,ngrid2,igridmax,i,igrid,ibound,ilevel
   integer::iskip1,iskip2,igrid1,igrid2,ind1,icell1,icell2
   integer::ind,idim,ivar,istart
+  integer::igrp,igrm
 
   if(verbose)write(*,*)'Defragmenting main memory...'
 
@@ -1472,6 +1485,75 @@ subroutine defrag
   end do
 
   end if
+
+  if(gr) then
+
+     do igrp=1,10
+        do ind=1,twotondim
+           iskip2=ncoarse+(ind-1)*ngridmax
+           ngrid2=0
+           do igrid=1,igridmax
+              hilbert_key(igrid)=0.0D0
+           end do
+           do ilevel=1,nlevelmax
+              do ibound=1,nboundary+ncpu
+                 if(ibound<=ncpu)then
+                    ncache=numbl(ibound,ilevel)
+                    istart=headl(ibound,ilevel)
+                 else
+                    ncache=numbb(ibound-ncpu,ilevel)
+                    istart=headb(ibound-ncpu,ilevel)
+                 end if
+                 if(ncache>0)then
+                    igrid=istart
+                    do i=1,ncache
+                       hilbert_key(ngrid2+i)=real(gr_pot(iskip2+igrid,igrp),kind=qdp)
+                       igrid=next(igrid)
+                    end do
+                    ngrid2=ngrid2+ncache
+                 end if
+              end do
+           end do
+           do igrid=1,igridmax
+              gr_pot(iskip2+igrid,igrp)=real(hilbert_key(igrid),kind=8)
+           end do
+        end do
+     end do
+ 
+     do igrm=1,4
+        do ind=1,twotondim
+           iskip2=ncoarse+(ind-1)*ngridmax
+           ngrid2=0
+           do igrid=1,igridmax
+              hilbert_key(igrid)=0.0D0
+           end do
+           do ilevel=1,nlevelmax
+              do ibound=1,nboundary+ncpu
+                 if(ibound<=ncpu)then
+                    ncache=numbl(ibound,ilevel)
+                    istart=headl(ibound,ilevel)
+                 else
+                    ncache=numbb(ibound-ncpu,ilevel)
+                    istart=headb(ibound-ncpu,ilevel)
+                 end if
+                 if(ncache>0)then
+                    igrid=istart
+                    do i=1,ncache
+                       hilbert_key(ngrid2+i)=real(gr_mat(iskip2+igrid,igrm),kind=qdp)
+                       igrid=next(igrid)
+                    end do
+                    ngrid2=ngrid2+ncache
+                 end if
+              end do
+           end do
+           do igrid=1,igridmax
+              gr_mat(iskip2+igrid,igrm)=real(hilbert_key(igrid),kind=8)
+           end do
+        end do
+     end do
+
+  end if
+
 
   ngrid2=0
   do ilevel=1,nlevelmax

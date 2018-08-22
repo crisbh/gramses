@@ -407,7 +407,7 @@ subroutine gr_mat4_components(ind_grid,ngrid,ilevel,icount,ivect)
      
      do i=1,ngrid
         if(.not.bdy(i))then
-           gr_mat(ind_cell(i),4)=aij(i)*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)**6          
+           f(ind_cell(i),2)=aij(i)*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)**6          
         end if
      end do
 

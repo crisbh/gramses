@@ -9,7 +9,6 @@ subroutine source_fine_gr_scalar(ilevel,icount,igr)
   integer::info
 #endif
   integer::ilevel,icount,igr
-  integer::igrm
   !------------------------------------------------------------------------------------------
   ! This subroutine calculates the source terms div(V) or div(B) for some of the GR equations.
   !------------------------------------------------------------------------------------------
@@ -18,15 +17,6 @@ subroutine source_fine_gr_scalar(ilevel,icount,igr)
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
-
-  if(igr==4)then
-     igrm=5
-  else if(igr==10) then
-     igrm=4        
-  else      
-     write(*,*) 'igr out of range in source_fine_gr_scalar. Please check.'     
-     call clean_stop
-  end if
 
   ! Loop over myid grids by vector sweeps
   ncache=active(ilevel)%ngrid
@@ -43,7 +33,7 @@ subroutine source_fine_gr_scalar(ilevel,icount,igr)
   ! Update boundaries
   ! call make_virtual_fine_dp(gr_mat(1,igrm),ilevel)
 
-111 format('   Entering source_fine_gr for level ',I2)
+111 format('   Entering source_fine_gr_scalar for level ',I2)
 
 end subroutine source_fine_gr_scalar
 !#########################################################
@@ -60,13 +50,13 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
   implicit none
 
   integer::ngrid,ilevel,icount,igr
-  integer::igrm,igrp
+  integer::igrp
   integer,dimension(1:nvector)::ind_grid
-  !-------------------------------------------------
-  ! This routine compute the 3-force for all cells
+  !-----------------------------------------------------
+  ! This routine computes div(V) or div(B) for all cells
   ! in grids ind_grid(:) at level ilevel, using a
-  ! 5 nodes kernel (5 points FDA).
-  !-------------------------------------------------
+  ! 3 nodes kernel (3 points FDA).
+  !-----------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc
   integer::id1,id2
   integer::ig1,ig2
@@ -74,14 +64,12 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
   real(dp)::dx,scale,dx_loc
   integer,dimension(1:3,1:2,1:8)::ggg,hhh
 
-  integer ,dimension(1:nvector            ),save :: icelln
-  integer ,dimension(1:nvector            ),save :: ind_cell
-  integer ,dimension(1:nvector,0:twondim  ),save :: igridn
-  real(dp),dimension(1:nvector            ),save :: phi1,phi2
-
-  logical ,dimension(1:nvector            ),save :: bdy
-  real(dp),dimension(1:nvector            ),save :: dvb
-  real(dp),dimension(1:nvector,1:twotondim),save :: div_vb_sons
+  integer ,dimension(1:nvector                   ),save :: ind_cell
+  integer ,dimension(1:nvector,0:twondim         ),save :: igridn
+  integer ,dimension(1:nvector,            1:ndim),save :: ind_left,ind_right
+  real(dp),dimension(1:nvector,1:twotondim       ),save :: phi_left,phi_right
+  real(dp),dimension(1:nvector                   ),save :: phi1,phi2
+  real(dp),dimension(1:nvector                   ),save :: dvb
 
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
@@ -102,34 +90,26 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
   ggg(3,1,1:8)=(/5,5,5,5,0,0,0,0/); hhh(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
   ggg(3,2,1:8)=(/0,0,0,0,6,6,6,6/); hhh(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
 
-  ! Gather neighboring grids
-  do i=1,ngrid
-     igridn(i,0)=ind_grid(i)
-  end do
- 
-  ! Gather father cells of central grids
-  do i=1,ngrid
-     icelln(i)=father(ind_grid(i))
-  end do
-  
-  if(igr==4) then
-     igrm=5
-  else if(igr==10) then
-     igrm=4
-  else      
+  if(igr.ne.4.and.igr.ne.10) then
      write(*,*) 'igr out of range in source_from_gr_pot_scalar. Please check.'     
      call clean_stop
   end if
 
-  ! Interpolate div(V) or div(B) from coarse level.
-  if(ilevel>levelmin) then
-     div_vb_sons(1:nvector,1:twotondim)=0.0D0
-     call interpol_gr_mat(icelln(1),div_vb_sons(1,1),ngrid,ilevel,icount,igrm)
-  end if
+  ! Gather neighboring grids
+  do i=1,ngrid
+     igridn(i,0)=ind_grid(i)
+  end do
+  do idim=1,ndim
+     do i=1,ngrid
+        ind_left (i,idim)=nbor(ind_grid(i),2*idim-1)
+        ind_right(i,idim)=nbor(ind_grid(i),2*idim  )
+        igridn(i,2*idim-1)=son(ind_left (i,idim))
+        igridn(i,2*idim  )=son(ind_right(i,idim))
+     end do
+  end do
 
   ! Loop over cells
   do ind=1,twotondim
-     bdy(1:nvector)=.false.
      dvb(1:nvector)=0.0D0  
      phi1(1:nvector)=0.0D0  
      phi2(1:nvector)=0.0D0  
@@ -138,11 +118,17 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
         ind_cell(i)=iskip+ind_grid(i)
      end do
 
-     ! Loop over dimensions
+     ! Loop over dimensions/igrp
      do idim=1,ndim
-
-        ! Set correct component to calculate div(V,B)
-        igrp=idim
+        ! Pick correct component to calculate derivative along a given direction
+        if(igr==4)  igrp=idim
+        if(igr==10) igrp=idim+6 
+        
+        ! Interpolate potential from upper level
+        if (ilevel>levelmin)then
+           call interpol_gr_pot(ind_left (1,idim),phi_left (1,1),ngrid,ilevel,icount,igrp)
+           call interpol_gr_pot(ind_right(1,idim),phi_right(1,1),ngrid,ilevel,icount,igrp)
+        end if
 
         ! Loop over nodes
         id1=hhh(idim,1,ind); ig1=ggg(idim,1,ind); ih1=ncoarse+(id1-1)*ngridmax
@@ -153,30 +139,27 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
            if(igridn(i,ig1)>0)then
               phi1(i)=gr_pot(igridn(i,ig1)+ih1,igrp)
            else
-              bdy(i)=.true.      
+              phi1(i)=phi_left (i,id1)
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig2)>0)then
               phi2(i)=gr_pot(igridn(i,ig2)+ih2,igrp)
            else
-              bdy(i)=.true.      
+              phi2(i)=phi_right(i,id2)
            end if
         end do
 
-        ! Calculate the div( ) contributions from the GR potential 
+        ! Accummulate the derivative along a given direction for div( )
         do i=1,ngrid
            dvb(i)=dvb(i)+(phi2(i)-phi1(i))/(2.0D0*dx)
         end do
 
      end do ! End loop over idim
-     
+    
+     ! Store div(V) or div(B) directly into f(2) 
      do i=1,ngrid
-        if(bdy(i)) then
-           gr_mat(ind_cell(i),igrm)=div_vb_sons(i,ind)
-        else
-           gr_mat(ind_cell(i),igrm)=dvb(i)
-        end if
+        f(ind_cell(i),2)=dvb(i)
      end do
 
   end do    ! End loop over cells

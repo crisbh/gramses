@@ -11,9 +11,10 @@ subroutine source_fine_gr_aij_aij(ilevel,icount)
   integer::info
 #endif
   integer::ilevel,icount
-  !----------------------------------------------------------
-  ! This subroutine calls aij_gr to calculate A_ijA^ij
-  !----------------------------------------------------------
+  !------------------------------------------------------------------
+  ! This subroutine calls comp_fine_gr_aij_aij to calculate A_ijA^ij.
+  ! The result is stored in gr_mat(1).
+  !------------------------------------------------------------------
   integer::igrid,ngrid,ncache,i,ind,iskip,ix,iy,iz
   integer::nx_loc,idim
   real(dp)::dx,dx_loc,scale,fact,fourpi
@@ -186,7 +187,7 @@ subroutine source_fine_gr_aij_aij(ilevel,icount)
      epot_tot=epot_tot+epot_loc
      rho_max(ilevel)=rho_loc
 
-111 format('   Entering aij_fine_gr for level ',I2)
+111 format('   Entering source_fine_gr_aij_aij for level ',I2)
 
 end subroutine source_fine_gr_aij_aij
 !#########################################################
@@ -296,7 +297,7 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
   ! Interpolate A_ij*A^ij from upper level
   if(ilevel>levelmin) then
      aij_aij_sons(1:nvector,1:twotondim)=0.0D0
-     call interpol_gr_mat(icelln(1),aij_aij_sons(1,1),ngrid,ilevel,icount,6)
+     call interpol_gr_mat(icelln(1),aij_aij_sons(1,1),ngrid,ilevel,icount,1)
   end if
 
   ! Loop over fine cells
@@ -457,13 +458,13 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
         end do ! End loop over idim
      end do    ! End loop over igrp
 
-     ! Calculate A_ijA^ij for fine cells
+     ! Calculate A_ijA^ij
      do i=1,ngrid
         if(.not.bdy(i)) then
-           gr_mat(ind_cell(i),6) =        aij(i,1)**2+aij(i,4)**2+aij(i,6)**2 + &
+           gr_mat(ind_cell(i),1) =        aij(i,1)**2+aij(i,4)**2+aij(i,6)**2 + &
                                  & 2.0D0*(aij(i,2)**2+aij(i,3)**2+aij(i,5)**2)
         else
-           gr_mat(ind_cell(i),6) = aij_aij_sons(i,ind) 
+           gr_mat(ind_cell(i),1) = aij_aij_sons(i,ind) 
         end if
      end do
 
