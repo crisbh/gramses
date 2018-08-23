@@ -303,6 +303,7 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
   ! Loop over fine cells
   do ind=1,twotondim
      bdy(1:nvector)=.false.
+     dv (1:nvector)=0.0D0
      aij(1:nvector,1:6)=0.0D0
      iskip=ncoarse+(ind-1)*ngridmax
      do i=1,ngrid

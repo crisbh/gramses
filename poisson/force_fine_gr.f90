@@ -211,25 +211,34 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   ! 5 nodes kernel (5 points FDA).
   !-------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc
-  integer::id1,id2,id3,id4
-  integer::ig1,ig2,ig3,ig4
-  integer::ih1,ih2,ih3,ih4
-  real(dp)::dx,a,b,scale,dx_loc
+  integer::id1,id2,id3,id4,id5,id6
+  integer::ig1,ig2,ig3,ig4,ig5,ig6
+  integer::ih1,ih2,ih3,ih4,ih5,ih6
+  integer::ix,iy,iz,inbor
+  real(dp)::dx,a,b,scale,dx_loc,dx2
   integer,dimension(1:3,1:4,1:8)::ggg,hhh
+  integer,dimension(1:3,1:2,1:8)::kkk,lll
+  integer,dimension(1:3,1:4,1:8)::iii,jjj
 
-  integer ,dimension(1:nvector                   ),save::ind_cell
-  integer ,dimension(1:nvector,            1:ndim),save::ind_left,ind_right
-  integer ,dimension(1:nvector,0:twondim         ),save::igridn
-  real(dp),dimension(1:nvector                   ),save::phi1,phi2,phi3,phi4
-  real(dp),dimension(1:nvector,1:twotondim,1:ndim),save::phi_left,phi_right
+  integer ,dimension(1:nvector                    ),save::ind_cell
+  integer ,dimension(1:nvector,             1:ndim),save::ind_left,ind_right
+  integer ,dimension(1:nvector,0:twondim          ),save::igridn
+  integer ,dimension(1:nvector,1:threetondim      ),save::igridn2
+  real(dp),dimension(1:nvector                    ),save::phi1,phi2,phi3,phi4
+  real(dp),dimension(1:nvector,1:twotondim, 1:ndim),save::phi_left,phi_right
+  real(dp),dimension(1:nvector,1:twotondim, 1:27  ),save::pot_sons
+  integer, dimension(1:nvector,1:threetondim      ),save::nbors_cells
+  integer, dimension(1:nvector,1:twotondim        ),save::nbors_grids
+
   real(dp):: ctilde,ctilde2,ac2
 
-  ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
+  ctilde   = sol/boxlen_ini/100000.0D0          ! Speed of light in code units
   ctilde2  = ctilde**2                          ! Speed of light squared
   ac2      = aexp**2*ctilde2                    ! (ac)^2 factor
 
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
+  dx2=dx**2
 
   ! Rescaling factor
   nx_loc=icoarse_max-icoarse_min+1
@@ -336,5 +345,167 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
 
      end do ! End loop over idim
   end do    ! End loop over cells
+
+  !-------------------------------------------------------------------------
+  ! This block is used to calculate the force contribution \partial_ibeta^j.
+  ! Recall that beta^j = B^j + \partial^j(b)
+  !-------------------------------------------------------------------------
+
+  if(igrp<7.or.igrp=10) return
+
+  ! 27 neighbors in the 3-point kernel FDA.
+  !   |direction
+  !   | |node
+  !   | | |cell
+  !   v v v
+  ! Parallel directions
+  kkk(1,1,1:8)=(/13,14,13,14,13,14,13,14/); lll(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
+  kkk(1,2,1:8)=(/14,15,14,15,14,15,14,15/); lll(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
+  kkk(2,1,1:8)=(/11,11,14,14,11,11,14,14/); lll(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
+  kkk(2,2,1:8)=(/14,14,17,17,14,14,17,17/); lll(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
+  kkk(3,1,1:8)=(/ 5, 5, 5, 5,14,14,14,14/); lll(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
+  kkk(3,2,1:8)=(/14,14,14,14,23,23,23,23/); lll(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
+  ! diagonal directions
+  ! xy plane
+  iii(1,1,1:8)=(/10,11,13,14,10,11,13,14/); jjj(1,1,1:8)=(/4,3,2,1,8,7,6,5/)
+  iii(1,2,1:8)=(/11,12,14,15,11,12,14,15/); jjj(1,2,1:8)=(/4,3,2,1,8,7,6,5/)
+  iii(1,3,1:8)=(/13,14,16,17,13,14,16,17/); jjj(1,3,1:8)=(/4,3,2,1,8,7,6,5/)
+  iii(1,4,1:8)=(/14,15,17,18,14,15,17,18/); jjj(1,4,1:8)=(/4,3,2,1,8,7,6,5/)
+  ! zx plane
+  iii(2,1,1:8)=(/ 4, 5, 4, 5,13,14,13,14/); jjj(2,1,1:8)=(/6,5,8,7,2,1,4,3/)
+  iii(2,2,1:8)=(/ 5, 6, 5, 6,14,15,14,15/); jjj(2,2,1:8)=(/6,5,8,7,2,1,4,3/)
+  iii(2,3,1:8)=(/13,14,13,14,22,23,22,23/); jjj(2,3,1:8)=(/6,5,8,7,2,1,4,3/)
+  iii(2,4,1:8)=(/14,15,14,15,23,24,23,24/); jjj(2,4,1:8)=(/6,5,8,7,2,1,4,3/)
+  ! zy plane
+  iii(3,1,1:8)=(/ 2, 2, 5, 5,11,11,14,14/); jjj(3,1,1:8)=(/7,8,5,6,3,4,1,2/)
+  iii(3,2,1:8)=(/ 5, 5, 8, 8,14,14,17,17/); jjj(3,2,1:8)=(/7,8,5,6,3,4,1,2/)
+  iii(3,3,1:8)=(/11,11,14,14,20,20,23,23/); jjj(3,3,1:8)=(/7,8,5,6,3,4,1,2/)
+  iii(3,4,1:8)=(/14,14,17,17,23,23,26,26/); jjj(3,4,1:8)=(/7,8,5,6,3,4,1,2/)
+
+  ! Gather father cells of the central grids
+  do i=1,ngrid
+     icelln(i)=father(ind_grid(i))
+  end do
+ 
+  ! Gather neighbouring father cells and store in nbors_cells 
+  call get3cubefather(icelln,nbors_cells,nbors_grids,ngrid,ilevel)
+  
+  ! Gather neighboring grids
+  do inbor=1,27
+     do i=1,ngrid
+        igridn2(i,inbor)=son(nbors_cells(i,inbor))
+     end do
+  end do
+
+  ! Sanity check
+  do i=1,ngrid
+     if(igridn2(i,14).ne.ind_grid(i)) then
+        write(*,*) 'Neighbouring grids incorrectly labelled in force_fine_gr'
+        call clean_stop
+     end if
+  end do
+
+  ! Interpolate b GR potential from upper level
+  if(ilevel>levelmin) then
+     do inbor=1,27
+        if(inbor==14) cycle
+  
+        iz=(inbor          -1)/9
+        iy=(inbor-9*iz     -1)/3
+        ix=(inbor-9*iz-3*iy-1)
+
+        if(ix.ne.1.and.iy.ne.1.and.iz.ne.1) cycle
+
+        if(igrp==7.and.ix==1.and.iy.mod.2==0.and.iz.mod.2==0) cycle
+        if(igrp==8.and.iy==1.and.iz.mod.2==0.and.ix.mod.2==0) cycle
+        if(igrp==9.and.iz==1.and.ix.mod.2==0.and.iy.mod.2==0) cycle
+
+        call interpol_gr_pot(nbor_cells(1,inbor),pot_sons(1,1,inbor),ngrid,ilevel,icount,10)
+     end do
+  end if
+
+  ! Loop over fine cells
+  do ind=1,twotondim
+     iskip=ncoarse+(ind-1)*ngridmax
+     do i=1,ngrid
+        ind_cell(i)=iskip+ind_grid(i)
+     end do
+    
+     do idim=1,ndim
+        ! Loop over nodes
+        ! For direct neighbours
+        id5=lll(idim,1,ind); ig5=kkk(idim,1,ind); ih5=ncoarse+(id5-1)*ngridmax
+        id6=lll(idim,2,ind); ig6=kkk(idim,2,ind); ih6=ncoarse+(id6-1)*ngridmax
+        ! For diagonal neighbours
+        id1=jjj(idim,1,ind); ig1=iii(idim,1,ind); ih1=ncoarse+(id1-1)*ngridmax
+        id2=jjj(idim,2,ind); ig2=iii(idim,2,ind); ih2=ncoarse+(id2-1)*ngridmax
+        id3=jjj(idim,3,ind); ig3=iii(idim,3,ind); ih3=ncoarse+(id3-1)*ngridmax
+        id4=jjj(idim,4,ind); ig4=iii(idim,4,ind); ih4=ncoarse+(id4-1)*ngridmax
+
+        ! Gather GR potential
+        if(idim==igrp-6) then                                                   ! case of 2 direct neighbours
+           ! Node 1
+           do i=1,ngrid
+              if(igridn2(i,ig5)>0) then
+                 phi1(i)=gr_pot(igridn2(i,ig5)+ih5,10)
+              else
+                 phi1(i)=pot_sons(i,id5,ig5) 
+              end if
+           end do
+           ! Node 2    
+           do i=1,ngrid
+              if(igridn2(i,ig6)>0) then
+                 phi2(i)=gr_pot(igridn2(i,ig6)+ih6,10)
+              else
+                 phi2(i)=pot_sons(i,id6,ig6) 
+              end if
+           end do
+        else                                                                    ! case of 4 diagonal neighbours
+           ! Node 1
+           do i=1,ngrid
+              if(igridn2(i,ig1)>0) then
+                 phi1(i)=gr_pot(igridn2(i,ig1)+ih1,10)
+              else
+                 phi1(i)=pot_sons(i,id1,ig1) 
+              end if
+           end do
+           ! Node 2    
+           do i=1,ngrid
+              if(igridn2(i,ig2)>0) then
+                 phi2(i)=gr_pot(igridn2(i,ig2)+ih2,10)
+              else
+                 phi2(i)=pot_sons(i,id2,ig2) 
+              end if
+           end do
+           ! Node 3
+           do i=1,ngrid
+              if(igridn2(i,ig3)>0) then
+                 phi3(i)=gr_pot(igridn2(i,ig3)+ih3,10)
+              else
+                 phi3(i)=pot_sons(i,id3,ig3) 
+              end if
+           end do
+           ! Node 4    
+           do i=1,ngrid
+              if(igridn2(i,ig4)>0) then
+                 phi4(i)=gr_pot(igridn2(i,ig4)+ih4,10)
+              else
+                 phi4(i)=pot_sons(i,id4,ig4) 
+              end if
+           end do
+        end if
+
+        if(idim==igrp-6) then
+           do i=1,ngrid
+              f(ind_cell(i),idim)=f(ind_cell(i),idim)-(phi1(i)+phi2(i)-2.0D0*gr_pot(ind_cell(i),10))/dx2
+           end do
+        else
+           do i=1,ngrid
+              f(ind_cell(i),idim)=f(ind_cell(i),idim)-(phi1(i)-phi2(i)-phi3(i)+phi4(i))/(4.0D0*dx2)
+           end do
+        end if
+
+     end do ! End loop over idim
+  end do    ! End loop over fine cells 
 
 end subroutine gradient_gr_pot

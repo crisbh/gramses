@@ -442,9 +442,9 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
 #endif
 
   ! Calculate Lorentz factor from the 4-velocity normalisation
-  W(1:np)     =0.0D0
-  gr_psi(1:np)=0.0D0
   if(igrp==5.or.igrp==6)then
+     W(1:np)     =0.0D0
+     gr_psi(1:np)=0.0D0
      do ind=1,twotondim
         do j=1,np
            gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
@@ -459,19 +459,23 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      end do
   end if
 
-  ! Calculate coefficients for force contributions coming from gr_pot
-  do j=1,np
-     if(igrp<4)then
-        coeff(j) = - vp(ind_part(j),igrp)/ctilde
-     else if(igrp==5)then
-        coeff(j) = - 2.0D0*((W(j))**2-ctilde2)/(W(j)*ctilde)
-     else if(igrp==6)then
-        coeff(j) =   W(j)/ctilde
-     else
-        print'(A)','igrp out of range in force coeff computation. Please check.'
-        call clean_stop
-     end if
-  end do
+  ! Calculate coefficients for force contributions corresponding to the different gr_pot
+  if(igrp==5) then
+     do j=1,np
+        coeff(j)=-2.0D0*((W(j))**2-ctilde2)/W(j)/ctilde
+     end do
+  else if(igrp==6) then
+     do j=1,np
+        coeff(j)= W(j)/ctilde
+     end do
+  else if(igrp>=7) then
+     do j=1,np
+        coeff(j)=-vp(ind_part(j),igrp-6)/ctilde
+     end do
+  else
+     print'(A)','igrp out of range in force coeff computation in move. Please check.'
+     call clean_stop
+  end if
 
   ! Gather 3-force
   ff(1:np,1:ndim)=0.0D0
@@ -498,6 +502,24 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
 #endif
      end do
   endif
+
+  ! Store forces in new fp_gr array and return if igrp<9
+  if(igrp==5) then fp_gr(1:np,1:ndim)=0.0D0
+  do idim=1,ndim
+     do j=1,np
+        fp_gr(ind_part(j),idim)=fp_gr(ind_part(j),idim) + ff(j,idim)
+     end do
+  end do
+
+  if(igrp<9) then 
+     return
+  else
+     do idim=1,ndim
+        do j=1,np
+           ff(j,idim)=fp_gr(ind_part(j),idim)
+        end do
+     end do
+  end if
 
   ! Update 3-velocity
   do idim=1,ndim
@@ -532,19 +554,37 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      end do
   end do
  
-  ! Update position only after velocity has been fully updated by this routine 
-  if(igrp==1)then
-     gr_alp(1:np)       =0.0D0
+  ! Update position ONLY after velocity has been fully updated by this routine 
+  if(igrp==9) then
+     W(1:np)      =0.0D0
+     gr_psi(1:np) =0.0D0
+     gr_alp(1:np) =0.0D0
      gr_bet(1:np,1:ndim)=0.0D0
-     ! Compute contributions to the 3-velocity
+     
+     ! HERE WE HAVE -grad(b) STORED IN f(1,2,3)
+     call force_fine_gr(ilevel,icount,10)
+
+     ! Gather contributions to the 3-velocity
      do ind=1,twotondim
         do j=1,np
+           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
            gr_alp(j)=gr_alp(j) + gr_pot(indp(j,ind),6)*vol(j,ind)
            do idim=1,ndim
-              gr_bet(j,idim)=gr_bet(j,idim)+gr_pot(indp(j,ind),idim)*vol(j,ind)
+              f(indp(j,ind),idim)=-f(indp(j,ind),idim) + gr_pot(indp(j,ind),idim+6)
+              gr_bet(j     ,idim)= gr_bet(j     ,idim) + f     (indp(j,ind),idim  )*vol(j,ind)
            end do
         end do
      end do
+
+     ! Calculate Lorentz factor again with updated velocities 
+     do j=1,np
+        do idim=1,ndim
+           W(j)=W(j) + vp(ind_part(j),idim)**2
+        end do
+        W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
+        W(j)=dsqrt(W(j))
+     end do
+     
      do idim=1,ndim
         if(static)then
            do j=1,np
@@ -552,7 +592,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
            end do
         else
            do j=1,np
-              new_xp(j,idim)=xp(ind_part(j),idim) + (ctilde/W(j)*(1.0D0+gr_alp(j)/ac2)/(1.0D0+gr_psi(j)/ac2)**4*new_vp(j,idim) - gr_bet(j,idim)/ctilde)*dtnew(ilevel)
+              new_xp(j,idim)=xp(ind_part(j),idim) + (ctilde/W(j)*(1.0D0+gr_alp(j)/ac2)/(1.0D0+gr_psi(j)/ac2)**4*new_vp(j,idim)-gr_bet(j,idim)/ctilde)*dtnew(ilevel)
            end do
         endif
      end do
@@ -562,4 +602,5 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         end do
      end do
   end if
+
 end subroutine move1_gr

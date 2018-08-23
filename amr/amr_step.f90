@@ -304,8 +304,11 @@ recursive subroutine amr_step(ilevel,icount)
         do igr=1,10
            call multigrid_fine_gr(ilevel,icount,igr)
         end do
-        do igrp=1,6     
-           if(igrp==4) cycle
+        
+!       do igrp=1,6     
+!          if(igrp==4) cycle
+       
+        do igrp=9,5,-1     
            ! Compute force contribution from gr_pot
            call force_fine_gr(ilevel,icount,igrp)
 
@@ -505,16 +508,15 @@ recursive subroutine amr_step(ilevel,icount)
      end if
   else
      ! Update positions using reverse order of gr fields
-     do igrp=1,6     
-        if(igrp==3) cycle
+     do igrp=5,9     
         ! Compute force contribution from gr_pot
-        call force_fine_gr(ilevel,icount,7-igrp)
+        call force_fine_gr(ilevel,icount,igrp)
         if(pic)then
                                   call timer('particles','start')
            if(static_dm.or.static_stars)then
-              call move_fine_static(ilevel)        ! Only remaining particles
+              call move_fine_static(ilevel)      ! Only remaining particles
            else
-              call move_fine_gr(ilevel,7-igrp)     ! Only remaining particles
+              call move_fine_gr(ilevel,igrp)     ! Only remaining particles
            end if
         end if
      end do

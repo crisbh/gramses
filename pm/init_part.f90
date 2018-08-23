@@ -61,6 +61,7 @@ subroutine init_part
   ! Allocate particle variables
   allocate(xp    (npartmax,ndim))
   allocate(vp    (npartmax,ndim))
+  if(gr) allocate(fp_gr(npartmax,ndim))
   allocate(mp    (npartmax))
   allocate(nextp (npartmax))
   allocate(prevp (npartmax))
@@ -70,6 +71,7 @@ subroutine init_part
   allocate(ptcl_phi(npartmax))
 #endif
   xp=0.0; vp=0.0; mp=0.0; levelp=0; idp=0
+  if(gr) fp_gr=0.0
   if(star.or.sink)then
      allocate(tp(npartmax))
      tp=0.0

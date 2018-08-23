@@ -80,16 +80,16 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       call make_virtual_fine_dp(f(:,2),ilevel)           ! Update boundaries
    else if(igr==5) then
       call source_fine_gr_aij_aij(ilevel,icount    )     ! Calculate A_ij*A^ij
-      call make_virtual_fine_dp(gr_mat(:,6),ilevel)      ! Update boundaries
+      call make_virtual_fine_dp(gr_mat(:,1),ilevel)      ! Update boundaries
    else if(igr==7) then
       do ivect=1,6
          call comp_gr_mat4         (ilevel,icount,ivect) ! Calculate argument for div(A_ij) vector sources
-         call make_virtual_fine_dp(gr_mat(:,4),ilevel)   ! Update boundaries
+         call make_virtual_fine_dp(f(:,2),ilevel)        ! Update boundaries
          call source_fine_gr_vector(ilevel,icount,ivect) ! Calculate div(A_ij) vector sources
       end do
-      call make_virtual_fine_dp(gr_mat(:,1),ilevel)      ! Update boundaries
       call make_virtual_fine_dp(gr_mat(:,2),ilevel)      ! Update boundaries
       call make_virtual_fine_dp(gr_mat(:,3),ilevel)      ! Update boundaries
+      call make_virtual_fine_dp(gr_mat(:,4),ilevel)      ! Update boundaries
    else if(igr==10) then
       call source_fine_gr_scalar(ilevel,icount,igr)      ! Calculate div(B)
       call make_virtual_fine_dp(f(:,2),ilevel)           ! Update boundaries
@@ -436,9 +436,9 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
          end do
       else
          do i=1,ngs_coarse_gr_nl_pre
-            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igr) ! Red step
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igr)  ! Red step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
-            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igr) ! Black step
+            call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igr)  ! Black step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
          end do
       end if

@@ -480,9 +480,9 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
 #endif
 
   ! Calculate Lorentz factor from the 4-velocity normalisation
-  W(1:np)     =0.0D0
-  gr_psi(1:np)=0.0D0
-  if(igrp==5.or.igrp==6)then
+  if(igrp==5.or.igrp==6) then
+     W(1:np)     =0.0D0
+     gr_psi(1:np)=0.0D0
      do ind=1,twotondim
         do j=1,np
            gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
@@ -497,19 +497,23 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      end do
   end if
 
-  ! Calculate coefficients for force contributions coming from gr_pot
-  do j=1,np
-     if(igrp<4)then
-        coeff(j) = - vp(ind_part(j),igrp)/ctilde
-     else if(igrp==5)then
-        coeff(j) = - 2.0D0*((W(j))**2-ctilde2)/(W(j)*ctilde)
-     else if(igrp==6)then
-        coeff(j) =   W(j)/ctilde
-     else
-        print'(A)','igrp out of range in force coeff computation. Please check.'
-        call clean_stop
-     end if
-  end do
+  ! Calculate coefficients for force contributions corresponding to the different gr_pot
+  if(igrp==5) then
+     do j=1,np
+        coeff(j)=-2.0D0*((W(j))**2-ctilde2)/W(j)/ctilde
+     end do
+  else if(igrp==6) then
+     do j=1,np
+        coeff(j)= W(j)/ctilde
+     end do
+  else if(igrp>=7) then
+     do j=1,np
+        coeff(j)=-vp(ind_part(j),igrp-6)/ctilde
+     end do
+  else
+     print'(A)','igrp out of range in force coeff computation in synchro. Please check.'
+     call clean_stop
+  end if
 
   ! Gather 3-force
   ff(1:np,1:ndim)=0.0D0
@@ -520,6 +524,23 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         end do
      end do
   end do
+
+  ! Store forces in fp_gr array and return if igrp>5
+  do idim=1,ndim
+     do j=1,np
+        fp_gr(ind_part(j),idim)=fp_gr(ind_part(j),idim) + ff(j,idim)
+     end do
+  end do
+
+  if(igrp>5) then 
+     return
+  else
+     do idim=1,ndim
+        do j=1,np
+           ff(j,idim)=fp_gr(ind_part(j),idim)
+        end do
+     end do
+  end if
 
   ! For sink particle only, store contribution to the sink force
   if(sink)then
@@ -544,8 +565,8 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      endif
   end do
 
-  ! Update particles level during the last iteration
-  if(igrp==6)then
+  ! Update particles level only on the last iteration
+  if(igrp==5)then
      do j=1,np
         levelp(ind_part(j))=ilevel
      end do
