@@ -56,7 +56,7 @@ subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igrp)
   dx=0.5D0**ilevel
   call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ncell,ilevel)
 
-  ! Third order gr_pots interpolation
+  ! Third order gr_pot interpolation
   do ind=1,twotondim
      do i=1,ncell
         phi_int(i,ind)=0d0

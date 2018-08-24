@@ -38,7 +38,7 @@ module pm_commons
   ! Particles related arrays
   real(dp),allocatable,dimension(:,:)::xp       ! Positions
   real(dp),allocatable,dimension(:,:)::vp       ! Velocities
-  real(dp),allocatable,dimension(:,:)::fp_gr    ! Forces 
+!  real(dp),allocatable,dimension(:,:)::fp_gr    ! Forces 
   real(dp),allocatable,dimension(:)  ::mp       ! Masses
 #ifdef OUTPUT_PARTICLE_POTENTIAL
   real(dp),allocatable,dimension(:)  ::ptcl_phi ! Potential of particle added by AP for output purposes

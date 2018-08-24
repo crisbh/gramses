@@ -356,6 +356,7 @@ end subroutine update_time
 subroutine clean_stop
   use amr_commons
   use poisson_commons
+  use gr_commons
   use pm_commons
   implicit none
 #ifndef WITHOUTMPI
@@ -428,6 +429,12 @@ subroutine clean_stop
   ! cell-centred variables
   if(allocated(rho)) deallocate(rho)
   if(allocated(phi)) deallocate(phi)
+  
+  if(gr)then
+     if(allocated(gr_pot)) deallocate(gr_pot)
+     if(allocated(gr_mat)) deallocate(gr_mat)
+  end if
+
   if(allocated(phi_old)) deallocate(phi_old)
   if(allocated(f)) deallocate(f)
 
@@ -447,6 +454,10 @@ subroutine clean_stop
   if(allocated(mp)) deallocate(mp)
   if(allocated(vp)) deallocate(vp)
   if(allocated(xp)) deallocate(xp)
+
+  if(gr) then
+     if(allocated(fp_gr)) deallocate(fp_gr)
+  end if
 
   stop
 end subroutine clean_stop

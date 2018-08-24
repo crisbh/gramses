@@ -504,22 +504,22 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   endif
 
   ! Accummulate forces in new fp_gr array and return if igrp<9
-  if(igrp==5) then fp_gr(1:np,1:ndim)=0.0D0
-  do idim=1,ndim
-     do j=1,np
-        fp_gr(ind_part(j),idim)=fp_gr(ind_part(j),idim) + ff(j,idim)
-     end do
-  end do
-
-  if(igrp<9) then 
-     return
-  else
-     do idim=1,ndim
-        do j=1,np
-           ff(j,idim)=fp_gr(ind_part(j),idim)
-        end do
-     end do
-  end if
+!  if(igrp==5) then fp_gr(1:np,1:ndim)=0.0D0
+!  do idim=1,ndim
+!     do j=1,np
+!        fp_gr(ind_part(j),idim)=fp_gr(ind_part(j),idim) + ff(j,idim)
+!     end do
+!  end do
+!
+!  if(igrp<9) then 
+!     return
+!  else
+!     do idim=1,ndim
+!        do j=1,np
+!           ff(j,idim)=fp_gr(ind_part(j),idim)
+!        end do
+!     end do
+!  end if
 
   ! Update 3-velocity
   do idim=1,ndim

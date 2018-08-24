@@ -26,6 +26,11 @@ recursive subroutine amr_step(ilevel,icount)
   integer::i,idim,ivar
   logical::ok_defrag,output_now_all
   logical,save::first_step=.true.
+  integer,dimension(1:5) :: gr_ord
+
+  ! Specific ordering of gr_pots for synchro and move
+  ! Default order is smallest to largest 
+  gr_ord(1:5)=(9,8,7,5,6)
 
   if(numbtot(1,ilevel)==0)return
 
@@ -306,7 +311,8 @@ recursive subroutine amr_step(ilevel,icount)
         end do
         
         ! Use reverse order of GR fields for synchro (smallest to largest)
-        do igrp=9,5,-1     
+        do i=1,5     
+           igrp = gr_ord(i)
            ! Compute force contribution from gr_pot
            call force_fine_gr(ilevel,icount,igrp)
 
@@ -506,7 +512,8 @@ recursive subroutine amr_step(ilevel,icount)
      end if
   else
      ! Update positions using opposite order of gr fields wrt synchro
-     do igrp=5,9     
+     do i=5,1,-1  
+        igrp = gr_ord(i)
         ! Compute force contribution from gr_pot
         call force_fine_gr(ilevel,icount,igrp)
         if(pic)then

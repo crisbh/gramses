@@ -523,22 +523,22 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   end do
 
   ! Accummulate forces in fp_gr array and return if igrp>5
-  if(igrp==9) then fp_gr(1:np,1:ndim)=0.0D0
-  do idim=1,ndim
-     do j=1,np
-        fp_gr(ind_part(j),idim)=fp_gr(ind_part(j),idim) + ff(j,idim)
-     end do
-  end do
-
-  if(igrp>5) then 
-     return
-  else
-     do idim=1,ndim
-        do j=1,np
-           ff(j,idim)=fp_gr(ind_part(j),idim)
-        end do
-     end do
-  end if
+!  if(igrp==9) then fp_gr(1:np,1:ndim)=0.0D0
+!  do idim=1,ndim
+!     do j=1,np
+!        fp_gr(ind_part(j),idim)=fp_gr(ind_part(j),idim) + ff(j,idim)
+!     end do
+!  end do
+!
+!  if(igrp>5) then 
+!     return
+!  else
+!     do idim=1,ndim
+!        do j=1,np
+!           ff(j,idim)=fp_gr(ind_part(j),idim)
+!        end do
+!     end do
+!  end if
 
   ! For sink particle only, store contribution to the sink force
   if(sink)then
