@@ -175,7 +175,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   ! inverse CIC and computes new positions for all particles.
   ! If particle sits entirely in fine level, then CIC is performed
   ! at level ilevel. Otherwise, it is performed at level ilevel-1.
-  ! This routine is called by move_fine.
+  ! This routine is called by move_fine_gr.
   !------------------------------------------------------------
   logical::error
   integer::i,j,ind,idim,nx_loc,isink
@@ -193,11 +193,11 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
 
-  real(dp),dimension(1:nvector),        save :: W        ! Lorentz factor
-  real(dp),dimension(1:nvector),        save :: gr_psi   ! Psi on particles 
-  real(dp),dimension(1:nvector),        save :: gr_alp   ! Alpha on particles 
-  real(dp),dimension(1:nvector,1:ndim), save :: gr_bet   ! Beta components on particles 
-  real(dp),dimension(1:nvector),        save :: coeff    ! Coefficients for force contributions
+  real(dp),dimension(1:nvector       ), save :: W        ! Lorentz factor
+  real(dp),dimension(1:nvector       ), save :: gr_psi   ! Psi on particles 
+  real(dp),dimension(1:nvector       ), save :: gr_alp   ! Alpha on particles 
+  real(dp),dimension(1:nvector,1:ndim), save :: gr_bet   ! Shift vector on particles 
+  real(dp),dimension(1:nvector       ), save :: coeff    ! Coefficients for force contributions
   real(dp) :: ctilde,ctilde2,a2,ac2
 
   ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
@@ -442,7 +442,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
 #endif
 
   ! Calculate Lorentz factor from the 4-velocity normalisation
-  if(igrp==5.or.igrp==6)then
+  if(igrp==5.or.igrp==6) then
      W(1:np)     =0.0D0
      gr_psi(1:np)=0.0D0
      do ind=1,twotondim
@@ -454,7 +454,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         do idim=1,ndim
            W(j)=W(j) + vp(ind_part(j),idim)**2
         end do
-        W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
+        W(j)=ctilde2 + W(j)/(1.0D0+gr_psi(j)/ac2)**4/a2
         W(j)=dsqrt(W(j))
      end do
   end if
@@ -503,7 +503,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      end do
   endif
 
-  ! Store forces in new fp_gr array and return if igrp<9
+  ! Accummulate forces in new fp_gr array and return if igrp<9
   if(igrp==5) then fp_gr(1:np,1:ndim)=0.0D0
   do idim=1,ndim
      do j=1,np
@@ -576,12 +576,12 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         end do
      end do
 
-     ! Calculate Lorentz factor again with updated velocities 
+     ! Calculate new Lorentz factor with updated velocities 
      do j=1,np
         do idim=1,ndim
            W(j)=W(j) + vp(ind_part(j),idim)**2
         end do
-        W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
+        W(j)=ctilde2 + W(j)/(1.0D0+gr_psi(j)/ac2)**4/a2
         W(j)=dsqrt(W(j))
      end do
      

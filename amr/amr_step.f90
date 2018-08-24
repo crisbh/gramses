@@ -305,9 +305,7 @@ recursive subroutine amr_step(ilevel,icount)
            call multigrid_fine_gr(ilevel,icount,igr)
         end do
         
-!       do igrp=1,6     
-!          if(igrp==4) cycle
-       
+        ! Use reverse order of GR fields for synchro (smallest to largest)
         do igrp=9,5,-1     
            ! Compute force contribution from gr_pot
            call force_fine_gr(ilevel,icount,igrp)
@@ -507,7 +505,7 @@ recursive subroutine amr_step(ilevel,icount)
         end if
      end if
   else
-     ! Update positions using reverse order of gr fields
+     ! Update positions using opposite order of gr fields wrt synchro
      do igrp=5,9     
         ! Compute force contribution from gr_pot
         call force_fine_gr(ilevel,icount,igrp)

@@ -346,10 +346,10 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
      end do ! End loop over idim
   end do    ! End loop over cells
 
-  !-------------------------------------------------------------------------
-  ! This block is used to calculate the force contribution \partial_ibeta^j.
+  !---------------------------------------------------------------------------
+  ! This block is used to calculate the force contribution \partial_i(beta^j).
   ! Recall that beta^j = B^j + \partial^j(b)
-  !-------------------------------------------------------------------------
+  !---------------------------------------------------------------------------
 
   if(igrp<7.or.igrp=10) return
 

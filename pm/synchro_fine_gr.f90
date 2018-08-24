@@ -6,14 +6,13 @@ subroutine synchro_fine_gr(ilevel,igrp)
   include 'mpif.h'
   integer::info
 #endif
-  integer::ilevel
+  integer::ilevel,igrp
   !--------------------------------------------------------------------
   ! This routine synchronizes particle velocity with particle
   ! position for ilevel particle only. If particle sits entirely
   ! in level ilevel, then use inverse CIC at fine level to compute
   ! the force. Otherwise, use coarse level force and coarse level CIC.
   !--------------------------------------------------------------------
-  integer,intent(in) :: igrp
   integer::igrid,jgrid,ipart,jpart
   integer::ig,ip,npart1,isink
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
@@ -82,7 +81,7 @@ end subroutine synchro_fine_gr
 !####################################################################
 !####################################################################
 !####################################################################
-subroutine synchro_fine_static_gr(ilevel,igrp)
+subroutine synchro_fine_static(ilevel)
   use pm_commons
   use amr_commons
   implicit none
@@ -97,8 +96,6 @@ subroutine synchro_fine_static_gr(ilevel,igrp)
   ! in level ilevel, then use inverse CIC at fine level to compute
   ! the force. Otherwise, use coarse level force and coarse level CIC.
   !--------------------------------------------------------------------
-  integer,intent(in) :: igrp
-
   integer::igrid,jgrid,ipart,jpart
   integer::ig,ip,next_part,npart1,npart2,isink
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
@@ -171,7 +168,7 @@ subroutine synchro_fine_static_gr(ilevel,igrp)
               endif
            endif
            if(ip==nvector)then
-              call sync_gr(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,igrp)
+              call sync(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
               ip=0
               ig=0
            end if
@@ -182,7 +179,7 @@ subroutine synchro_fine_static_gr(ilevel,igrp)
      igrid=next(igrid)   ! Go to next grid
   end do
   ! End loop over grids
-  if(ip>0)call sync_gr(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,igrp)
+  if(ip>0)call sync(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
 
   !sink cloud particles are used to average the grav. acceleration
   if(sink)then
@@ -202,7 +199,7 @@ subroutine synchro_fine_static_gr(ilevel,igrp)
 
 111 format('   Entering synchro_fine for level ',I2)
 
-end subroutine synchro_fine_static_gr
+end subroutine synchro_fine_static
 !####################################################################
 !####################################################################
 !####################################################################
@@ -492,7 +489,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         do idim=1,ndim
            W(j)=W(j) + vp(ind_part(j),idim)**2
         end do
-        W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
+        W(j)=ctilde2 + W(j)/(1.0D0+gr_psi(j)/ac2)**4/a2
         W(j)=dsqrt(W(j))
      end do
   end if
@@ -525,7 +522,8 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      end do
   end do
 
-  ! Store forces in fp_gr array and return if igrp>5
+  ! Accummulate forces in fp_gr array and return if igrp>5
+  if(igrp==9) then fp_gr(1:np,1:ndim)=0.0D0
   do idim=1,ndim
      do j=1,np
         fp_gr(ind_part(j),idim)=fp_gr(ind_part(j),idim) + ff(j,idim)
