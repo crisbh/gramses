@@ -39,8 +39,8 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    integer  :: igshift, igrid_nbor_amr
 
    real(dp) :: dtwondim = (twondim)
-   real(dp) :: ctilde,ctilde2,omoverac2,onevera4,7over8a4,a2K2,5a2K2,Kdot
-   real(dp) :: potc,gr_a,gr_b,op,dop
+   real(dp) :: ctilde,ctilde2,ac2,omoverac2,oneovera4,7over8a4,ca2K,c2a4K2,5c2a4K2,ca2Kdot
+   real(dp) :: potc,gr_a,gr_b,op
 
    dx  = 0.5d0**ilevel
    oneoverdx2 = 1.0d0/(dx*dx)
@@ -49,12 +49,14 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    dx2        = (0.5d0**ilevel)**2                ! Cell size squared
    ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
    ctilde2    = ctilde**2                         ! Speed of light squared
+   ac2        = aexp**2*ctilde2                   ! (ac)^2 factor
    omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
    oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
    7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
-   a2K2       = aexp**2*K**2/12.0D0               ! Background factor a^2K^2/12
-   5a2K2      = 5.0D0*a2K2
-   Kdot       = dotK/ctilde                       
+   ca2K       =-3.0D0*hexp                        ! c*a^2*K in terms of Hubble parameter
+   c2a4K2     = ca2K**2/12.0D0                    ! Background factor  c^2a^4K^2/12
+   5c2a4K2    = 5.0D0*c2a4K2                      ! Background factor 5c^2a^4K^2/12   
+   ca2Kdot    = 3.0D0*(2.0D0*hexp**2-dhexpdtau)   ! Background factor including dot(K)
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -115,7 +117,7 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
           
             if(igrp==5) then 
                op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
-                    dx2*(gr_b/(1.0D0+potc)**6 + a2K2*((1.0D0+potc)**6-1.0D0))
+                    dx2*(gr_b/(1.0D0+potc)**6 + c2a2K2*((1.0D0+potc)**6-1.0D0))
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
@@ -156,19 +158,21 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
    integer  :: igshift, igrid_nbor_amr
    real(dp) :: dtwondim = (twondim)
 
-   real(dp) :: ctilde,ctilde2,omoverac2,onevera4,7over8a4,a2K2,5a2K2,Kdot
+   real(dp) :: ctilde,ctilde2,ac2,omoverac2,oneovera4,7over8a4,ca2K,c2a4K2,5c2a4K2,ca2Kdot
    real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
    dx2        = (0.5d0**ilevel)**2                ! Cell size squared
    ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
    ctilde2    = ctilde**2                         ! Speed of light squared
+   ac2        = aexp**2*ctilde2                   ! (ac)^2 factor
    omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
    oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
    7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
-   a2K2       = aexp**2*K**2/12.0D0               ! Background factor a^2K^2/12
-   5a2K2      = 5.0D0*a2K2
-   Kdot       = dotK/ctilde                       
+   ca2K       =-3.0D0*hexp                        ! c*a^2*K in terms of Hubble parameter
+   c2a4K2     = ca2K**2/12.0D0                    ! Background factor  c^2a^4K^2/12
+   5c2a4K2    = 5.0D0*c2a4K2                      ! Background factor 5c^2a^4K^2/12   
+   ca2Kdot    = 3.0D0*(2.0D0*hexp**2-dhexpdtau)   ! Background factor including dot(K)
 
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
@@ -246,10 +250,10 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
             
             if(igrp==5) then 
                op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
-                    dx2*(gr_b/(1.0D0+potc)**6 + a2K2*((1.0D0+potc)**6-1.0D0))
+                    dx2*(gr_b/(1.0D0+potc)**6 + c2a4K2*((1.0D0+potc)**6-1.0D0))
            
                dop= nb_sum - 6.0D0 - 12.0D0*potc + 6.0D0*dx2*gr_b/(1.0D0+potc)**7 &
-                    - 6.0D0*dx2*a2K2*(1.0D0+potc)**5
+                    - 6.0D0*dx2*c2a4K2*(1.0D0+potc)**5
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
 
@@ -296,19 +300,21 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
    real(dp) :: dtwondim = (twondim)
    real(dp) :: eta1,eta2,eta3,ctilde,ctilde2,o_l,op,dens
    real(dp) :: sfc,nb_sum_sf2 
-   real(dp) :: ctilde,ctilde2,omoverac2,onevera4,7over8a4,a2K2,5a2K2,Kdot
+   real(dp) :: ctilde,ctilde2,ac2,omoverac2,oneovera4,7over8a4,ca2K,c2a4K2,5c2a4K2,ca2Kdot
    real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
    dx2        = (0.5d0**ilevel)**2                ! Cell size squared
    ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
    ctilde2    = ctilde**2                         ! Speed of light squared
+   ac2        = aexp**2*ctilde2                   ! (ac)^2 factor
    omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
    oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
    7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
-   a2K2       = aexp**2*K**2/12.0D0               ! Background factor a^2K^2/12
-   5a2K2      = 5.0D0*a2K2
-   Kdot       = dotK/ctilde                       
+   ca2K       =-3.0D0*hexp                        ! c*a^2*K in terms of Hubble parameter
+   c2a4K2     = ca2K**2/12.0D0                    ! Background factor  c^2a^4K^2/12
+   5c2a4K2    = 5.0D0*c2a4K2                      ! Background factor 5c^2a^4K^2/12   
+   ca2Kdot    = 3.0D0*(2.0D0*hexp**2-dhexpdtau)   ! Background factor including dot(K)
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -364,7 +370,7 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
 
             if(igrp==5) then 
                op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
-                    dx2*(gr_b/(1.0D0+potc)**6 + a2K2*((1.0D0+potc)**6-1.0D0))
+                    dx2*(gr_b/(1.0D0+potc)**6 + c2a4K2*((1.0D0+potc)**6-1.0D0))
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
