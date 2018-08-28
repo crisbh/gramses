@@ -365,7 +365,7 @@ subroutine restrict_gr_pot_fine_reverse_gr_nl(ifinelevel,igr)
 end subroutine restrict_gr_pot_fine_reverse_gr_nl
 
 ! ------------------------------------------------------------------------
-! Restrict Coefficients of non-linear differential operator
+! Restrict Coefficients of non-linear differential operators
 ! ------------------------------------------------------------------------
 
 subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
@@ -391,7 +391,7 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
    integer :: igrp
    real(dp) :: rho1
    real(dp) :: dtwotondim = (twotondim)
-   real(dp) :: ctilde,ctilde2,omoverac2,omoverac22,onevera4,7over8a4,a2K2,5a2K2,lhs2F
+   real(dp) :: ctilde,ctilde2,omoverac2,omoverac22,onevera4,7over8a4,a2K2,5a2K2
    real(dp) :: gr_b
 
    integer  :: icoarselevel
@@ -411,7 +411,6 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
    7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
    a2K2       = aexp**2*K**2/12.0D0               ! Background factor a^2K^2/12
    5a2K2      = 5.0D0*a2K2
-   lhs2F      = aexp**2*(K**2/3.0D0-dotK/ctilde)  ! LHS of 2nd Friedmann Eq. 
 
    ! Set field index
    igrp = igr
@@ -468,9 +467,9 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
 
          ! Restriction to compute the rho value in the coarse cell
          if(igrp==5) then
-            rho1=gr_mat(icell_f_amr,6)
+            rho1=gr_mat(icell_f_amr,1)  ! This is for A_ijA^ij
          else
-            rho1=gr_b
+            rho1=gr_b                   ! This is for A_ijA^ij*psi factor    
          end if    
          active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,6)=&
             active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,6)+rho1/(dtwotondim-dble(n_masked(igrid_f_mg)))

@@ -1,4 +1,4 @@
-subroutine init_time
+ubroutine init_time
   use amr_commons
   use hydro_commons
   use pm_commons
@@ -779,7 +779,7 @@ subroutine friedman(O_mat_0,O_vac_0,O_k_0,alpha,axp_min, &
   ! ######################################################!
   real(kind=8)::axp_tau, axp_t
   real(kind=8)::axp_tau_pre, axp_t_pre
-  real(kind=8)::dadtau, dadt
+  real(kind=8)::dadtau, dadt, d2adtau2
   real(kind=8)::dtau,dt
   real(kind=8)::tau,t
   integer::nstep,nout,nskip
@@ -830,7 +830,11 @@ subroutine friedman(O_mat_0,O_vac_0,O_k_0,alpha,axp_min, &
   tau_out(nout)=tau
   axp_out(nout)=axp_tau
   hexp_out(nout)=dadtau(axp_tau,O_mat_0,O_vac_0,O_k_0)/axp_tau
-
+  if(gr) then
+     dhexpdtau_out(nout)=d2adtau2(axp_tau,O_mat_0,O_vac_0,O_k_0)/axp_tau &
+                        &-(dadtau(axp_tau,O_mat_0,O_vac_0,O_k_0)/axp_tau)**2
+  end if                            
+  
   do while ( (axp_tau .ge. axp_min) .or. (axp_t .ge. axp_min) )
 
      nstep = nstep + 1
@@ -850,6 +854,10 @@ subroutine friedman(O_mat_0,O_vac_0,O_k_0,alpha,axp_min, &
         tau_out(nout)=tau
         axp_out(nout)=axp_tau
         hexp_out(nout)=dadtau(axp_tau,O_mat_0,O_vac_0,O_k_0)/axp_tau
+        if(gr) then
+           dhexpdtau_out(nout)=d2adtau2(axp_tau,O_mat_0,O_vac_0,O_k_0)/axp_tau &
+                              &-(dadtau(axp_tau,O_mat_0,O_vac_0,O_k_0)/axp_tau)**2
+        end if
      end if
 
   end do
@@ -857,7 +865,10 @@ subroutine friedman(O_mat_0,O_vac_0,O_k_0,alpha,axp_min, &
   tau_out(ntable)=tau
   axp_out(ntable)=axp_tau
   hexp_out(ntable)=dadtau(axp_tau,O_mat_0,O_vac_0,O_k_0)/axp_tau
-
+  if(gr) then
+     dhexpdtau_out(ntable)=d2adtau2(axp_tau,O_mat_0,O_vac_0,O_k_0)/axp_tau &
+                          &-(dadtau(axp_tau,O_mat_0,O_vac_0,O_k_0)/axp_tau)**2
+  end if
 end subroutine friedman
 
 function dadtau(axp_tau,O_mat_0,O_vac_0,O_k_0)
@@ -882,6 +893,15 @@ function dadt(axp_t,O_mat_0,O_vac_0,O_k_0)
   return
 end function dadt
 
-
+! d2adtau2 is needed for Kdot in the GR case
+function d2adtau2(axp_tau,O_mat_0,O_vac_0,O_k_0)
+  use amr_parameters
+  real(kind=8)::d2adtau2,axp_tau,O_mat_0,O_vac_0,O_k_0
+  d2adtau2 = 3.0D0*axp_tau*axp_tau* &
+       &   ( 0.5D0*O_mat_0 + &
+       &           O_vac_0 * axp_tau*axp_tau*axp_tau + &
+       &     2.0D0*O_k_0/3.0D0 * axp_tau )
+  return
+end function d2adtau2
 
 
