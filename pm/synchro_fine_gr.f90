@@ -568,7 +568,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   end do
 
   ! Update particles level only on the last iteration
-  if(igrp==5) then
+  if(igrp==6) then
      do j=1,np
         levelp(ind_part(j))=ilevel
      end do
