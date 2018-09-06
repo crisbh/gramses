@@ -230,12 +230,6 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   integer, dimension(1:nvector,1:threetondim      ),save::nbors_cells
   integer, dimension(1:nvector,1:twotondim        ),save::nbors_grids
 
-  real(dp):: ctilde,ctilde2,ac2
-
-  ctilde   = sol/boxlen_ini/100000.0D0          ! Speed of light in code units
-  ctilde2  = ctilde**2                          ! Speed of light squared
-  ac2      = aexp**2*ctilde2                    ! (ac)^2 factor
-
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
   dx2=dx**2
@@ -335,23 +329,17 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
         do i=1,ngrid
            f(ind_cell(i),idim)=a*(phi1(i)-phi2(i))-b*(phi3(i)-phi4(i))
         end do
-        
-        ! Include factors for grad(Psi) contribution
-        if(igrp==5)then
-           do i=1,ngrid
-              f(ind_cell(i),idim)=f(ind_cell(i),idim)*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)
-           end do
-        end if        
 
      end do ! End loop over idim
   end do    ! End loop over cells
 
   !---------------------------------------------------------------------------
   ! This block is used to calculate the force contribution \partial_i(beta^j).
+  ! This is needed to update velocities.
   ! Recall that beta^j = B^j + \partial^j(b)
   !---------------------------------------------------------------------------
 
-  if(igrp<7.or.igrp=10) return
+  if(igrp<7.or.igrp==10) return
 
   ! 27 neighbors in the 3-point kernel FDA.
   !   |direction
@@ -496,10 +484,12 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
         end if
 
         if(idim==igrp-6) then
+           ! Laplacian of b     
            do i=1,ngrid
               f(ind_cell(i),idim)=f(ind_cell(i),idim)-(phi1(i)+phi2(i)-2.0D0*gr_pot(ind_cell(i),10))/dx2
            end do
         else
+           ! Mixed derivatives of b (\partial_i\partial_j{b})     
            do i=1,ngrid
               f(ind_cell(i),idim)=f(ind_cell(i),idim)-(phi1(i)-phi2(i)-phi3(i)+phi4(i))/(4.0D0*dx2)
            end do

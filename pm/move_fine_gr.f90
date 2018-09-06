@@ -193,11 +193,11 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
 
-  real(dp),dimension(1:nvector       ), save :: W        ! Lorentz factor
-  real(dp),dimension(1:nvector       ), save :: gr_psi   ! Psi on particles 
-  real(dp),dimension(1:nvector       ), save :: gr_alp   ! Alpha on particles 
-  real(dp),dimension(1:nvector,1:ndim), save :: gr_bet   ! Shift vector on particles 
-  real(dp),dimension(1:nvector       ), save :: coeff    ! Coefficients for force contributions
+  real(dp),dimension(1:nvector       ), save :: W       ! Lorentz factor
+  real(dp),dimension(1:nvector       ), save :: gr_psi  ! Psi on particles 
+  real(dp),dimension(1:nvector       ), save :: gr_xi   ! Xi  on particles 
+  real(dp),dimension(1:nvector,1:ndim), save :: gr_bet  ! Shift vector on particles 
+  real(dp),dimension(1:nvector       ), save :: coeff   ! Coefficient for force contributions
   real(dp) :: ctilde,ctilde2,a2,ac2
 
   ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
@@ -442,66 +442,84 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
 #endif
 
   ! Calculate Lorentz factor from the 4-velocity normalisation
-  if(igrp==5.or.igrp==6) then
+  if(igrp==5.or.igrp==6.or.igrp==10) then
      W(1:np)     =0.0D0
      gr_psi(1:np)=0.0D0
+     gr_xi (1:np)=0.0D0
      do ind=1,twotondim
         do j=1,np
-           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
+           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)/ac2
+           gr_xi (j)=gr_xi (j) + gr_pot(indp(j,ind),6)*vol(j,ind)/ac2
         end do
      end do
      do j=1,np
         do idim=1,ndim
            W(j)=W(j) + vp(ind_part(j),idim)**2
         end do
-        W(j)=ctilde2 + W(j)/(1.0D0+gr_psi(j)/ac2)**4/a2
+        W(j)=ctilde2 + W(j)/(1.0D0-0.5D0*gr_psi(j))**4/a2
         W(j)=dsqrt(W(j))
+     end do
+  end if
+    
+  if(igrp==10) then
+     gr_bet(1:np,1:ndim)=0.0D0
+     do ind=1,twotondim
+        do j=1,np
+           do idim=1,ndim
+!             f(indp(j,ind),idim)=-f(indp(j,ind),idim) + gr_pot(indp(j,ind),idim+6)
+!             gr_bet(j     ,idim)= gr_bet(j     ,idim) + f     (indp(j,ind),idim  )*vol(j,ind)
+              gr_bet(j,idim)= gr_bet(j,idim)-f     (indp(j,ind),idim  )*vol(j,ind)
+              gr_bet(j,idim)= gr_bet(j,idim)+gr_pot(indp(j,ind),idim+6)*vol(j,ind)
+           end do
+        end do
      end do
   end if
 
   ! Calculate coefficients for force contributions corresponding to the different gr_pot
   if(igrp==5) then
      do j=1,np
-        coeff(j)=-2.0D0*((W(j))**2-ctilde2)/W(j)/ctilde
+        coeff(j)= (      W(j)**2-ctilde2)/(W(j)*ctilde)/(1.0D0-0.5D0*gr_psi(j))  + &
+                & (1.5d0*W(j)**2-ctilde2)/(W(j)*ctilde)/(1.0D0-0.5D0*gr_psi(j))**2*gr_xi(j)
      end do
   else if(igrp==6) then
      do j=1,np
-        coeff(j)= W(j)/ctilde
+        coeff(j)= W(j)/ctilde/(1.0D0-0.5D0*gr_psi(j)) 
      end do
-  else if(igrp>=7) then
+  else if(igrp>=7.and.igrp<10) then
      do j=1,np
-        coeff(j)=-vp(ind_part(j),igrp-6)/ctilde
+        coeff(j)=-vp(ind_part(j),igrp-6)
      end do
-  else
+  else if(igrp.ne.10) then
      print'(A)','igrp out of range in force coeff computation in move. Please check.'
      call clean_stop
   end if
 
-  ! Gather 3-force
-  ff(1:np,1:ndim)=0.0D0
-  if(tracer.and.hydro)then
-     do ind=1,twotondim
-        do idim=1,ndim
-           do j=1,np
-              ff(j,idim)=ff(j,idim)+uold(indp(j,ind),idim+1)/max(uold(indp(j,ind),1),smallr)*vol(j,ind)
+  if(igrp<10) then
+     ! Gather 3-force
+     ff(1:np,1:ndim)=0.0D0
+     if(tracer.and.hydro)then
+        do ind=1,twotondim
+           do idim=1,ndim
+              do j=1,np
+                 ff(j,idim)=ff(j,idim)+uold(indp(j,ind),idim+1)/max(uold(indp(j,ind),1),smallr)*vol(j,ind)
+              end do
            end do
         end do
-     end do
-  endif
-  if(poisson)then
-     do ind=1,twotondim
-        do idim=1,ndim
-           do j=1,np
-              ff(j,idim)=ff(j,idim)+coeff(j)*f(indp(j,ind),idim)*vol(j,ind)
+     endif
+     if(poisson)then
+        do ind=1,twotondim
+           do idim=1,ndim
+              do j=1,np
+                 ff(j,idim)=ff(j,idim)+coeff(j)*f(indp(j,ind),idim)*vol(j,ind)
+              end do
            end do
-        end do
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-        do j=1,np
-           ptcl_phi(ind_part(j)) = phi(indp(j,ind))
-        end do
+           do j=1,np
+              ptcl_phi(ind_part(j)) = phi(indp(j,ind))
+           end do
 #endif
-     end do
-  endif
+        end do
+     endif
 
   ! Accummulate forces in new fp_gr array and return if igrp<9
 !  if(igrp==5) then fp_gr(1:np,1:ndim)=0.0D0
@@ -521,70 +539,41 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
 !     end do
 !  end if
 
-  ! Update 3-velocity
-  do idim=1,ndim
-     if(static.or.tracer)then
-        do j=1,np
-           new_vp(j,idim)=ff(j,idim)
-        end do
-     else
-        do j=1,np
-           new_vp(j,idim)=vp(ind_part(j),idim)+ff(j,idim)*0.5D0*dtnew(ilevel)
-        end do
-     endif
-  end do
-
-  ! For sink cloud particle only
-  if(sink)then
-     ! Overwrite cloud particle velocity with sink velocity
+     ! Update 3-velocity
      do idim=1,ndim
-        do j=1,np
-           isink=-idp(ind_part(j))
-           if(isink>0)then
-              new_vp(j,idim)=vsnew(isink,idim,ilevel)
-           end if
-        end do
+        if(static.or.tracer)then
+           do j=1,np
+              new_vp(j,idim)=ff(j,idim)
+           end do
+        else
+           do j=1,np
+              new_vp(j,idim)=vp(ind_part(j),idim)+ff(j,idim)*0.5D0*dtnew(ilevel)
+           end do
+        endif
      end do
-  end if
 
-  ! Store velocity
-  do idim=1,ndim
-     do j=1,np
-        vp(ind_part(j),idim)=new_vp(j,idim)
-     end do
-  end do
- 
-  ! Update position ONLY after velocity has been fully updated by this routine 
-  if(igrp==9) then
-     W(1:np)      =0.0D0
-     gr_psi(1:np) =0.0D0
-     gr_alp(1:np) =0.0D0
-     gr_bet(1:np,1:ndim)=0.0D0
-     
-     ! HERE WE HAVE -grad(b) STORED IN f(1,2,3)
-     call force_fine_gr(ilevel,icount,10)
-
-     ! Gather contributions to the 3-velocity
-     do ind=1,twotondim
-        do j=1,np
-           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
-           gr_alp(j)=gr_alp(j) + gr_pot(indp(j,ind),6)*vol(j,ind)
-           do idim=1,ndim
-              f(indp(j,ind),idim)=-f(indp(j,ind),idim) + gr_pot(indp(j,ind),idim+6)
-              gr_bet(j     ,idim)= gr_bet(j     ,idim) + f     (indp(j,ind),idim  )*vol(j,ind)
+     ! For sink cloud particle only
+     if(sink)then
+        ! Overwrite cloud particle velocity with sink velocity
+        do idim=1,ndim
+           do j=1,np
+              isink=-idp(ind_part(j))
+              if(isink>0)then
+                 new_vp(j,idim)=vsnew(isink,idim,ilevel)
+              end if
            end do
         end do
-     end do
+     end if
 
-     ! Calculate new Lorentz factor with updated velocities 
-     do j=1,np
-        do idim=1,ndim
-           W(j)=W(j) + vp(ind_part(j),idim)**2
+     ! Store velocity
+     do idim=1,ndim
+        do j=1,np
+           vp(ind_part(j),idim)=new_vp(j,idim)
         end do
-        W(j)=ctilde2 + W(j)/(1.0D0+gr_psi(j)/ac2)**4/a2
-        W(j)=dsqrt(W(j))
      end do
-     
+ 
+  else
+     ! Update position ONLY after velocity has been fully updated by this routine 
      do idim=1,ndim
         if(static)then
            do j=1,np
@@ -592,7 +581,8 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
            end do
         else
            do j=1,np
-              new_xp(j,idim)=xp(ind_part(j),idim) + (ctilde/W(j)*(1.0D0+gr_alp(j)/ac2)/(1.0D0+gr_psi(j)/ac2)**4*new_vp(j,idim)-gr_bet(j,idim)/ctilde)*dtnew(ilevel)
+              new_xp(j,idim)=xp(ind_part(j),idim) + &
+                            & (ctilde/W(j)*(1.0D0+gr_xi(j)/(1.0D0-0.5D0*gr_psi(j)))/(1.0D0-0.5D0*gr_psi(j))**4*vp(ind_part(j),idim)-gr_bet(j,idim))*dtnew(ilevel)
            end do
         endif
      end do

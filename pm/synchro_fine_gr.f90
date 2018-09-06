@@ -197,7 +197,7 @@ subroutine synchro_fine_static(ilevel)
      end do
   endif
 
-111 format('   Entering synchro_fine for level ',I2)
+111 format('   Entering synchro_fine_gr for level ',I2)
 
 end subroutine synchro_fine_static
 !####################################################################
@@ -233,15 +233,16 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
  
-  real(dp),dimension(1:nvector), save :: W        ! Lorentz factor
-  real(dp),dimension(1:nvector), save :: gr_psi   ! Psi potential
-  real(dp),dimension(1:nvector), save :: coeff    ! Coefficients for force contributions
+  real(dp),dimension(1:nvector), save :: W       ! Lorentz factor
+  real(dp),dimension(1:nvector), save :: gr_psi  ! Psi potential
+  real(dp),dimension(1:nvector), save :: gr_xi   ! Xi  on particles 
+  real(dp),dimension(1:nvector), save :: coeff   ! Coefficient for force contributions
   real(dp) :: ctilde,ctilde2,a2,ac2
 
-  ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
-  ctilde2  = ctilde**2                          ! Speed of light squared
-  a2       = aexp**2                            ! Scale factor squared 
-  ac2      = a2*ctilde2                         ! (ac)^2 factor
+  ctilde   = sol/boxlen_ini/100000.0d0           ! Speed of light in code units
+  ctilde2  = ctilde**2                           ! Speed of light squared
+  a2       = aexp**2                             ! Scale factor squared 
+  ac2      = a2*ctilde2                          ! (ac)^2 factor
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -480,35 +481,38 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   if(igrp==5.or.igrp==6) then
      W(1:np)     =0.0D0
      gr_psi(1:np)=0.0D0
+     gr_xi (1:np)=0.0D0
      do ind=1,twotondim
         do j=1,np
-           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
+           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)/ac2
+           gr_xi (j)=gr_xi (j) + gr_pot(indp(j,ind),6)*vol(j,ind)/ac2
         end do
      end do
      do j=1,np
         do idim=1,ndim
            W(j)=W(j) + vp(ind_part(j),idim)**2
         end do
-        W(j)=ctilde2 + W(j)/(1.0D0+gr_psi(j)/ac2)**4/a2
+        W(j)=ctilde2 + W(j)/(1.0D0-0.5D0*gr_psi(j))**4/a2
         W(j)=dsqrt(W(j))
      end do
   end if
-
+  
   ! Calculate coefficients for force contributions corresponding to the different gr_pot
   if(igrp==5) then
      do j=1,np
-        coeff(j)=-2.0D0*((W(j))**2-ctilde2)/W(j)/ctilde
+        coeff(j)= (      W(j)**2-ctilde2)/(W(j)*ctilde)/(1.0D0-0.5D0*gr_psi(j))  + &
+                & (1.5d0*W(j)**2-ctilde2)/(W(j)*ctilde)/(1.0D0-0.5D0*gr_psi(j))**2*gr_xi(j)
      end do
   else if(igrp==6) then
      do j=1,np
-        coeff(j)= W(j)/ctilde
+        coeff(j)= W(j)/ctilde/(1.0D0-0.5D0*gr_psi(j)) 
      end do
-  else if(igrp>=7) then
+  else if(igrp>=7.and.igrp<10) then
      do j=1,np
-        coeff(j)=-vp(ind_part(j),igrp-6)/ctilde
+        coeff(j)=-vp(ind_part(j),igrp-6)
      end do
   else
-     print'(A)','igrp out of range in force coeff computation in synchro. Please check.'
+     print'(A)','igrp out of range in force coeff computation in move. Please check.'
      call clean_stop
   end if
 
@@ -564,7 +568,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   end do
 
   ! Update particles level only on the last iteration
-  if(igrp==5)then
+  if(igrp==5) then
      do j=1,np
         levelp(ind_part(j))=ilevel
      end do
