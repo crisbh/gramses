@@ -67,8 +67,8 @@ subroutine rho_fine(ilevel,icount)
         
         ! Update boundaries for gr_mat
         if(gr.and.gr2)then
-           do igrm=1,5
-              if(igrm==4) cycle
+           do igrm=1,4
+              
               call make_virtual_reverse_dp(gr_mat(1,igrm),i)
               call make_virtual_fine_dp   (gr_mat(1,igrm),i)
            end do       
@@ -143,7 +143,7 @@ subroutine rho_fine(ilevel,icount)
                  gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
                  gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
                  gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
-                 gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,5)=0.0D0
+                 gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,4)=0.0D0
            end do
         end if
         if(ilevel==cic_levelmax)then
@@ -167,8 +167,8 @@ subroutine rho_fine(ilevel,icount)
   
   ! Update boundaries for gr_mat
   if(gr.and.gr2)then
-     do igrm=1,5
-        if(igrm==4) cycle
+     do igrm=1,4
+        
         call make_virtual_reverse_dp(gr_mat(1,igrm),ilevel)
         call make_virtual_fine_dp   (gr_mat(1,igrm),ilevel)
      end do 
@@ -217,7 +217,7 @@ subroutine rho_fine(ilevel,icount)
               gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,1)=0.0
               gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,2)=0.0
               gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,3)=0.0
-              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,5)=0.0
+              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,4)=0.0
            end do
         end if        
      end do
@@ -377,18 +377,20 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   real(dp)::dx,dx_loc,scale,vol_loc
   ! Grid-based arrays
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
-  integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
+  integer ,dimension(1:nvector,1:twotondim  ),save::nbors_father_grids
   ! Particle-based arrays
-  logical ,dimension(1:nvector),save::ok
-  real(dp),dimension(1:nvector),save::mmm
-  real(dp),dimension(1:nvector),save::ttt=0d0
-  real(dp),dimension(1:nvector),save::vol2
-  real(dp),dimension(1:nvector,1:ndim),save::x,dd,dg
-  real(dp),dimension(1:nvector,1:ndim),save::vvv
-  integer ,dimension(1:nvector,1:ndim),save::ig,id,igg,igd,icg,icd
+  logical ,dimension(1:nvector            ),save::ok
+  real(dp),dimension(1:nvector            ),save::mmm
+  real(dp),dimension(1:nvector            ),save::ttt=0d0
+  real(dp),dimension(1:nvector            ),save::vol2,vols
+  real(dp),dimension(1:nvector,1:ndim     ),save::volv
+  real(dp),dimension(1:nvector,1:ndim     ),save::x,dd,dg
+  real(dp),dimension(1:nvector,1:ndim     ),save::vvv
+  integer ,dimension(1:nvector,1:ndim     ),save::ig,id,igg,igd,icg,icd
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
+
   real(dp),dimension(1:nvector),save::W        ! Lorentz factor
   real(dp),dimension(1:nvector),save::gr_psi   ! Psi on particles
   real(dp) :: ctilde,ctilde2,a2,ac2
@@ -433,7 +435,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   do j=1,np
      mmm(j)=mp(ind_part(j))
   end do
-
 
   if(ilevel==levelmin)then
      do j=1,np
@@ -596,7 +597,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      gr_psi(1:np)=0.0D0
      do ind=1,twotondim
         do j=1,np
-           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)
+           gr_psi(j)=gr_psi(j) + gr_pot(indp(j,ind),5)*vol(j,ind)/ac2
         end do
      end do
      do j=1,np
@@ -604,7 +605,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
            vvv(j,idim)=vp(ind_part(j),idim)     ! gather velocity
            W(j)=W(j) + vp(ind_part(j),idim)**2  ! Lorentz factor
         end do
-        W(j)=ctilde2 + W(j)/(a2*(1.0D0+gr_psi(j)/ac2)**4)
+        W(j)=ctilde2 + W(j)/(1.0D0-0.5D0*gr_psi(j))**4/a2
         W(j)=dsqrt(W(j))
      end do
   end if
@@ -642,7 +643,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
                  do idim=1,ndim
                     gr_mat(indp(j,ind),idim)=gr_mat(indp(j,ind),idim)+volv(j,idim)
                  end do
-                 gr_mat   (indp(j,ind),5   )=gr_mat(indp(j,ind),5   )+vols(j)
+                 gr_mat   (indp(j,ind),4   )=gr_mat(indp(j,ind),4   )+vols(j)
               end if   
            end do
         end if
@@ -658,7 +659,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
                  do idim=1,ndim
                     gr_mat(indp(j,ind),idim)=gr_mat(indp(j,ind),idim)+volv(j,idim)
                  end do
-                 gr_mat   (indp(j,ind),5   )=gr_mat(indp(j,ind),5   )+vols(j)
+                 gr_mat   (indp(j,ind),4   )=gr_mat(indp(j,ind),4   )+vols(j)
               end if   
            end do
         end if
@@ -676,7 +677,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
         vol2(j)=vol(j,ind)
      end do
 
-    
      ! Remove test particles for static runs
      if(static)then
         do j=1,np
@@ -933,7 +933,7 @@ subroutine cic_from_multipole(ilevel)
               gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
               gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
               gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
-              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,5)=0.0D0
+              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,4)=0.0D0
            end do
         end if        
      end do
@@ -948,7 +948,7 @@ subroutine cic_from_multipole(ilevel)
            gr_mat(active(ilevel)%igrid(i)+iskip,1)=0.0D0
            gr_mat(active(ilevel)%igrid(i)+iskip,2)=0.0D0
            gr_mat(active(ilevel)%igrid(i)+iskip,3)=0.0D0
-           gr_mat(active(ilevel)%igrid(i)+iskip,5)=0.0D0
+           gr_mat(active(ilevel)%igrid(i)+iskip,4)=0.0D0
         end do
      end if 
   end do
@@ -964,7 +964,7 @@ subroutine cic_from_multipole(ilevel)
               gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,1)=0.0D0
               gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,2)=0.0D0
               gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,3)=0.0D0
-              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,5)=0.0D0
+              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,4)=0.0D0
            end do
         end if        
      end do

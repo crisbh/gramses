@@ -455,9 +455,9 @@ subroutine clean_stop
   if(allocated(vp)) deallocate(vp)
   if(allocated(xp)) deallocate(xp)
 
-  if(gr) then
-     if(allocated(fp_gr)) deallocate(fp_gr)
-  end if
+  !if(gr) then
+  !   if(allocated(fp_gr)) deallocate(fp_gr)
+  ! end if
 
   stop
 end subroutine clean_stop
