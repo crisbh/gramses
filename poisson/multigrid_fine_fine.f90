@@ -1,704 +1,733 @@
-<!DOCTYPE html>
-<html class="" lang="en">
-<head prefix="og: http://ogp.me/ns#">
-<meta charset="utf-8">
-<meta content="IE=edge" http-equiv="X-UA-Compatible">
-<meta content="object" property="og:type">
-<meta content="GitLab" property="og:site_name">
-<meta content="poisson/multigrid_fine_fine.f90 · c294ec354a61e766788ad1a05e520da6c07cd3c3 · Cristian Barrera-Hinojosa / GR" property="og:title">
-<meta content="Ramses GR mod" property="og:description">
-<meta content="https://gitlab.cosma.dur.ac.uk/assets/gitlab_logo-7ae504fe4f68fdebb3c2034e36621930cd36ea87924c11ff65dbcb8ed50dca58.png" property="og:image">
-<meta content="64" property="og:image:width">
-<meta content="64" property="og:image:height">
-<meta content="https://gitlab.cosma.dur.ac.uk/dc-barr3/GR/blob/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson/multigrid_fine_fine.f90" property="og:url">
-<meta content="summary" property="twitter:card">
-<meta content="poisson/multigrid_fine_fine.f90 · c294ec354a61e766788ad1a05e520da6c07cd3c3 · Cristian Barrera-Hinojosa / GR" property="twitter:title">
-<meta content="Ramses GR mod" property="twitter:description">
-<meta content="https://gitlab.cosma.dur.ac.uk/assets/gitlab_logo-7ae504fe4f68fdebb3c2034e36621930cd36ea87924c11ff65dbcb8ed50dca58.png" property="twitter:image">
-
-<title>poisson/multigrid_fine_fine.f90 · c294ec354a61e766788ad1a05e520da6c07cd3c3 · Cristian Barrera-Hinojosa / GR · GitLab</title>
-<meta content="Ramses GR mod" name="description">
-<link rel="shortcut icon" type="image/png" href="/assets/favicon-7901bd695fb93edb07975966062049829afb56cf11511236e61bcf425070e36e.png" id="favicon" data-original-href="/assets/favicon-7901bd695fb93edb07975966062049829afb56cf11511236e61bcf425070e36e.png" />
-<link rel="stylesheet" media="all" href="/assets/application-36ce81e507eea57ba1b57383901b0bf30b484f2fa7ae15a6866e7fde4981cb36.css" />
-<link rel="stylesheet" media="print" href="/assets/print-c8ff536271f8974b8a9a5f75c0ca25d2b8c1dceb4cff3c01d1603862a0bdcbfc.css" />
+! ------------------------------------------------------------------------
+! Multigrid Poisson solver for refined AMR levels
+! ------------------------------------------------------------------------
+! This file contains all MG-fine-level related routines
+!
+! Used variables:
+!                       finest(AMR)level     coarse(MG)levels
+!     -----------------------------------------------------------------
+!     potential            phi            active_mg(myid,ilevel)%u(:,1)
+!     physical RHS         rho            active_mg(myid,ilevel)%u(:,2)
+!     residual             f(:,1)         active_mg(myid,ilevel)%u(:,3)
+!     BC-modified RHS      f(:,2)                  N/A
+!     mask                 f(:,3)         active_mg(myid,ilevel)%u(:,4)
+!
+! ------------------------------------------------------------------------
 
 
-<script>
-//<![CDATA[
-window.gon={};gon.api_version="v4";gon.default_avatar_url="https://gitlab.cosma.dur.ac.uk/assets/no_avatar-849f9c04a3a0d0cea2424ae97b27447dc64a7dbfae83c036c45b403392f0e8ba.png";gon.max_file_size=10;gon.asset_host=null;gon.webpack_public_path="/assets/webpack/";gon.relative_url_root="";gon.shortcuts_path="/help/shortcuts";gon.user_color_scheme="solarized-light";gon.gitlab_url="https://gitlab.cosma.dur.ac.uk";gon.revision="d9540ee";gon.gitlab_logo="/assets/gitlab_logo-7ae504fe4f68fdebb3c2034e36621930cd36ea87924c11ff65dbcb8ed50dca58.png";gon.sprite_icons="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg";gon.sprite_file_icons="/assets/file_icons-7262fc6897e02f1ceaf8de43dc33afa5e4f9a2067f4f68ef77dcc87946575e9e.svg";gon.emoji_sprites_css_path="/assets/emoji_sprites-289eccffb1183c188b630297431be837765d9ff4aed6130cf738586fb307c170.css";gon.test_env=false;gon.suggested_label_colors=["#0033CC","#428BCA","#44AD8E","#A8D695","#5CB85C","#69D100","#004E00","#34495E","#7F8C8D","#A295D6","#5843AD","#8E44AD","#FFECDB","#AD4363","#D10069","#CC0033","#FF0000","#D9534F","#D1D100","#F0AD4E","#AD8D43"];gon.current_user_id=63;gon.current_username="dc-barr3";gon.current_user_fullname="Cristian Barrera-Hinojosa";gon.current_user_avatar_url="https://secure.gravatar.com/avatar/6e4332969ccc09abe0143e541df79d21?s=80\u0026d=identicon";
-//]]>
-</script>
+! ------------------------------------------------------------------------
+! Mask restriction (top-down, OBSOLETE, UNUSED)
+! ------------------------------------------------------------------------
+
+subroutine restrict_mask_fine(ifinelevel,allmasked)
+   use amr_commons
+   use poisson_commons
+   implicit none
+   integer, intent(in)  :: ifinelevel
+   logical, intent(out) :: allmasked
+
+   integer :: ind_c_cell,ind_f_cell
+
+   integer :: iskip_f_amr, iskip_c_amr, iskip_c_mg
+   integer :: igrid_f_amr, igrid_c_amr, igrid_c_mg
+   integer :: icell_f_amr, icell_c_amr, icell_c_mg
+
+   real(dp) :: ngpmask
+   real(dp) :: dtwotondim = (twotondim)
+
+   integer :: icoarselevel
+   icoarselevel=ifinelevel-1
+   allmasked=.true.
+
+   if(ifinelevel==1) return
+
+   ! Loop over coarse cells of the coarse active comm for myid
+   do ind_c_cell=1,twotondim
+      iskip_c_amr=ncoarse+(ind_c_cell-1)*ngridmax
+      iskip_c_mg =(ind_c_cell-1)*active_mg(myid,icoarselevel)%ngrid
+
+      ! Loop over coarse grids
+      do igrid_c_mg=1,active_mg(myid,icoarselevel)%ngrid
+         igrid_c_amr=active_mg(myid,icoarselevel)%igrid(igrid_c_mg)
+         icell_c_amr=iskip_c_amr+igrid_c_amr
+         icell_c_mg =iskip_c_mg +igrid_c_mg
+
+         if(son(icell_c_amr)==0) then
+            ! Cell is not refined
+            ngpmask      = -1.0d0
+         else
+            igrid_f_amr=son(icell_c_amr)
+            ngpmask = 0.0d0
+            do ind_f_cell=1,twotondim
+               iskip_f_amr=ncoarse+(ind_f_cell-1)*ngridmax
+               icell_f_amr=iskip_f_amr+igrid_f_amr
+               ngpmask=ngpmask+f(icell_f_amr,3)
+            end do
+            ngpmask=ngpmask/dtwotondim
+         end if
+         ! Store cell mask
+         active_mg(myid,icoarselevel)%u(icell_c_mg,4)=ngpmask
+         allmasked=allmasked .and. (ngpmask<=0.0)
+      end do
+   end do
+
+end subroutine restrict_mask_fine
+
+! ------------------------------------------------------------------------
+! Mask restriction (bottom-up)
+! ------------------------------------------------------------------------
+
+subroutine restrict_mask_fine_reverse(ifinelevel)
+   use amr_commons
+   use poisson_commons
+   implicit none
+   integer, intent(in) :: ifinelevel
+
+   integer :: ind_c_cell, ind_f_cell, cpu_amr
+
+   integer :: iskip_c_mg
+   integer :: igrid_c_amr, igrid_c_mg
+   integer :: icell_c_amr, icell_c_mg
+
+   integer :: iskip_f_amr
+   integer :: igrid_f_amr, igrid_f_mg
+   integer :: icell_f_amr
+
+   real(dp) :: ngpmask
+   real(dp) :: dtwotondim = (twotondim)
+
+   integer :: icoarselevel
+   icoarselevel=ifinelevel-1
+
+   ! Loop over fine cells of the myid active comm
+   do ind_f_cell=1,twotondim
+      iskip_f_amr=ncoarse+(ind_f_cell-1)*ngridmax
+
+      ! Loop over fine grids of myid
+      do igrid_f_mg=1,active(ifinelevel)%ngrid
+         igrid_f_amr=active(ifinelevel)%igrid(igrid_f_mg)
+         icell_f_amr=igrid_f_amr+iskip_f_amr
+
+         ! Get coarse grid AMR index and CPU id
+         icell_c_amr=father(igrid_f_amr)
+         ind_c_cell=(icell_c_amr-ncoarse-1)/ngridmax+1
+         igrid_c_amr=icell_c_amr-ncoarse-(ind_c_cell-1)*ngridmax
+         cpu_amr=cpu_map(father(igrid_c_amr))
+
+         ! Convert to MG index, get MG coarse cell id
+         igrid_c_mg=lookup_mg(igrid_c_amr)
+         iskip_c_mg=(ind_c_cell-1)*active_mg(cpu_amr,icoarselevel)%ngrid
+         icell_c_mg=iskip_c_mg+igrid_c_mg
+
+         ! Stack cell volume fraction in coarse cell
+         ngpmask=(1d0+f(icell_f_amr,3))/2d0/dtwotondim
+         active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,4)=&
+            active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,4)+ngpmask
+      end do
+   end do
+end subroutine restrict_mask_fine_reverse
+
+! ------------------------------------------------------------------------
+! Residual computation
+! ------------------------------------------------------------------------
+
+subroutine cmp_residual_mg_fine(ilevel)
+   ! Computes the residual the fine (AMR) level, and stores it into f(:,1)
+   use amr_commons
+   use poisson_commons
+   implicit none
+   integer, intent(in) :: ilevel
+
+   integer, dimension(1:3,1:2,1:8) :: iii, jjj
+
+   real(dp) :: dx, oneoverdx2, phi_c, nb_sum
+   integer  :: ngrid
+   integer  :: ind, igrid_mg, idim, inbor
+   integer  :: igrid_amr, icell_amr, iskip_amr
+   integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
+
+   real(dp) :: dtwondim = (twondim)
+
+   ! Set constants
+   dx  = 0.5d0**ilevel
+   oneoverdx2 = 1.0d0/(dx*dx)
+
+   iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
+   iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
+   iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
+   iii(2,2,1:8)=(/0,0,4,4,0,0,4,4/); jjj(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
+   iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
+   iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
+
+   ngrid=active(ilevel)%ngrid
+
+   ! Loop over cells
+   do ind=1,twotondim
+      iskip_amr = ncoarse+(ind-1)*ngridmax
+
+      ! Loop over active grids
+      do igrid_mg=1,ngrid
+         igrid_amr = active(ilevel)%igrid(igrid_mg)
+         icell_amr = iskip_amr + igrid_amr
+
+         phi_c = phi(icell_amr)           ! Value of potential on center cell
+         nb_sum=0.0d0                     ! Sum of phi on neighbors
+
+         ! SCAN FLAG TEST
+         if(flag2(icell_amr)/ngridmax==0) then
+            do inbor=1,2
+               do idim=1,ndim
+                  ! Get neighbor grid
+                  igshift = iii(idim,inbor,ind)
+                  if(igshift==0) then
+                     igrid_nbor_amr = igrid_amr
+                  else
+                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
+                  end if
+                  icell_nbor_amr = igrid_nbor_amr + &
+                      (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
+                  nb_sum = nb_sum + phi(icell_nbor_amr)
+               end do
+            end do
+         else ! PERFORM SCAN
+            if(f(icell_amr,3)<=0.0) then
+               f(icell_amr,1)=0.0d0
+               cycle
+            end if
+            do idim=1,ndim
+               do inbor=1,2
+                  ! Get neighbor grid
+                  igshift = iii(idim,inbor,ind)
+                  if(igshift==0) then
+                     igrid_nbor_amr = igrid_amr
+                  else
+                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
+                  end if
+
+                  if(igrid_nbor_amr==0) then
+                     ! No neighbor cell !
+                     ! Virtual phi value on unrefined neighbor cell :
+                     ! -phi_c/mask_c
+                     ! (simulates mask=-1.0 for the nonexistent refined cell)
+                     nb_sum = nb_sum - phi_c/f(icell_amr,3)
+                  else
+                     ! Fetch neighbor cell
+                     icell_nbor_amr = igrid_nbor_amr + &
+                         (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
+                     if(f(icell_nbor_amr,3)<=0.0) then
+                        ! Neighbor cell is masked :
+                        ! compute its virtual phi with the mask
+                        nb_sum = nb_sum + &
+                            phi_c*(f(icell_nbor_amr,3)/f(icell_amr,3))
+                     else
+                        ! Neighbor cell is active, use its true potential
+                        nb_sum = nb_sum + phi(icell_nbor_amr)
+                     end if
+                  end if
+               end do
+            end do
+         end if ! END SCAN TEST
+
+         ! Store ***MINUS THE RESIDUAL*** in f(:,1), using BC-modified RHS
+         f(icell_amr,1) = -oneoverdx2*( nb_sum - dtwondim*phi_c )+f(icell_amr,2)
+      end do
+   end do
+
+end subroutine cmp_residual_mg_fine
+
+! ##################################################################
+! ##################################################################
+
+subroutine cmp_residual_norm2_fine(ilevel, norm2)
+   use amr_commons
+   use poisson_commons
+   implicit none
+
+   integer,  intent(in)  :: ilevel
+   real(kind=8), intent(out) :: norm2
+
+   real(kind=8) :: dx2
+   integer  :: ngrid
+   integer  :: ind, igrid_mg
+   integer  :: igrid_amr, icell_amr, iskip_amr
+
+   ! Set constants
+   dx2  = (0.5d0**ilevel)**ndim
+   ngrid=active(ilevel)%ngrid
+
+   norm2 = 0.0d0
+   ! Loop over cells
+   do ind=1,twotondim
+      iskip_amr = ncoarse+(ind-1)*ngridmax
+      ! Loop over active grids
+      do igrid_mg=1,ngrid
+         igrid_amr = active(ilevel)%igrid(igrid_mg)
+         icell_amr = iskip_amr + igrid_amr
+         if(f(icell_amr,3)<=0.0) then      ! Do not count masked cells
+            cycle
+         end if
+         norm2 = norm2 + f(icell_amr,1)**2
+      end do
+   end do
+   norm2 = dx2*norm2
+
+end subroutine cmp_residual_norm2_fine
+
+subroutine cmp_ivar_norm2_fine(ilevel, ivar, norm2)
+   use amr_commons
+   use poisson_commons
+   implicit none
+
+   integer,  intent(in)  :: ilevel, ivar
+   real(kind=8), intent(out) :: norm2
+
+   real(kind=8) :: dx2
+   integer  :: ngrid
+   integer  :: ind, igrid_mg
+   integer  :: igrid_amr, icell_amr, iskip_amr
+
+   ! Set constants
+   dx2  = (0.5d0**ilevel)**ndim
+   ngrid=active(ilevel)%ngrid
+
+   norm2 = 0.0d0
+   ! Loop over cells
+   do ind=1,twotondim
+      iskip_amr = ncoarse+(ind-1)*ngridmax
+      ! Loop over active grids
+      do igrid_mg=1,ngrid
+         igrid_amr = active(ilevel)%igrid(igrid_mg)
+         icell_amr = iskip_amr + igrid_amr
+         if(f(icell_amr,3)<=0.0) then      ! Do not count masked cells
+            cycle
+         end if
+         if(ivar>0)then
+            norm2 = norm2 + f(icell_amr,ivar)**2
+         else
+            norm2 = norm2 + phi(icell_amr)**2
+         endif
+      end do
+   end do
+   norm2 = dx2*norm2
+
+end subroutine cmp_ivar_norm2_fine
+
+! ------------------------------------------------------------------------
+! Gauss-Seidel smoothing
+! ------------------------------------------------------------------------
+
+subroutine gauss_seidel_mg_fine(ilevel,redstep)
+   use amr_commons
+   use pm_commons
+   use poisson_commons
+   implicit none
+   integer, intent(in) :: ilevel
+   logical, intent(in) :: redstep
+
+   integer, dimension(1:3,1:2,1:8) :: iii, jjj
+   integer, dimension(1:3,1:4)     :: ired, iblack
+
+   real(dp) :: dx2, nb_sum, weight
+   integer  :: ngrid
+   integer  :: ind, ind0, igrid_mg, idim, inbor
+   integer  :: igrid_amr, icell_amr, iskip_amr
+   integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
+
+   real(dp) :: dtwondim = (twondim)
+
+   ! Set constants
+   dx2  = (0.5d0**ilevel)**2
+
+   ired  (1,1:4)=(/1,0,0,0/)
+   iblack(1,1:4)=(/2,0,0,0/)
+   ired  (2,1:4)=(/1,4,0,0/)
+   iblack(2,1:4)=(/2,3,0,0/)
+   ired  (3,1:4)=(/1,4,6,7/)
+   iblack(3,1:4)=(/2,3,5,8/)
+
+   iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
+   iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
+   iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
+   iii(2,2,1:8)=(/0,0,4,4,0,0,4,4/); jjj(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
+   iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
+   iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
+
+   ngrid=active(ilevel)%ngrid
+
+   ! Loop over cells, with red/black ordering
+   do ind0=1,twotondim/2      ! Only half of the cells for a red or black sweep
+      if(redstep) then
+         ind = ired  (ndim,ind0)
+      else
+         ind = iblack(ndim,ind0)
+      end if
+
+      iskip_amr = ncoarse+(ind-1)*ngridmax
+
+      ! Loop over active grids
+      do igrid_mg=1,ngrid
+         igrid_amr = active(ilevel)%igrid(igrid_mg)
+         icell_amr = iskip_amr + igrid_amr
+
+         nb_sum=0.0d0                       ! Sum of phi on neighbors
+
+         ! Read scan flag
+         if(flag2(icell_amr)/ngridmax==0) then
+            ! Use max-speed "dumb" Gauss-Seidel for "inner" cells
+            ! Those cells are active, have all their neighbors active
+            ! and all neighbors are in the AMR+MG trees
+            do inbor=1,2
+               do idim=1,ndim
+                  ! Get neighbor grid shift
+                  igshift = iii(idim,inbor,ind)
+                  ! Get neighbor grid
+                  if(igshift==0) then
+                     igrid_nbor_amr = igrid_amr
+                  else
+                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
+                  end if
+                  icell_nbor_amr = igrid_nbor_amr + &
+                      (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
+                  nb_sum = nb_sum + phi(icell_nbor_amr)
+               end do
+            end do
+            ! Update the potential, solving for potential on icell_amr
+            phi(icell_amr) = (nb_sum - dx2*f(icell_amr,2)) / dtwondim
+         else
+            ! Use the finer "solve" Gauss-Seidel near boundaries,
+            ! with all necessary checks
+            if (f(icell_amr,3)<=0.0) cycle
+            if (safe_mode(ilevel) .and. f(icell_amr,3)<1.0) cycle
+
+            weight=0.0d0 ! Central weight for "Solve G-S"
+            do inbor=1,2
+               do idim=1,ndim
+                  ! Get neighbor grid shift
+                  igshift = iii(idim,inbor,ind)
+
+                  ! Get neighbor grid
+                  if(igshift==0) then
+                     igrid_nbor_amr = igrid_amr
+                  else
+                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
+                  end if
+
+                  if(igrid_nbor_amr==0) then
+                     ! No neighbor cell,
+                     ! set mask=-1 on nonexistent neighbor cell
+                     weight = weight - 1.0d0/f(icell_amr,3)
+                  else
+                     ! Fetch neighbor cell
+                     icell_nbor_amr = igrid_nbor_amr + &
+                         (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
+                     if(f(icell_nbor_amr,3)<=0.0) then
+                        ! Neighbor cell is masked
+                        weight = weight + f(icell_nbor_amr,3)/f(icell_amr,3)
+                     else
+                        ! Neighbor cell is active, increment neighbor sum
+                        nb_sum = nb_sum + phi(icell_nbor_amr)
+                     end if
+                  end if
+               end do
+            end do
+            ! Update the potential, solving for potential on icell_amr
+            phi(icell_amr) = (nb_sum - dx2*f(icell_amr,2)) / (dtwondim - weight)
+         end if
+      end do
+   end do
+end subroutine gauss_seidel_mg_fine
+
+! ------------------------------------------------------------------------
+! Residual restriction (top-down, OBSOLETE, UNUSED)
+! ------------------------------------------------------------------------
+
+subroutine restrict_residual_fine(ifinelevel)
+   ! Restrict fine (AMR) residual at level ifinelevel using injection
+   ! into coarser residual at level ifinelevel-1
+   ! Restricted residual is stored into the RHS at the coarser level
+   use amr_commons
+   use pm_commons
+   use poisson_commons
+   implicit none
+   integer, intent(in) :: ifinelevel
+
+   real(dp) :: val
+   real(dp) :: dtwotondim = (twotondim)
+
+   integer  :: icoarselevel
+   integer  :: ngrid_c, ind_c, iskip_c_amr, iskip_c_mg
+   integer  :: igrid_c_amr, icell_c_amr, icell_c_mg, igrid_c_mg
+   integer  :: ind_f, igrid_f_amr, iskip_f_amr, icell_f_amr
+
+   icoarselevel=ifinelevel-1
+
+   ! Loop over coarse MG cells
+   ngrid_c=active_mg(myid,icoarselevel)%ngrid
+   do ind_c=1,twotondim
+      iskip_c_amr = ncoarse + (ind_c-1)*ngridmax
+      iskip_c_mg  = (ind_c-1)*ngrid_c
+
+      do igrid_c_mg=1,ngrid_c
+         igrid_c_amr = active_mg(myid,icoarselevel)%igrid(igrid_c_mg)
+         icell_c_amr = igrid_c_amr + iskip_c_amr
+         icell_c_mg  = igrid_c_mg  + iskip_c_mg
+
+         ! Get AMR child grid
+         igrid_f_amr = son(icell_c_amr)
+         if(igrid_f_amr==0) then
+            ! Nullify residual (coarser RHS)
+            active_mg(myid,icoarselevel)%u(icell_c_mg,2) = 0.0d0
+            cycle
+         end if
+
+         val = 0.0d0
+         ! Loop over child (fine MG) cells
+         do ind_f=1,twotondim
+            iskip_f_amr = ncoarse + (ind_f-1)*ngridmax
+            icell_f_amr = igrid_f_amr + iskip_f_amr
+
+            if (f(icell_f_amr,3)<=0.0) cycle
+            val = val + f(icell_f_amr,1)
+         end do
+         ! Store restricted residual into RHS of coarse level
+         active_mg(myid,icoarselevel)%u(icell_c_mg,2) = val/dtwotondim
+      end do
+   end do
+end subroutine restrict_residual_fine
 
 
-<script src="/assets/webpack/runtime.a39a73ba.bundle.js" defer="defer"></script>
-<script src="/assets/webpack/main.ffc01b51.chunk.js" defer="defer"></script>
-<script src="/assets/webpack/commons~pages.groups.milestones.edit~pages.groups.milestones.new~pages.projects.blame.show~pages.pro~e382f304.bded8fb8.chunk.js" defer="defer"></script>
-<script src="/assets/webpack/commons~pages.projects.blame.show~pages.projects.blob.edit~pages.projects.blob.new~pages.projects.bl~046fef08.ddfc0c47.chunk.js" defer="defer"></script>
-<script src="/assets/webpack/pages.projects.blob.show.1656f5ea.chunk.js" defer="defer"></script>
-<script>
-  window.uploads_path = "/dc-barr3/GR/uploads";
-</script>
+! ------------------------------------------------------------------------
+! Residual restriction (bottom-up)
+! ------------------------------------------------------------------------
 
-<meta name="csrf-param" content="authenticity_token" />
-<meta name="csrf-token" content="TlIGI/+Tz9Lp3wEbBHv1/K+ire2ENm1U0S/ebIGG/VgXfyuf/RKTm+Uxtox8EjG+yNqfZtozW7txdd15iONAxw==" />
-<meta content="origin-when-cross-origin" name="referrer">
-<meta content="width=device-width, initial-scale=1, maximum-scale=1" name="viewport">
-<meta content="#474D57" name="theme-color">
-<link rel="apple-touch-icon" type="image/x-icon" href="/assets/touch-icon-iphone-5a9cee0e8a51212e70b90c87c12f382c428870c0ff67d1eb034d884b78d2dae7.png" />
-<link rel="apple-touch-icon" type="image/x-icon" href="/assets/touch-icon-ipad-a6eec6aeb9da138e507593b464fdac213047e49d3093fc30e90d9a995df83ba3.png" sizes="76x76" />
-<link rel="apple-touch-icon" type="image/x-icon" href="/assets/touch-icon-iphone-retina-72e2aadf86513a56e050e7f0f2355deaa19cc17ed97bbe5147847f2748e5a3e3.png" sizes="120x120" />
-<link rel="apple-touch-icon" type="image/x-icon" href="/assets/touch-icon-ipad-retina-8ebe416f5313483d9c1bc772b5bbe03ecad52a54eba443e5215a22caed2a16a2.png" sizes="152x152" />
-<link color="rgb(226, 67, 41)" href="/assets/logo-d36b5212042cebc89b96df4bf6ac24e43db316143e89926c0db839ff694d2de4.svg" rel="mask-icon">
-<meta content="/assets/msapplication-tile-1196ec67452f618d39cdd85e2e3a542f76574c071051ae7effbfde01710eb17d.png" name="msapplication-TileImage">
-<meta content="#30353E" name="msapplication-TileColor">
+subroutine restrict_residual_fine_reverse(ifinelevel)
+   use amr_commons
+   use poisson_commons
+   implicit none
+   integer, intent(in) :: ifinelevel
 
+   integer :: ind_c_cell, ind_f_cell, cpu_amr
 
+   integer :: iskip_c_mg
+   integer :: igrid_c_amr, igrid_c_mg
+   integer :: icell_c_amr, icell_c_mg
 
-</head>
+   integer :: iskip_f_amr
+   integer :: igrid_f_amr, igrid_f_mg
+   integer :: icell_f_amr
 
-<body class="ui-indigo " data-find-file="/dc-barr3/GR/find_file/c294ec354a61e766788ad1a05e520da6c07cd3c3" data-group="" data-page="projects:blob:show" data-project="GR">
+   real(dp) :: res
+   real(dp) :: dtwotondim = (twotondim)
 
+   integer :: icoarselevel
+   icoarselevel=ifinelevel-1
 
-<header class="navbar navbar-gitlab qa-navbar navbar-expand-sm">
-<a class="sr-only gl-accessibility" href="#content-body" tabindex="1">Skip to content</a>
-<div class="container-fluid">
-<div class="header-content">
-<div class="title-container">
-<h1 class="title">
-<a title="Dashboard" id="logo" href="/"><svg width="24" height="24" class="tanuki-logo" viewBox="0 0 36 36">
-  <path class="tanuki-shape tanuki-left-ear" fill="#e24329" d="M2 14l9.38 9v-9l-4-12.28c-.205-.632-1.176-.632-1.38 0z"/>
-  <path class="tanuki-shape tanuki-right-ear" fill="#e24329" d="M34 14l-9.38 9v-9l4-12.28c.205-.632 1.176-.632 1.38 0z"/>
-  <path class="tanuki-shape tanuki-nose" fill="#e24329" d="M18,34.38 3,14 33,14 Z"/>
-  <path class="tanuki-shape tanuki-left-eye" fill="#fc6d26" d="M18,34.38 11.38,14 2,14 6,25Z"/>
-  <path class="tanuki-shape tanuki-right-eye" fill="#fc6d26" d="M18,34.38 24.62,14 34,14 30,25Z"/>
-  <path class="tanuki-shape tanuki-left-cheek" fill="#fca326" d="M2 14L.1 20.16c-.18.565 0 1.2.5 1.56l17.42 12.66z"/>
-  <path class="tanuki-shape tanuki-right-cheek" fill="#fca326" d="M34 14l1.9 6.16c.18.565 0 1.2-.5 1.56L18 34.38z"/>
-</svg>
+   ! Loop over fine cells of the myid active comm
+   do ind_f_cell=1,twotondim
+      iskip_f_amr=ncoarse+(ind_f_cell-1)*ngridmax
 
-<span class="logo-text d-none d-sm-block">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 617 169"><path d="M315.26 2.97h-21.8l.1 162.5h88.3v-20.1h-66.5l-.1-142.4M465.89 136.95c-5.5 5.7-14.6 11.4-27 11.4-16.6 0-23.3-8.2-23.3-18.9 0-16.1 11.2-23.8 35-23.8 4.5 0 11.7.5 15.4 1.2v30.1h-.1m-22.6-98.5c-17.6 0-33.8 6.2-46.4 16.7l7.7 13.4c8.9-5.2 19.8-10.4 35.5-10.4 17.9 0 25.8 9.2 25.8 24.6v7.9c-3.5-.7-10.7-1.2-15.1-1.2-38.2 0-57.6 13.4-57.6 41.4 0 25.1 15.4 37.7 38.7 37.7 15.7 0 30.8-7.2 36-18.9l4 15.9h15.4v-83.2c-.1-26.3-11.5-43.9-44-43.9M557.63 149.1c-8.2 0-15.4-1-20.8-3.5V70.5c7.4-6.2 16.6-10.7 28.3-10.7 21.1 0 29.2 14.9 29.2 39 0 34.2-13.1 50.3-36.7 50.3m9.2-110.6c-19.5 0-30 13.3-30 13.3v-21l-.1-27.8h-21.3l.1 158.5c10.7 4.5 25.3 6.9 41.2 6.9 40.7 0 60.3-26 60.3-70.9-.1-35.5-18.2-59-50.2-59M77.9 20.6c19.3 0 31.8 6.4 39.9 12.9l9.4-16.3C114.5 6 97.3 0 78.9 0 32.5 0 0 28.3 0 85.4c0 59.8 35.1 83.1 75.2 83.1 20.1 0 37.2-4.7 48.4-9.4l-.5-63.9V75.1H63.6v20.1h38l.5 48.5c-5 2.5-13.6 4.5-25.3 4.5-32.2 0-53.8-20.3-53.8-63-.1-43.5 22.2-64.6 54.9-64.6M231.43 2.95h-21.3l.1 27.3v94.3c0 26.3 11.4 43.9 43.9 43.9 4.5 0 8.9-.4 13.1-1.2v-19.1c-3.1.5-6.4.7-9.9.7-17.9 0-25.8-9.2-25.8-24.6v-65h35.7v-17.8h-35.7l-.1-38.5M155.96 165.47h21.3v-124h-21.3v124M155.96 24.37h21.3V3.07h-21.3v21.3"/></svg>
+      ! Loop over fine grids of myid
+      do igrid_f_mg=1,active(ifinelevel)%ngrid
+         igrid_f_amr=active(ifinelevel)%igrid(igrid_f_mg)
+         icell_f_amr=igrid_f_amr+iskip_f_amr
+         ! Is fine cell masked?
+         if(f(icell_f_amr,3)<=0d0) cycle
 
-</span>
-</a></h1>
-<ul class="list-unstyled navbar-sub-nav">
-<li id="nav-projects-dropdown" class="home dropdown header-projects qa-projects-dropdown"><a data-toggle="dropdown" href="#">
-Projects
-<svg class=" caret-down"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#angle-down"></use></svg>
-</a>
-<div class="dropdown-menu projects-dropdown-menu">
-<div class="projects-dropdown-container">
-<div class="project-dropdown-sidebar qa-projects-dropdown-sidebar">
-<ul>
-<li class=""><a class="qa-your-projects-link" href="/dashboard/projects">Your projects
-</a></li><li class=""><a href="/dashboard/projects/starred">Starred projects
-</a></li><li class=""><a href="/explore">Explore projects
-</a></li></ul>
-</div>
-<div class="project-dropdown-content">
-<div data-project-id="141" data-project-name="GR" data-project-namespace="Cristian Barrera-Hinojosa / GR" data-project-web-url="/dc-barr3/GR" data-user-name="dc-barr3" id="js-projects-dropdown"></div>
-</div>
-</div>
+         ! Get coarse grid AMR index and CPU id
+         icell_c_amr=father(igrid_f_amr)
+         ind_c_cell=(icell_c_amr-ncoarse-1)/ngridmax+1
+         igrid_c_amr=icell_c_amr-ncoarse-(ind_c_cell-1)*ngridmax
+         cpu_amr=cpu_map(father(igrid_c_amr))
 
-</div>
-</li><li class="d-none d-sm-block"><a class="dashboard-shortcuts-groups qa-groups-link" title="Groups" href="/dashboard/groups">Groups
-</a></li><li class="d-none d-lg-block d-xl-block"><a class="dashboard-shortcuts-activity" title="Activity" href="/dashboard/activity">Activity
-</a></li><li class="d-none d-lg-block d-xl-block"><a class="dashboard-shortcuts-milestones" title="Milestones" href="/dashboard/milestones">Milestones
-</a></li><li class="d-none d-lg-block d-xl-block"><a class="dashboard-shortcuts-snippets" title="Snippets" href="/dashboard/snippets">Snippets
-</a></li><li class="header-more dropdown d-lg-none d-xl-none">
-<a data-toggle="dropdown" href="#">
-More
-<svg class=" caret-down"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#angle-down"></use></svg>
-</a>
-<div class="dropdown-menu">
-<ul>
-<li class="d-block d-sm-none"><a class="dashboard-shortcuts-groups" title="Groups" href="/dashboard/groups">Groups
-</a></li><li class=""><a title="Activity" href="/dashboard/activity">Activity
-</a></li><li class=""><a class="dashboard-shortcuts-milestones" title="Milestones" href="/dashboard/milestones">Milestones
-</a></li><li class=""><a class="dashboard-shortcuts-snippets" title="Snippets" href="/dashboard/snippets">Snippets
-</a></li></ul>
-</div>
-</li>
-<li class="hidden">
-<a title="Projects" class="dashboard-shortcuts-projects" href="/dashboard/projects">Projects
-</a></li>
-</ul>
+         ! Convert to MG index, get MG coarse cell id
+         igrid_c_mg=lookup_mg(igrid_c_amr)
+         iskip_c_mg=(ind_c_cell-1)*active_mg(cpu_amr,icoarselevel)%ngrid
+         icell_c_mg=iskip_c_mg+igrid_c_mg
 
-</div>
-<div class="navbar-collapse collapse">
-<ul class="nav navbar-nav">
-<li class="header-new dropdown">
-<a class="header-new-dropdown-toggle has-tooltip qa-new-menu-toggle" title="New..." ref="tooltip" aria-label="New..." data-toggle="dropdown" data-placement="bottom" data-container="body" data-display="static" href="/projects/new"><svg class="s16"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#plus-square"></use></svg>
-<svg class=" caret-down"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#angle-down"></use></svg>
-</a><div class="dropdown-menu dropdown-menu-right">
-<ul>
-<li class="dropdown-bold-header">This project</li>
-<li>
-<a href="/dc-barr3/GR/issues/new">New issue</a>
-</li>
-<li>
-<a href="/dc-barr3/GR/merge_requests/new">New merge request</a>
-</li>
-<li class="header-new-project-snippet">
-<a href="/dc-barr3/GR/snippets/new">New snippet</a>
-</li>
-<li class="divider"></li>
-<li class="dropdown-bold-header">GitLab</li>
-<li>
-<a href="/projects/new">New project</a>
-</li>
-<li>
-<a href="/snippets/new">New snippet</a>
-</li>
-</ul>
-</div>
-</li>
+         ! Is coarse cell masked?
+         if(active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,4)<=0d0) cycle
 
-<li class="nav-item d-none d-sm-none d-md-block">
-<div class="has-location-badge search search-form">
-<form class="form-inline" action="/search" accept-charset="UTF-8" method="get"><input name="utf8" type="hidden" value="&#x2713;" /><div class="search-input-container">
-<div class="location-badge">This project</div>
-<div class="search-input-wrap">
-<div class="dropdown" data-url="/search/autocomplete">
-<input type="search" name="search" id="search" placeholder="Search" class="search-input dropdown-menu-toggle no-outline js-search-dashboard-options" spellcheck="false" tabindex="1" autocomplete="off" data-issues-path="/dashboard/issues" data-mr-path="/dashboard/merge_requests" aria-label="Search" />
-<button class="hidden js-dropdown-search-toggle" data-toggle="dropdown" type="button"></button>
-<div class="dropdown-menu dropdown-select">
-<div class="dropdown-content"><ul>
-<li class="dropdown-menu-empty-item">
-<a>
-Loading...
-</a>
-</li>
-</ul>
-</div><div class="dropdown-loading"><i aria-hidden="true" data-hidden="true" class="fa fa-spinner fa-spin"></i></div>
-</div>
-<svg class="s16 search-icon"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#search"></use></svg>
-<svg class="s16 clear-icon js-clear-input"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#close"></use></svg>
-</div>
-</div>
-</div>
-<input type="hidden" name="group_id" id="group_id" class="js-search-group-options" />
-<input type="hidden" name="project_id" id="search_project_id" value="141" class="js-search-project-options" data-project-path="GR" data-name="GR" data-issues-path="/dc-barr3/GR/issues" data-mr-path="/dc-barr3/GR/merge_requests" data-issues-disabled="false" />
-<input type="hidden" name="search_code" id="search_code" value="true" />
-<input type="hidden" name="repository_ref" id="repository_ref" value="c294ec354a61e766788ad1a05e520da6c07cd3c3" />
+         ! Stack fine cell residual in coarse cell rhs
+         res=f(icell_f_amr,1)/dtwotondim
+         active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,2)=&
+            active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,2)+res
+      end do
+   end do
+end subroutine restrict_residual_fine_reverse
 
-<div class="search-autocomplete-opts hide" data-autocomplete-path="/search/autocomplete" data-autocomplete-project-id="141" data-autocomplete-project-ref="c294ec354a61e766788ad1a05e520da6c07cd3c3"></div>
-</form></div>
+! ------------------------------------------------------------------------
+! Interpolation and correction
+! ------------------------------------------------------------------------
 
-</li>
-<li class="nav-item d-inline-block d-sm-none d-md-none">
-<a title="Search" aria-label="Search" data-toggle="tooltip" data-placement="bottom" data-container="body" href="/search"><svg class="s16"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#search"></use></svg>
-</a></li>
-<li class="user-counter"><a title="Issues" class="dashboard-shortcuts-issues" aria-label="Issues" data-toggle="tooltip" data-placement="bottom" data-container="body" href="/dashboard/issues?assignee_id=63"><svg class="s16"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#issues"></use></svg>
-<span class="badge badge-pill hidden issues-count">
-0
-</span>
-</a></li><li class="user-counter"><a title="Merge requests" class="dashboard-shortcuts-merge_requests" aria-label="Merge requests" data-toggle="tooltip" data-placement="bottom" data-container="body" href="/dashboard/merge_requests?assignee_id=63"><svg class="s16"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#git-merge"></use></svg>
-<span class="badge badge-pill hidden merge-requests-count">
-0
-</span>
-</a></li><li class="user-counter"><a title="Todos" aria-label="Todos" class="shortcuts-todos" data-toggle="tooltip" data-placement="bottom" data-container="body" href="/dashboard/todos"><svg class="s16"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#todo-done"></use></svg>
-<span class="badge badge-pill hidden todos-count">
-0
-</span>
-</a></li><li class="nav-item header-user dropdown">
-<a class="header-user-dropdown-toggle" data-toggle="dropdown" href="/dc-barr3"><img width="23" height="23" class="header-user-avatar qa-user-avatar lazy" data-src="https://secure.gravatar.com/avatar/6e4332969ccc09abe0143e541df79d21?s=46&amp;d=identicon" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" />
-<svg class=" caret-down"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#angle-down"></use></svg>
-</a><div class="dropdown-menu dropdown-menu-right">
-<ul>
-<li class="current-user">
-<div class="user-name bold">
-Cristian Barrera-Hinojosa
-</div>
-@dc-barr3
-</li>
-<li class="divider"></li>
-<li>
-<a class="profile-link" data-user="dc-barr3" href="/dc-barr3">Profile</a>
-</li>
-<li>
-<a href="/profile">Settings</a>
-</li>
-<li>
-<a href="/help">Help</a>
-</li>
-<li class="divider"></li>
-<li>
-<a class="sign-out-link" href="/users/sign_out">Sign out</a>
-</li>
-</ul>
+subroutine interpolate_and_correct_fine(ifinelevel)
+   use amr_commons
+   use poisson_commons
+   implicit none
+   integer, intent(in) :: ifinelevel
 
-</div>
-</li>
-</ul>
-</div>
-<button class="navbar-toggler d-block d-sm-none" type="button">
-<span class="sr-only">Toggle navigation</span>
-<svg class="s12 more-icon js-navbar-toggle-right"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#more"></use></svg>
-<svg class="s12 close-icon js-navbar-toggle-left"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#close"></use></svg>
-</button>
-</div>
-</div>
-</header>
+   integer  :: i, ind_father, ind_average, ind_f, iskip_f_amr
+   integer  :: ngrid_f, istart, nbatch
+   integer  :: icell_c_amr, igrid_c_amr, igrid_c_mg, icell_c_mg
+   integer  :: icoarselevel, ind_c, cpu_amr
 
-<div class="layout-page page-with-contextual-sidebar">
-<div class="nav-sidebar">
-<div class="nav-sidebar-inner-scroll">
-<div class="context-header">
-<a title="GR" href="/dc-barr3/GR"><div class="avatar-container s40 project-avatar">
-<div class="avatar s40 avatar-tile identicon" style="background-color: #F3E5F5; color: #555">G</div>
-</div>
-<div class="sidebar-context-title">
-GR
-</div>
-</a></div>
-<ul class="sidebar-top-level-items">
-<li class="home"><a class="shortcuts-project" href="/dc-barr3/GR"><div class="nav-icon-container">
-<svg><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#project"></use></svg>
-</div>
-<span class="nav-item-name">
-Project
-</span>
-</a><ul class="sidebar-sub-level-items">
-<li class="fly-out-top-item"><a href="/dc-barr3/GR"><strong class="fly-out-top-item-name">
-Project
-</strong>
-</a></li><li class="divider fly-out-top-item"></li>
-<li class=""><a title="Project details" class="shortcuts-project" href="/dc-barr3/GR"><span>Details</span>
-</a></li><li class=""><a title="Activity" class="shortcuts-project-activity" href="/dc-barr3/GR/activity"><span>Activity</span>
-</a></li><li class=""><a title="Cycle Analytics" class="shortcuts-project-cycle-analytics" href="/dc-barr3/GR/cycle_analytics"><span>Cycle Analytics</span>
-</a></li></ul>
-</li><li class="active"><a class="shortcuts-tree" href="/dc-barr3/GR/tree/c294ec354a61e766788ad1a05e520da6c07cd3c3"><div class="nav-icon-container">
-<svg><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#doc_text"></use></svg>
-</div>
-<span class="nav-item-name">
-Repository
-</span>
-</a><ul class="sidebar-sub-level-items">
-<li class="fly-out-top-item active"><a href="/dc-barr3/GR/tree/c294ec354a61e766788ad1a05e520da6c07cd3c3"><strong class="fly-out-top-item-name">
-Repository
-</strong>
-</a></li><li class="divider fly-out-top-item"></li>
-<li class="active"><a href="/dc-barr3/GR/tree/c294ec354a61e766788ad1a05e520da6c07cd3c3">Files
-</a></li><li class=""><a href="/dc-barr3/GR/commits/c294ec354a61e766788ad1a05e520da6c07cd3c3">Commits
-</a></li><li class=""><a href="/dc-barr3/GR/branches">Branches
-</a></li><li class=""><a href="/dc-barr3/GR/tags">Tags
-</a></li><li class=""><a href="/dc-barr3/GR/graphs/c294ec354a61e766788ad1a05e520da6c07cd3c3">Contributors
-</a></li><li class=""><a href="/dc-barr3/GR/network/c294ec354a61e766788ad1a05e520da6c07cd3c3">Graph
-</a></li><li class=""><a href="/dc-barr3/GR/compare?from=master&amp;to=c294ec354a61e766788ad1a05e520da6c07cd3c3">Compare
-</a></li><li class=""><a href="/dc-barr3/GR/graphs/c294ec354a61e766788ad1a05e520da6c07cd3c3/charts">Charts
-</a></li></ul>
-</li><li class=""><a class="shortcuts-issues" href="/dc-barr3/GR/issues"><div class="nav-icon-container">
-<svg><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#issues"></use></svg>
-</div>
-<span class="nav-item-name">
-Issues
-</span>
-<span class="badge badge-pill count issue_counter">
-0
-</span>
-</a><ul class="sidebar-sub-level-items">
-<li class="fly-out-top-item"><a href="/dc-barr3/GR/issues"><strong class="fly-out-top-item-name">
-Issues
-</strong>
-<span class="badge badge-pill count issue_counter fly-out-badge">
-0
-</span>
-</a></li><li class="divider fly-out-top-item"></li>
-<li class=""><a title="Issues" href="/dc-barr3/GR/issues"><span>
-List
-</span>
-</a></li><li class=""><a title="Board" href="/dc-barr3/GR/boards"><span>
-Board
-</span>
-</a></li><li class=""><a title="Labels" href="/dc-barr3/GR/labels"><span>
-Labels
-</span>
-</a></li><li class=""><a title="Milestones" href="/dc-barr3/GR/milestones"><span>
-Milestones
-</span>
-</a></li></ul>
-</li><li class=""><a class="shortcuts-merge_requests" href="/dc-barr3/GR/merge_requests"><div class="nav-icon-container">
-<svg><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#git-merge"></use></svg>
-</div>
-<span class="nav-item-name">
-Merge Requests
-</span>
-<span class="badge badge-pill count merge_counter js-merge-counter">
-0
-</span>
-</a><ul class="sidebar-sub-level-items is-fly-out-only">
-<li class="fly-out-top-item"><a href="/dc-barr3/GR/merge_requests"><strong class="fly-out-top-item-name">
-Merge Requests
-</strong>
-<span class="badge badge-pill count merge_counter js-merge-counter fly-out-badge">
-0
-</span>
-</a></li></ul>
-</li><li class=""><a class="shortcuts-pipelines" href="/dc-barr3/GR/pipelines"><div class="nav-icon-container">
-<svg><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#rocket"></use></svg>
-</div>
-<span class="nav-item-name">
-CI / CD
-</span>
-</a><ul class="sidebar-sub-level-items">
-<li class="fly-out-top-item"><a href="/dc-barr3/GR/pipelines"><strong class="fly-out-top-item-name">
-CI / CD
-</strong>
-</a></li><li class="divider fly-out-top-item"></li>
-<li class=""><a title="Pipelines" class="shortcuts-pipelines" href="/dc-barr3/GR/pipelines"><span>
-Pipelines
-</span>
-</a></li><li class=""><a title="Jobs" class="shortcuts-builds" href="/dc-barr3/GR/-/jobs"><span>
-Jobs
-</span>
-</a></li><li class=""><a title="Schedules" class="shortcuts-builds" href="/dc-barr3/GR/pipeline_schedules"><span>
-Schedules
-</span>
-</a></li><li class=""><a title="Charts" class="shortcuts-pipelines-charts" href="/dc-barr3/GR/pipelines/charts"><span>
-Charts
-</span>
-</a></li></ul>
-</li><li class=""><a class="shortcuts-operations" href="/dc-barr3/GR/environments"><div class="nav-icon-container">
-<svg><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#cloud-gear"></use></svg>
-</div>
-<span class="nav-item-name">
-Operations
-</span>
-</a><ul class="sidebar-sub-level-items">
-<li class="fly-out-top-item"><a href="/dc-barr3/GR/environments"><strong class="fly-out-top-item-name">
-Operations
-</strong>
-</a></li><li class="divider fly-out-top-item"></li>
-<li class=""><a title="Environments" class="shortcuts-environments" href="/dc-barr3/GR/environments"><span>
-Environments
-</span>
-</a></li><li class=""><a title="Kubernetes" class="shortcuts-kubernetes" href="/dc-barr3/GR/clusters"><span>
-Kubernetes
-</span>
-<div class="feature-highlight js-feature-highlight" data-container="body" data-dismiss-endpoint="/-/user_callouts" data-highlight="gke_cluster_integration" data-placement="right" data-toggle="popover" data-trigger="manual" disabled></div>
-</a><div class="feature-highlight-popover-content">
-<img class="feature-highlight-illustration lazy" data-src="/assets/illustrations/cluster_popover-9830388038d966d8d64d43576808f9d5ba05f639a78a40bae9a5ddc7cbf72f24.svg" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" />
-<div class="feature-highlight-popover-sub-content">
-<p>Allows you to add and manage Kubernetes clusters.</p>
-<p>
-Protip:
-<a href="/help/topics/autodevops/index.md">Auto DevOps</a>
-<span>uses Kubernetes clusters to deploy your code!</span>
-</p>
-<hr>
-<button class="btn btn-create btn-sm dismiss-feature-highlight" type="button">
-<span>Got it!</span>
-<svg><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#thumb-up"></use></svg>
-</button>
-</div>
-</div>
-</li></ul>
-</li><li class=""><a class="shortcuts-wiki" href="/dc-barr3/GR/wikis/home"><div class="nav-icon-container">
-<svg><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#book"></use></svg>
-</div>
-<span class="nav-item-name">
-Wiki
-</span>
-</a><ul class="sidebar-sub-level-items is-fly-out-only">
-<li class="fly-out-top-item"><a href="/dc-barr3/GR/wikis/home"><strong class="fly-out-top-item-name">
-Wiki
-</strong>
-</a></li></ul>
-</li><li class=""><a class="shortcuts-snippets" href="/dc-barr3/GR/snippets"><div class="nav-icon-container">
-<svg><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#snippet"></use></svg>
-</div>
-<span class="nav-item-name">
-Snippets
-</span>
-</a><ul class="sidebar-sub-level-items is-fly-out-only">
-<li class="fly-out-top-item"><a href="/dc-barr3/GR/snippets"><strong class="fly-out-top-item-name">
-Snippets
-</strong>
-</a></li></ul>
-</li><li class=""><a class="shortcuts-tree" href="/dc-barr3/GR/edit"><div class="nav-icon-container">
-<svg><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#settings"></use></svg>
-</div>
-<span class="nav-item-name qa-settings-item">
-Settings
-</span>
-</a><ul class="sidebar-sub-level-items">
-<li class="fly-out-top-item"><a href="/dc-barr3/GR/edit"><strong class="fly-out-top-item-name">
-Settings
-</strong>
-</a></li><li class="divider fly-out-top-item"></li>
-<li class=""><a title="General" href="/dc-barr3/GR/edit"><span>
-General
-</span>
-</a></li><li class=""><a title="Members" href="/dc-barr3/GR/project_members"><span>
-Members
-</span>
-</a></li><li class=""><a title="Badges" href="/dc-barr3/GR/settings/badges"><span>
-Badges
-</span>
-</a></li><li class=""><a title="Integrations" href="/dc-barr3/GR/settings/integrations"><span>
-Integrations
-</span>
-</a></li><li class=""><a title="Repository" href="/dc-barr3/GR/settings/repository"><span>
-Repository
-</span>
-</a></li><li class=""><a title="CI / CD" href="/dc-barr3/GR/settings/ci_cd"><span>
-CI / CD
-</span>
-</a></li></ul>
-</li><a class="toggle-sidebar-button js-toggle-sidebar" role="button" title="Toggle sidebar" type="button">
-<svg class=" icon-angle-double-left"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#angle-double-left"></use></svg>
-<svg class=" icon-angle-double-right"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#angle-double-right"></use></svg>
-<span class="collapse-text">Collapse sidebar</span>
-</a>
-<button name="button" type="button" class="close-nav-button"><svg class="s16"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#close"></use></svg>
-<span class="collapse-text">Close sidebar</span>
-</button>
-<li class="hidden">
-<a title="Activity" class="shortcuts-project-activity" href="/dc-barr3/GR/activity"><span>
-Activity
-</span>
-</a></li>
-<li class="hidden">
-<a title="Network" class="shortcuts-network" href="/dc-barr3/GR/network/c294ec354a61e766788ad1a05e520da6c07cd3c3">Graph
-</a></li>
-<li class="hidden">
-<a title="Charts" class="shortcuts-repository-charts" href="/dc-barr3/GR/graphs/c294ec354a61e766788ad1a05e520da6c07cd3c3/charts">Charts
-</a></li>
-<li class="hidden">
-<a class="shortcuts-new-issue" href="/dc-barr3/GR/issues/new">Create a new issue
-</a></li>
-<li class="hidden">
-<a title="Jobs" class="shortcuts-builds" href="/dc-barr3/GR/-/jobs">Jobs
-</a></li>
-<li class="hidden">
-<a title="Commits" class="shortcuts-commits" href="/dc-barr3/GR/commits/c294ec354a61e766788ad1a05e520da6c07cd3c3">Commits
-</a></li>
-<li class="hidden">
-<a title="Issue Boards" class="shortcuts-issue-boards" href="/dc-barr3/GR/boards">Issue Boards</a>
-</li>
-</ul>
-</div>
-</div>
+   real(dp) :: a, b, c, d, coeff
+   real(dp), dimension(1:8)     :: bbb
+   integer,  dimension(1:8,1:8) :: ccc
 
-<div class="content-wrapper">
+   integer,  dimension(1:nvector), save               :: igrid_f_amr, icell_amr
+   integer,  dimension(1:nvector,1:threetondim), save :: nbors_father_cells
+   integer,  dimension(1:nvector,1:twotondim), save   :: nbors_father_grids
+   real(dp), dimension(1:nvector), save               :: corr
 
-<div class="mobile-overlay"></div>
-<div class="alert-wrapper">
+   ! Local constants
+   a = 1.0D0/4.0D0**ndim
+   b = 3.0D0*a
+   c = 9.0D0*a
+   d = 27.D0*a
+   icoarselevel=ifinelevel-1
+
+   bbb(:)  =(/a ,b ,b ,c ,b ,c ,c ,d/)
+
+   ccc(:,1)=(/1 ,2 ,4 ,5 ,10,11,13,14/)
+   ccc(:,2)=(/3 ,2 ,6 ,5 ,12,11,15,14/)
+   ccc(:,3)=(/7 ,8 ,4 ,5 ,16,17,13,14/)
+   ccc(:,4)=(/9 ,8 ,6 ,5 ,18,17,15,14/)
+   ccc(:,5)=(/19,20,22,23,10,11,13,14/)
+   ccc(:,6)=(/21,20,24,23,12,11,15,14/)
+   ccc(:,7)=(/25,26,22,23,16,17,13,14/)
+   ccc(:,8)=(/27,26,24,23,18,17,15,14/)
+
+   ! Loop over fine grids by vector sweeps
+   ngrid_f=active(ifinelevel)%ngrid
+   do istart=1,ngrid_f,nvector
+
+      ! Gather nvector grids
+      nbatch=MIN(nvector,ngrid_f-istart+1)
+      do i=1,nbatch
+         igrid_f_amr(i)=active(ifinelevel)%igrid(istart+i-1)
+      end do
+
+      ! Compute father (coarse) cell index
+      do i=1,nbatch
+         icell_amr(i)=father(igrid_f_amr(i))
+      end do
+
+      ! Gather 3x3x3 neighboring parent cells
+      call get3cubefather(icell_amr,nbors_father_cells,nbors_father_grids, &
+              nbatch,ifinelevel)
+
+      ! Update solution for fine grid cells
+      do ind_f=1,twotondim
+         iskip_f_amr = ncoarse+(ind_f-1)*ngridmax
+
+         do i=1,nbatch
+            ! Compute fine cell indices
+            icell_amr(i) = iskip_f_amr + igrid_f_amr(i)
+         end do
+         corr=0.0d0
+
+         ! Loop over relevant parent cells
+         do ind_average=1,twotondim
+            ind_father = ccc(ind_average,ind_f)
+            coeff      = bbb(ind_average)
+            do i=1,nbatch
+               if(f(icell_amr(i),3)<=0.0) then
+                  corr(i)=0.0d0        ! Fine cell is masked : no correction
+                  cycle
+               end if
+               icell_c_amr = nbors_father_cells(i,ind_father)
+               ind_c       = (icell_c_amr-ncoarse-1)/ngridmax + 1
+               igrid_c_amr = icell_c_amr - ncoarse - (ind_c-1)*ngridmax
+               cpu_amr     = cpu_map(father(igrid_c_amr))
+               igrid_c_mg  = lookup_mg(igrid_c_amr)
+               if(igrid_c_mg<=0) cycle
+
+               icell_c_mg=(ind_c-1)*active_mg(cpu_amr,icoarselevel)%ngrid+igrid_c_mg
+               corr(i)=corr(i)+coeff*active_mg(cpu_amr,icoarselevel)%u(icell_c_mg,1)
+            end do
+         end do
+
+         ! Correct potential
+         do i=1,nbatch
+            phi(icell_amr(i))=phi(icell_amr(i))+corr(i)
+         end do
+
+      end do
+      ! End loop over cells
+
+   end do
+   ! End loop over grids
+end subroutine interpolate_and_correct_fine
 
 
+! ------------------------------------------------------------------------
+! Flag setting
+! ------------------------------------------------------------------------
 
-<nav class="breadcrumbs container-fluid container-limited" role="navigation">
-<div class="breadcrumbs-container">
-<button name="button" type="button" class="toggle-mobile-nav"><span class="sr-only">Open sidebar</span>
-<i aria-hidden="true" data-hidden="true" class="fa fa-bars"></i>
-</button><div class="breadcrumbs-links js-title-container">
-<ul class="list-unstyled breadcrumbs-list js-breadcrumbs-list">
-<li><a href="/dc-barr3">Cristian Barrera-Hinojosa</a><svg class="s8 breadcrumbs-list-angle"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#angle-right"></use></svg></li> <li><a href="/dc-barr3/GR"><span class="breadcrumb-item-text js-breadcrumb-item-text">GR</span></a><svg class="s8 breadcrumbs-list-angle"><use xlink:href="/assets/icons-2cdb7e353a1dc8023f99b5aadd54b9788b754858e7b42bb689753f63a0d68206.svg#angle-right"></use></svg></li>
+subroutine set_scan_flag_fine(ilevel)
+   use amr_commons
+   use poisson_commons
+   implicit none
 
-<li>
-<h2 class="breadcrumbs-sub-title"><a href="/dc-barr3/GR/blob/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson/multigrid_fine_fine.f90">Repository</a></h2>
-</li>
-</ul>
-</div>
+   integer, intent(in) :: ilevel
 
-</div>
-</nav>
+   integer :: ind, ngrid, scan_flag
+   integer :: igrid_mg, inbor, idim, igshift
+   integer :: igrid_amr, igrid_nbor_amr
 
-<div class="flash-container flash-container-page">
-</div>
+   integer :: iskip_amr, icell_amr, icell_nbor_amr
 
-</div>
-<div class=" ">
-<div class="content" id="content-body">
-<div class="container-fluid container-limited">
+   integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
-<div class="tree-holder" id="tree-holder">
-<div class="nav-block">
-<div class="tree-ref-container">
-<div class="tree-ref-holder">
-<form class="project-refs-form" action="/dc-barr3/GR/refs/switch" accept-charset="UTF-8" method="get"><input name="utf8" type="hidden" value="&#x2713;" /><input type="hidden" name="destination" id="destination" value="blob" />
-<input type="hidden" name="path" id="path" value="poisson/multigrid_fine_fine.f90" />
-<div class="dropdown">
-<button class="dropdown-menu-toggle js-project-refs-dropdown qa-branches-select" type="button" data-toggle="dropdown" data-selected="c294ec354a61e766788ad1a05e520da6c07cd3c3" data-ref="c294ec354a61e766788ad1a05e520da6c07cd3c3" data-refs-url="/dc-barr3/GR/refs?sort=updated_desc" data-field-name="ref" data-submit-form-on-click="true" data-visit="true"><span class="dropdown-toggle-text ">c294ec354a61e766788ad1a05e520da6c07cd3c3</span><i aria-hidden="true" data-hidden="true" class="fa fa-chevron-down"></i></button>
-<div class="dropdown-menu dropdown-menu-paging dropdown-menu-selectable git-revision-dropdown qa-branches-dropdown">
-<div class="dropdown-page-one">
-<div class="dropdown-title"><span>Switch branch/tag</span><button class="dropdown-title-button dropdown-menu-close" aria-label="Close" type="button"><i aria-hidden="true" data-hidden="true" class="fa fa-times dropdown-menu-close-icon"></i></button></div>
-<div class="dropdown-input"><input type="search" id="" class="dropdown-input-field" placeholder="Search branches and tags" autocomplete="off" /><i aria-hidden="true" data-hidden="true" class="fa fa-search dropdown-input-search"></i><i role="button" aria-hidden="true" data-hidden="true" class="fa fa-times dropdown-input-clear js-dropdown-input-clear"></i></div>
-<div class="dropdown-content"></div>
-<div class="dropdown-loading"><i aria-hidden="true" data-hidden="true" class="fa fa-spinner fa-spin"></i></div>
-</div>
-</div>
-</div>
-</form>
-</div>
-<ul class="breadcrumb repo-breadcrumb">
-<li class="breadcrumb-item">
-<a href="/dc-barr3/GR/tree/c294ec354a61e766788ad1a05e520da6c07cd3c3">GR
-</a></li>
-<li class="breadcrumb-item">
-<a href="/dc-barr3/GR/tree/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson">poisson</a>
-</li>
-<li class="breadcrumb-item">
-<a href="/dc-barr3/GR/blob/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson/multigrid_fine_fine.f90"><strong>multigrid_fine_fine.f90</strong>
-</a></li>
-</ul>
-</div>
-<div class="tree-controls">
-<a class="btn shortcuts-find-file" rel="nofollow" href="/dc-barr3/GR/find_file/c294ec354a61e766788ad1a05e520da6c07cd3c3"><i aria-hidden="true" data-hidden="true" class="fa fa-search"></i>
-<span>Find file</span>
-</a>
-<div class="btn-group" role="group"><a class="btn js-blob-blame-link" href="/dc-barr3/GR/blame/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson/multigrid_fine_fine.f90">Blame</a><a class="btn" href="/dc-barr3/GR/commits/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson/multigrid_fine_fine.f90">History</a><a class="btn js-data-file-blob-permalink-url" href="/dc-barr3/GR/blob/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson/multigrid_fine_fine.f90">Permalink</a></div>
-</div>
-</div>
+   iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
+   iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
+   iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
+   iii(2,2,1:8)=(/0,0,4,4,0,0,4,4/); jjj(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
+   iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
+   iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
 
-<div class="info-well d-none d-sm-block">
-<div class="well-segment">
-<ul class="blob-commit-info">
-<li class="commit flex-row js-toggle-container" id="commit-7a65959f">
-<div class="avatar-cell d-none d-sm-block">
-<a href="mailto:cbarrera.hinojosa@gmail.com"><img alt="Cristian Barrera-Hinojosa&#39;s avatar" src="https://secure.gravatar.com/avatar/55ad327bba7f6d37825b80d584fbf88c?s=72&amp;d=identicon" data-container="body" class="avatar s36 d-none d-sm-inline has-tooltip" title="Cristian Barrera-Hinojosa" /></a>
-</div>
-<div class="commit-detail flex-list">
-<div class="commit-content qa-commit-content">
-<a class="commit-row-message item-title" href="/dc-barr3/GR/commit/7a65959fec8c66683c70b914f77c809d2d445ff9">first commit</a>
-<span class="commit-row-message d-block d-sm-none">
-&middot;
-7a65959f
-</span>
-<div class="commiter">
-<a class="commit-author-link has-tooltip" title="cbarrera.hinojosa@gmail.com" href="mailto:cbarrera.hinojosa@gmail.com">Cristian Barrera-Hinojosa</a> authored <time class="js-timeago" title="Jun 3, 2018 5:26pm" datetime="2018-06-03T17:26:19Z" data-toggle="tooltip" data-placement="bottom" data-container="body">Jun 03, 2018</time>
-</div>
-</div>
-<div class="commit-actions flex-row d-none d-sm-flex">
+   ngrid = active(ilevel)%ngrid
 
-<div class="js-commit-pipeline-status" data-endpoint="/dc-barr3/GR/commit/7a65959fec8c66683c70b914f77c809d2d445ff9/pipelines?ref=c294ec354a61e766788ad1a05e520da6c07cd3c3"></div>
-<div class="commit-sha-group">
-<div class="label label-monospace">
-7a65959f
-</div>
-<button class="btn btn btn-default" data-toggle="tooltip" data-placement="bottom" data-container="body" data-title="Copy commit SHA to clipboard" data-class="btn btn-default" data-clipboard-text="7a65959fec8c66683c70b914f77c809d2d445ff9" type="button" title="Copy commit SHA to clipboard" aria-label="Copy commit SHA to clipboard"><i aria-hidden="true" aria-hidden="true" data-hidden="true" class="fa fa-clipboard"></i></button>
+   ! Loop over cells and set fine SCAN flag
+   do ind=1,twotondim
+      iskip_amr = ncoarse+(ind-1)*ngridmax
+      do igrid_mg=1,ngrid
+         igrid_amr = active(ilevel)%igrid(igrid_mg)
+         icell_amr = iskip_amr + igrid_amr
 
-</div>
-</div>
-</div>
-</li>
+         if(f(icell_amr,3)==1.0) then
+            scan_flag=0       ! Init flag to 'no scan needed'
+            scan_flag_loop: do inbor=1,2
+               do idim=1,ndim
+                  igshift = iii(idim,inbor,ind)
+                  if(igshift==0) then
+                     igrid_nbor_amr = igrid_amr
+                  else
+                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
+                  end if
 
-</ul>
-</div>
-
-</div>
-<div class="blob-content-holder" id="blob-content-holder">
-<article class="file-holder">
-<div class="js-file-title file-title-flex-parent">
-<div class="file-header-content">
-<i aria-hidden="true" data-hidden="true" class="fa fa-file-text-o fa-fw"></i>
-<strong class="file-title-name">
-multigrid_fine_fine.f90
-</strong>
-<button class="btn btn-clipboard btn-transparent prepend-left-5" data-toggle="tooltip" data-placement="bottom" data-container="body" data-class="btn-clipboard btn-transparent prepend-left-5" data-title="Copy file path to clipboard" data-clipboard-text="{&quot;text&quot;:&quot;poisson/multigrid_fine_fine.f90&quot;,&quot;gfm&quot;:&quot;`poisson/multigrid_fine_fine.f90`&quot;}" type="button" title="Copy file path to clipboard" aria-label="Copy file path to clipboard"><i aria-hidden="true" aria-hidden="true" data-hidden="true" class="fa fa-clipboard"></i></button>
-<small>
-24.5 KB
-</small>
-</div>
-
-<div class="file-actions">
-
-<div class="btn-group" role="group"><button class="btn btn btn-sm js-copy-blob-source-btn" data-toggle="tooltip" data-placement="bottom" data-container="body" data-class="btn btn-sm js-copy-blob-source-btn" data-title="Copy source to clipboard" data-clipboard-target=".blob-content[data-blob-id=&#39;fa60b7f2e61f8bd7ef79263f0a038a34dcd92fff&#39;]" type="button" title="Copy source to clipboard" aria-label="Copy source to clipboard"><i aria-hidden="true" aria-hidden="true" data-hidden="true" class="fa fa-clipboard"></i></button><a class="btn btn-sm has-tooltip" target="_blank" rel="noopener noreferrer" title="Open raw" data-container="body" href="/dc-barr3/GR/raw/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson/multigrid_fine_fine.f90"><i aria-hidden="true" data-hidden="true" class="fa fa-file-code-o"></i></a></div>
-<div class="btn-group" role="group"><button name="button" type="submit" class="btn js-edit-blob  disabled has-tooltip" title="You can only edit files when you are on a branch" data-container="body">Edit</button><button name="button" type="submit" class="btn btn-default disabled has-tooltip" title="You can only edit files when you are on a branch" data-container="body">Web IDE</button><button name="button" type="submit" class="btn btn-default disabled has-tooltip" title="You can only replace files when you are on a branch" data-container="body">Replace</button><button name="button" type="submit" class="btn btn-remove disabled has-tooltip" title="You can only delete files when you are on a branch" data-container="body">Delete</button></div>
-</div>
-</div>
-<div class="js-file-fork-suggestion-section file-fork-suggestion hidden">
-<span class="file-fork-suggestion-note">
-You're not allowed to
-<span class="js-file-fork-suggestion-section-action">
-edit
-</span>
-files in this project directly. Please fork this project,
-make your changes there, and submit a merge request.
-</span>
-<a class="js-fork-suggestion-button btn btn-grouped btn-inverted btn-new" rel="nofollow" data-method="post" href="/dc-barr3/GR/blob/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson/multigrid_fine_fine.f90">Fork</a>
-<button class="js-cancel-fork-suggestion-button btn btn-grouped" type="button">
-Cancel
-</button>
-</div>
-
-
-<div class="blob-viewer" data-type="simple" data-url="/dc-barr3/GR/blob/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson/multigrid_fine_fine.f90?format=json&amp;viewer=simple">
-<div class="text-center prepend-top-default append-bottom-default">
-<i aria-hidden="true" aria-label="Loading content…" class="fa fa-spinner fa-spin fa-2x"></i>
-</div>
-
-</div>
-
-
-</article>
-</div>
-
-<div class="modal" id="modal-upload-blob">
-<div class="modal-dialog modal-lg">
-<div class="modal-content">
-<div class="modal-header">
-<h3 class="page-title">Replace multigrid_fine_fine.f90</h3>
-<button aria-label="Close" class="close" data-dismiss="modal" type="button">
-<span aria-hidden="true">&times;</span>
-</button>
-</div>
-<div class="modal-body">
-<form class="js-quick-submit js-upload-blob-form" data-method="put" action="/dc-barr3/GR/update/c294ec354a61e766788ad1a05e520da6c07cd3c3/poisson/multigrid_fine_fine.f90" accept-charset="UTF-8" method="post"><input name="utf8" type="hidden" value="&#x2713;" /><input type="hidden" name="_method" value="put" /><input type="hidden" name="authenticity_token" value="f7dG4WWBrNN9N6zy/oKBjHgPSEZNMXje+JfRut7GpWAmmmtdZwDwmnHZG2WG60XOH3d6zRM0TjFYzdKv16MY/w==" /><div class="dropzone">
-<div class="dropzone-previews blob-upload-dropzone-previews">
-<p class="dz-message light">
-Attach a file by drag &amp; drop or <a class="markdown-selector" href="#">click to upload</a>
-</p>
-</div>
-</div>
-<br>
-<div class="dropzone-alerts alert alert-danger data" style="display:none"></div>
-<div class="form-group row commit_message-group">
-<label class="col-form-label col-sm-2" for="commit_message-a83b619857f790f9315a36b7df91f812">Commit message
-</label><div class="col-sm-10">
-<div class="commit-message-container">
-<div class="max-width-marker"></div>
-<textarea name="commit_message" id="commit_message-a83b619857f790f9315a36b7df91f812" class="form-control js-commit-message" placeholder="Replace multigrid_fine_fine.f90" required="required" rows="3">
-Replace multigrid_fine_fine.f90</textarea>
-</div>
-</div>
-</div>
-
-<div class="form-group row branch">
-<label class="col-form-label col-sm-2" for="branch_name">Target Branch</label>
-<div class="col-sm-10">
-<input type="text" name="branch_name" id="branch_name" required="required" class="form-control js-branch-name ref-name" />
-<div class="js-create-merge-request-container">
-<div class="form-check prepend-top-8">
-<input type="checkbox" name="create_merge_request" id="create_merge_request-a07d30d823209ae97644c6d2661f5500" value="1" class="js-create-merge-request form-check-input" checked="checked" />
-<label class="form-check-label" for="create_merge_request-a07d30d823209ae97644c6d2661f5500">Start a <strong>new merge request</strong> with these changes
-</label></div>
-
-</div>
-</div>
-</div>
-<input type="hidden" name="original_branch" id="original_branch" value="c294ec354a61e766788ad1a05e520da6c07cd3c3" class="js-original-branch" />
-
-<div class="form-actions">
-<button name="button" type="button" class="btn btn-create btn-upload-file" id="submit-all"><i aria-hidden="true" data-hidden="true" class="fa fa-spin fa-spinner js-loading-icon hidden"></i>
-Replace file
-</button><a class="btn btn-cancel" data-dismiss="modal" href="#">Cancel</a>
-
-</div>
-</form></div>
-</div>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
-</div>
-</div>
-</div>
-
-
-</body>
-</html>
-
+                  if(igrid_nbor_amr==0) then
+                     scan_flag=1
+                     exit scan_flag_loop
+                  else
+                     icell_nbor_amr = igrid_nbor_amr + &
+                           ncoarse+(jjj(idim,inbor,ind)-1)*ngridmax
+                     if(f(icell_nbor_amr,3)<=0.0) then
+                        scan_flag=1
+                        exit scan_flag_loop
+                     end if
+                  end if
+               end do
+            end do scan_flag_loop
+         else
+            scan_flag=1
+         end if
+         ! Update flag2 with scan flag,
+         ! BEWARE as lookup_mg backups are stored in flag2
+         ! Safety init:
+         if(flag2(icell_amr)>ngridmax .or. flag2(icell_amr)<0) flag2(icell_amr)=0
+         ! Do NOT overwrite flag2 !
+         flag2(icell_amr)=flag2(icell_amr)+ngridmax*scan_flag
+      end do
+   end do
+end subroutine set_scan_flag_fine
