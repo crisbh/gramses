@@ -68,7 +68,6 @@ subroutine rho_fine(ilevel,icount)
         ! Update boundaries for gr_mat
         if(gr.and.gr2)then
            do igrm=1,4
-              
               call make_virtual_reverse_dp(gr_mat(1,igrm),i)
               call make_virtual_fine_dp   (gr_mat(1,igrm),i)
            end do       
@@ -140,10 +139,10 @@ subroutine rho_fine(ilevel,icount)
         end do
         if(gr.and.gr2)then
            do i=1,reception(icpu,ilevel)%ngrid
-                 gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
-                 gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
-                 gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
-                 gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,4)=0.0D0
+              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
+              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
+              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
+              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,4)=0.0D0
            end do
         end if
         if(ilevel==cic_levelmax)then
@@ -168,7 +167,6 @@ subroutine rho_fine(ilevel,icount)
   ! Update boundaries for gr_mat
   if(gr.and.gr2)then
      do igrm=1,4
-        
         call make_virtual_reverse_dp(gr_mat(1,igrm),ilevel)
         call make_virtual_fine_dp   (gr_mat(1,igrm),ilevel)
      end do 
@@ -261,6 +259,7 @@ subroutine rho_from_current_level(ilevel)
   use pm_commons
   use hydro_commons
   use poisson_commons
+  use gr_commons
   implicit none
   integer::ilevel
   !------------------------------------------------------------------
@@ -385,7 +384,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   real(dp),dimension(1:nvector            ),save::vol2,vols
   real(dp),dimension(1:nvector,1:ndim     ),save::volv
   real(dp),dimension(1:nvector,1:ndim     ),save::x,dd,dg
-  real(dp),dimension(1:nvector,1:ndim     ),save::vvv
   integer ,dimension(1:nvector,1:ndim     ),save::ig,id,igg,igd,icg,icd
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
@@ -602,7 +600,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      end do
      do j=1,np
         do idim=1,ndim
-           vvv(j,idim)=vp(ind_part(j),idim)     ! gather velocity
            W(j)=W(j) + vp(ind_part(j),idim)**2  ! Lorentz factor
         end do
         W(j)=ctilde2 + W(j)/(1.0D0-0.5D0*gr_psi(j))**4/a2
@@ -619,11 +616,11 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
 
      if(gr.and.gr2)then
         do j=1,np
-           vol2(j)=(mmm(j)*W(j)/ctilde)                  *vol(j,ind)/vol_loc  ! s0
+           vol2(j)=mmm(j)*W(j)/ctilde                         *vol(j,ind)/vol_loc  ! s0
            do idim=1,ndim
-              volv(j,idim)=(mmm(j)*vvv(j,idim)/ctilde)   *vol(j,ind)/vol_loc  ! s1,s2,s3
+              volv(j,idim)=mmm(j)*vp(ind_part(j),idim)/ctilde *vol(j,ind)/vol_loc  ! s1,s2,s3
            end do
-           vols(j)=mmm(j)*((W(j)**2-ctilde2)/W(j)/ctilde)*vol(j,ind)/vol_loc  ! s=trace(sij)
+           vols(j)=mmm(j)*(W(j)**2-ctilde2)/W(j)/ctilde       *vol(j,ind)/vol_loc  ! s=trace(sij)
         end do
      else
         do j=1,np
