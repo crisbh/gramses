@@ -27,7 +27,6 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
    implicit none
    integer, intent(in) :: ilevel,igr
-   integer :: igrp
 
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
@@ -39,21 +38,14 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
    real(dp) :: dtwondim = (twondim)
 
-   real(dp) :: ctilde,ctilde2,ac2,omoverac2,oneovera4,7over8a4,ca2K,c2a4K2,5c2a4K2,ca2Kdot
+   real(dp) :: ctilde,2ac2,aomega
    real(dp) :: potc,gr_a,gr_b,op
    
    ! Set constants
-   dx2        = (0.5d0**ilevel)**2                ! Cell size squared
-   ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
-   ctilde2    = ctilde**2                         ! Speed of light squared
-   ac2        = aexp**2*ctilde2                   ! (ac)^2 factor
-   omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
-   oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
-   7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
-   ca2K       =-3.0D0*hexp                        ! c*a^2*K in terms of Hubble parameter
-   c2a4K2     = ca2K**2/12.0D0                    ! Background factor  c^2a^4K^2/12
-   5c2a4K2    = 5.0D0*c2a4K2                      ! Background factor 5c^2a^4K^2/12   
-   ca2Kdot    = 3.0D0*(2.0D0*hexp**2-dhexpdtau)   ! Background factor including dot(K)
+   dx2     = (0.5d0**ilevel)**2        ! Cell size squared
+   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -64,10 +56,9 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
    ngrid=active(ilevel)%ngrid
 
-   ! Set field index
-   igrp = igr
+   ! Sanity check for non-linear GR cases
    if(igr>6.or.igr<5) then
-      print '(A)','igr out of range. Check.'             
+      print '(A)','igr out of range in cmp_residual_mg_fine_gr_nl. Please check.'             
       call clean_stop
    end if
 
@@ -82,26 +73,21 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
          ! Calculate space-dependent coefficients
          if(igrp==5) then 
-            gr_a = -omoverac2*(rho(icell_amr)-1.0d0)
-            gr_b = -oneovera4*gr_mat(icell_amr,1)
+            gr_a = aomega*rho   (icell_amr  )
+            gr_b = 0.25D0*gr_mat(icell_amr,1)
          else
-            gr_a = omoverac2*(rho(icell_amr)-1.0D0+2.0D0*gr_mat(icell_amr,4)) + &
-                   ((1.0D0+gr_pot(icell_amr,5)/ac2)**6-1.0D0)*(5c2a4K2-ca2Kdot) + &
-                   7over8a4*gr_mat(icell_amr,1)/(1.0D0+gr_pot(icell_amr,5)/ac2)**6
-            gr_a = gr_a/(1.0D0+gr_pot(icell_amr,5)/ac2)*dx2
-            gr_b = omoverac2*(rho(icell_amr)      +2.0D0*gr_mat(icell_amr,4)) + &
-                   5c2a4K2*(1.0D0+gr_pot(icell_amr,5))**6 + &
-                   7over8a4*gr_mat(icell_amr,1)/(1.0D0+gr_pot(icell_amr,5)/ac2)**6
-            gr_b = gr_b/(1.0D0+gr_pot(icell_amr,5)/ac2)**2
+            gr_a = aomega*(rho(icell_amr)+gr_mat(icell_amr,4)-(1.0D0-gr_pot(icell_amr,5)/2ac2)**6) + &
+                          gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/2ac2)**6
+            gr_a = gr_a*dx2/(1.0D0-gr_pot(icell_amr,5)/2ac2)
+            gr_b = aomega*(rho(icell_amr)+2.0D0*gr_mat(icell_amr,4)+5.0D0*(1.0D0-gr_pot(icell_amr,5)/2ac2)**6) + &
+                   1.75D0*gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/2ac2)**6
+            gr_b = gr_b*dx2/(1.0D0-gr_pot(icell_amr,5)/2ac2)**2/2ac2
          end if
 
          ! SCAN FLAG TEST
          if(flag2(icell_amr)/ngridmax==0) then
-            if(igrp==6) then
-               gr_a = gr_a + 6.0d0*gr_pot(icell_amr,5) ! Include psi source term for alpha
-            end if
-            potc  = gr_pot(icell_amr,igrp)   ! Value of GR field on center cell
-            nb_sum=0.0d0                     ! Sum of GR field on eighbors
+            potc  = gr_pot(icell_amr,igrp)  ! Value of GR field on center cell
+            nb_sum=0.0d0                    ! Sum of GR field on neighbors
 
             do inbor=1,2
                do idim=1,ndim
@@ -114,19 +100,15 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
                   end if
                   icell_nbor_amr = igrid_nbor_amr + &
                       (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
-                  if(igrp==5) then 
-                     gr_a = gr_a - gr_pot(icell_nbor_amr,5)
-                  end if
                   nb_sum = nb_sum + gr_pot(icell_nbor_amr,igrp)
                end do
             end do
          end if ! END SCAN TEST
 
          if(igrp==5) then 
-            op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
-                 dx2*(gr_a+gr_b/(1.0D0+potc)**6 + c2a4K2*((1.0D0+potc)**6-1.0D0))
+            op = (nb_sum-6.0D0*potc)*(1.0D0-potc/2ac2) - dx2*(gr_a-aomega*(1.0D0-potc/2ac2)**5+gr_b/(1.0D0-potc/2ac2)**6)
          else
-            op = nb_sum - 6.0D0*potc - dx2*potc*gr_b - gr_a
+            op =  nb_sum-6.0D0*potc - potc*gr_b - gr_a
          end if
             f(icell_amr,1) = -op*oneoverdx2
          else
