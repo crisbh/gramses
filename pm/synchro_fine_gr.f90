@@ -476,6 +476,11 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      vol(j,8)=dd(j,1)*dd(j,2)*dd(j,3)
   end do
 #endif
+  
+  if(igrp<5.or.igrp>10) then
+     print'(A)','igrp out of range in force coeff computation in move. Please check.'
+     call clean_stop
+  end if
 
   ! Calculate Lorentz factor from the 4-velocity normalisation
   if(igrp==5.or.igrp==6) then
@@ -511,9 +516,6 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      do j=1,np
         coeff(j)=-vp(ind_part(j),igrp-6)
      end do
-  else
-     print'(A)','igrp out of range in force coeff computation in move. Please check.'
-     call clean_stop
   end if
 
   ! Gather 3-force

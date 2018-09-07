@@ -193,11 +193,11 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
 
-  real(dp),dimension(1:nvector       ), save :: W       ! Lorentz factor
-  real(dp),dimension(1:nvector       ), save :: gr_psi  ! Psi on particles 
-  real(dp),dimension(1:nvector       ), save :: gr_xi   ! Xi  on particles 
-  real(dp),dimension(1:nvector,1:ndim), save :: gr_bet  ! Shift vector on particles 
-  real(dp),dimension(1:nvector       ), save :: coeff   ! Coefficient for force contributions
+  real(dp),dimension(1:nvector       ), save :: W        ! Lorentz factor
+  real(dp),dimension(1:nvector       ), save :: gr_psi   ! Psi on particles 
+  real(dp),dimension(1:nvector       ), save :: gr_xi    ! Xi  on particles 
+  real(dp),dimension(1:nvector,1:ndim), save :: gr_bet   ! Shift vector on particles 
+  real(dp),dimension(1:nvector       ), save :: coeff    ! Coefficients for force contributions
   real(dp) :: ctilde,ctilde2,a2,ac2
 
   ctilde   = sol/boxlen_ini/100000.0d0          ! Speed of light in code units
@@ -441,6 +441,11 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   end do
 #endif
 
+  if(igrp<5.or.igrp>10) then
+     print'(A)','igrp out of range in force coeff computation in move. Please check.'
+     call clean_stop
+  end if
+
   ! Calculate Lorentz factor from the 4-velocity normalisation
   if(igrp==5.or.igrp==6.or.igrp==10) then
      W(1:np)     =0.0D0
@@ -478,8 +483,8 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   ! Calculate coefficients for force contributions corresponding to the different gr_pot
   if(igrp==5) then
      do j=1,np
-        coeff(j)= (      W(j)**2-ctilde2)/(W(j)*ctilde)/(1.0D0-0.5D0*gr_psi(j))  + &
-                & (1.5d0*W(j)**2-ctilde2)/(W(j)*ctilde)/(1.0D0-0.5D0*gr_psi(j))**2*gr_xi(j)
+        coeff(j) = (      W(j)**2-ctilde2)/(W(j)*ctilde)/(1.0D0-0.5D0*gr_psi(j))              + &
+                 & (1.5d0*W(j)**2-ctilde2)/(W(j)*ctilde)/(1.0D0-0.5D0*gr_psi(j))**2*gr_xi(j)
      end do
   else if(igrp==6) then
      do j=1,np
@@ -489,9 +494,10 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      do j=1,np
         coeff(j)=-vp(ind_part(j),igrp-6)
      end do
-  else if(igrp.ne.10) then
-     print'(A)','igrp out of range in force coeff computation in move. Please check.'
-     call clean_stop
+  else if(igrp==10) then
+     do j=1,np
+        coeff(j)=ctilde/W(j)*(1.0D0+gr_xi(j)/(1.0D0-0.5D0*gr_psi(j)))/(1.0D0-0.5D0*gr_psi(j))**4
+     end do
   end if
 
   if(igrp<10) then
@@ -581,8 +587,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
            end do
         else
            do j=1,np
-              new_xp(j,idim)=xp(ind_part(j),idim) + &
-                            & (ctilde/W(j)*(1.0D0+gr_xi(j)/(1.0D0-0.5D0*gr_psi(j)))/(1.0D0-0.5D0*gr_psi(j))**4*vp(ind_part(j),idim)-gr_bet(j,idim))*dtnew(ilevel)
+              new_xp(j,idim)=xp(ind_part(j),idim) + (coeff(j)*vp(ind_part(j),idim)-gr_bet(j,idim))*dtnew(ilevel)
            end do
         endif
      end do
