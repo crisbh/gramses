@@ -28,7 +28,6 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
 
    implicit none
    integer, intent(in) :: ilevel,igr
-   integer :: igrp
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
    real(dp) :: dx, oneoverdx2, phi_c, nb_sum
@@ -39,24 +38,17 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    integer  :: igshift, igrid_nbor_amr
 
    real(dp) :: dtwondim = (twondim)
-   real(dp) :: ctilde,ctilde2,ac2,omoverac2,oneovera4,7over8a4,ca2K,c2a4K2,5c2a4K2,ca2Kdot
+   real(dp) :: ctilde,2ac2,aomega
    real(dp) :: potc,gr_a,gr_b,op
 
    dx  = 0.5d0**ilevel
    oneoverdx2 = 1.0d0/(dx*dx)
 
    ! Set constants
-   dx2        = (0.5d0**ilevel)**2                ! Cell size squared
-   ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
-   ctilde2    = ctilde**2                         ! Speed of light squared
-   ac2        = aexp**2*ctilde2                   ! (ac)^2 factor
-   omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
-   oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
-   7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
-   ca2K       =-3.0D0*hexp                        ! c*a^2*K in terms of Hubble parameter
-   c2a4K2     = ca2K**2/12.0D0                    ! Background factor  c^2a^4K^2/12
-   5c2a4K2    = 5.0D0*c2a4K2                      ! Background factor 5c^2a^4K^2/12   
-   ca2Kdot    = 3.0D0*(2.0D0*hexp**2-dhexpdtau)   ! Background factor including dot(K)
+   dx2     = (0.5d0**ilevel)**2        ! Cell size squared
+   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -67,10 +59,9 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
 
    ngrid=active_mg(myid,ilevel)%ngrid
    
-   ! Set field index
-   igrp = igr
+   ! Sanity check for non-linear GR cases
    if(igr>6.or.igr<5) then
-      print '(A)','igr out of range. Check.'             
+      print '(A)','igr out of range in cmp_residual_mg_coarse_gr_nl. Please check.'
       call clean_stop
    end if
 
@@ -84,15 +75,9 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
          igrid_amr = active_mg(myid,ilevel)%igrid(igrid_mg)
          icell_mg = igrid_mg + iskip_mg
         
-         ! Coefficients in coarse cell (restricted) 
-         if(igrp==5) then 
-            gr_b = -oneovera4*active_mg(myid,ilevel)%u(icell_mg,6)
-         else
-            gr_b =  active_mg(myid,ilevel)%u(icell_mg,6) 
-         end if
-         
-         potc = active_mg(myid,ilevel)%u(icell_mg,1)  ! Value of GR field on center cell
-         nb_sum=0.0d0                                 ! Sum of GR field on neighbors
+         gr_b = active_mg(myid,ilevel)%u(icell_mg,6) ! Restricted coeff in coarse cell
+         potc = active_mg(myid,ilevel)%u(icell_mg,1) ! Value of GR field on center cell
+         nb_sum=0.0d0                                ! Sum of GR field on neighbors
 
          ! SCAN FLAG TEST
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then ! NO SCAN
@@ -115,9 +100,9 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
                end do
             end do
           
-            if(igrp==5) then 
-               op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
-                    dx2*(gr_b/(1.0D0+potc)**6 + c2a2K2*((1.0D0+potc)**6-1.0D0))
+            if(igr==5) then 
+               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/2ac2) + &
+                    dx2*(aomega*(1.0D0-potc/2ac2)**6-0.25D0*gr_b/(1.0D0-potc/2ac2)**6)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
@@ -143,7 +128,6 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
 
    implicit none
    integer, intent(in) :: ilevel, igr
-   integer :: igrp
    logical, intent(in) :: safe
    logical, intent(in) :: redstep
 
@@ -158,21 +142,14 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
    integer  :: igshift, igrid_nbor_amr
    real(dp) :: dtwondim = (twondim)
 
-   real(dp) :: ctilde,ctilde2,ac2,omoverac2,oneovera4,7over8a4,ca2K,c2a4K2,5c2a4K2,ca2Kdot
+   real(dp) :: ctilde,2ac2,aomega
    real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
-   dx2        = (0.5d0**ilevel)**2                ! Cell size squared
-   ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
-   ctilde2    = ctilde**2                         ! Speed of light squared
-   ac2        = aexp**2*ctilde2                   ! (ac)^2 factor
-   omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
-   oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
-   7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
-   ca2K       =-3.0D0*hexp                        ! c*a^2*K in terms of Hubble parameter
-   c2a4K2     = ca2K**2/12.0D0                    ! Background factor  c^2a^4K^2/12
-   5c2a4K2    = 5.0D0*c2a4K2                      ! Background factor 5c^2a^4K^2/12   
-   ca2Kdot    = 3.0D0*(2.0D0*hexp**2-dhexpdtau)   ! Background factor including dot(K)
+   dx2     = (0.5d0**ilevel)**2        ! Cell size squared
+   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
@@ -190,13 +167,12 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
 
    ngrid=active_mg(myid,ilevel)%ngrid
    
-   ! Set field index
-   igrp = igr
+   ! Sanity check for non-linear GR cases
    if(igr>6.or.igr<5) then
-      print '(A)','igr out of range. Check.'             
+      print '(A)','igr out of range in gauss_seidel_mg_coarse_gr_nl. Please check.'
       call clean_stop
    end if
-   
+
    ! Loop over cells, with red/black ordering
    do ind0=1,twotondim/2      ! Only half of the cells for a red or black sweep
       if(redstep) then
@@ -212,17 +188,12 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
          igrid_amr = active_mg(myid,ilevel)%igrid(igrid_mg)
          icell_mg  = iskip_mg  + igrid_mg
 
-         ! Coefficients in coarse cell (restricted) 
-         if(igrp==5) then 
-            gr_b = -oneovera4*active_mg(myid,ilevel)%u(icell_mg,6)
-         else
-            gr_b =  active_mg(myid,ilevel)%u(icell_mg,6) 
-         end if
          ! Read scan flag
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then
          
-         potc = active_mg(myid,ilevel)%u(icell_mg,1)  ! Value of GR field on center cell
-         nb_sum=0.0d0                                 ! Sum of GR field on neighbors
+         gr_b = active_mg(myid,ilevel)%u(icell_mg,6) ! Restricted coeff in coarse cell
+         potc = active_mg(myid,ilevel)%u(icell_mg,1) ! Value of GR field on center cell
+         nb_sum=0.0d0                                ! Sum of GR field on neighbors
 
            ! Use max-speed "dumb" Gauss-Seidel for "inner" cells
             ! Those cells are active, have all their neighbors active
@@ -248,16 +219,14 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
                end do
             end do
             
-            if(igrp==5) then 
-               op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
-                    dx2*(gr_b/(1.0D0+potc)**6 + c2a4K2*((1.0D0+potc)**6-1.0D0))
-           
-               dop= nb_sum - 6.0D0 - 12.0D0*potc + 6.0D0*dx2*gr_b/(1.0D0+potc)**7 &
-                    - 6.0D0*dx2*c2a4K2*(1.0D0+potc)**5
+            if(igr==5) then 
+               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/2ac2) + &
+                    dx2*(aomega*(1.0D0-potc/2ac2)**6-0.25D0*gr_b/(1.0D0-potc/2ac2)**6)
+               dop= -nb_sum/2ac2 - 6.0D0 + 12.0D0/2ac2 &
+                    -dx2*(6.0D0*aomega*(1.0D0-potc/2ac2)**5/2ac2 + 6.0D0*gr_b/(1.0D0-potc/2ac2)**7/2ac2)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
-
-               dop= - 6.0D0 - dx2*gr_b
+               dop= -6.0D0 - dx2*gr_b 
             end if
             
             op = op - active_mg(myid,ilevel)%u(icell_mg,2)*dx2
@@ -275,7 +244,7 @@ end subroutine gauss_seidel_mg_coarse_gr_nl
 ! The physical rhs is stored in active_mg(myid,ilevel)%u(:,2) 
 ! ------------------------------------------------------------------------
 
-subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
+subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -284,7 +253,7 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
    
    implicit none
 
-   integer, intent(in) :: ilevel, igrp
+   integer, intent(in) :: ilevel, igr
    integer, dimension(1:3,1:2,1:8) :: iii,jjj
    
    integer  :: ngrid
@@ -300,21 +269,14 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
    real(dp) :: dtwondim = (twondim)
    real(dp) :: eta1,eta2,eta3,ctilde,ctilde2,o_l,op,dens
    real(dp) :: sfc,nb_sum_sf2 
-   real(dp) :: ctilde,ctilde2,ac2,omoverac2,oneovera4,7over8a4,ca2K,c2a4K2,5c2a4K2,ca2Kdot
+   real(dp) :: ctilde,2ac2,aomega
    real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
-   dx2        = (0.5d0**ilevel)**2                ! Cell size squared
-   ctilde     = sol/boxlen_ini/100000.0d0         ! Speed of light in code units
-   ctilde2    = ctilde**2                         ! Speed of light squared
-   ac2        = aexp**2*ctilde2                   ! (ac)^2 factor
-   omoverac2  = 0.75D0*omega_m/(aexp*ctilde2)     ! Numerical coeff for S_0 in psi Eq.
-   oneovera4  = 0.125D0/aexp**4                   ! Numerical coeff for A_ij^2 in psi Eq.
-   7over8a4   = 0.875D0/aexp**4                   ! Numerical coeff for A_ij^2 in alp Eq.
-   ca2K       =-3.0D0*hexp                        ! c*a^2*K in terms of Hubble parameter
-   c2a4K2     = ca2K**2/12.0D0                    ! Background factor  c^2a^4K^2/12
-   5c2a4K2    = 5.0D0*c2a4K2                      ! Background factor 5c^2a^4K^2/12   
-   ca2Kdot    = 3.0D0*(2.0D0*hexp**2-dhexpdtau)   ! Background factor including dot(K)
+   dx2     = (0.5d0**ilevel)**2        ! Cell size squared
+   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -325,8 +287,9 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
 
    ngrid=active_mg(myid,ilevel)%ngrid
 
-   if(igrp<5.or.igrp>6) then
-      print '(A)','igrp out of range. Check.'
+   ! Sanity check for non-linear GR cases
+   if(igr>6.or.igr<5) then
+      print '(A)','igr out of range in make_physical_rhs_coarse_gr_nl. Please check.'
       call clean_stop
    end if
 
@@ -341,14 +304,8 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
          icell_amr = iskip_amr+igrid_amr                        ! amr cell index
          icell_mg  = iskip_mg+igrid_mg                          ! mg cell index
 
-         ! Coefficients in coarse cell (restricted) 
-         if(igrp==5) then 
-            gr_b = -oneovera4*active_mg(myid,ilevel)%u(icell_mg,6)
-         else
-            gr_b =  active_mg(myid,ilevel)%u(icell_mg,6) 
-         end if
-
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then
+         gr_b = active_mg(myid,ilevel)%u(icell_mg,6)  ! Restricted coeff in coarse cell
          potc = active_mg(myid,ilevel)%u(icell_mg,5)  ! Value of GR field on center cell
          nb_sum=0.0d0                                 ! Sum of GR field on neighbors
 
@@ -368,9 +325,9 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igrp)
                end do
             end do
 
-            if(igrp==5) then 
-               op = (nb_sum-6.0D0*potc)*(1.0D0+potc) - &
-                    dx2*(gr_b/(1.0D0+potc)**6 + c2a4K2*((1.0D0+potc)**6-1.0D0))
+            if(igr==5) then 
+               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/2ac2) + &
+                    dx2*(aomega*(1.0D0-potc/2ac2)**6-0.25D0*gr_b/(1.0D0-potc/2ac2)**6)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
@@ -551,12 +508,12 @@ end subroutine restrict_coeff_coarse_reverse_gr_nl
 ! Interpolation and correction
 ! ------------------------------------------------------------------------
 
-subroutine interpolate_and_correct_coarse_gr_nl(ifinelevel,igrp)
+subroutine interpolate_and_correct_coarse_gr_nl(ifinelevel,igr)
    use amr_commons
    use poisson_commons
    use gr_commons   
    implicit none
-   integer, intent(in) :: ifinelevel, igrp
+   integer, intent(in) :: ifinelevel, igr
 
    integer  :: i, ind_father, ind_average, ind_f, iskip_f_amr, ngrid_f, istart, nbatch
    integer  :: icell_c_amr, igrid_c_amr, igrid_c_mg, icell_c_mg, iskip_f_mg, icell_f_mg
