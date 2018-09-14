@@ -1,12 +1,12 @@
 ! ------------------------------------------------------------------------
-! Multigrid Poisson solver for refined AMR levels
+! Multigrid GR fields solver for refined AMR levels
 ! ------------------------------------------------------------------------
 ! This file contains all MG-fine-level related routines
 !
 ! Used variables:
 !                       finest(AMR)level     coarse(MG)levels
 !     -----------------------------------------------------------------
-!     GR geometric field   gr_pot(:,igrp) active_mg(myid,ilevel)%u(:,1)
+!     GR geometric field   gr_pot(:,igr)  active_mg(myid,ilevel)%u(:,1)
 !     physical RHS         rho            active_mg(myid,ilevel)%u(:,2)
 !     residual             f(:,1)         active_mg(myid,ilevel)%u(:,3)
 !     BC-modified RHS      f(:,2)                  N/A
@@ -25,7 +25,6 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
    use gr_commons
    implicit none
    integer, intent(in) :: ilevel,igr
-   integer :: igrp
 
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
@@ -50,9 +49,11 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
 
    ngrid=active(ilevel)%ngrid
 
-   ! Set field index
-   igrp = igr
-   if(igr>6) igrp = igr-6
+   ! Sanity check for linear GR cases
+   if(igr>4.and.igr<7) then
+      print '(A)','igr out of range in cmp_residual_mg_fine_gr_ln. Please check.'
+      call clean_stop
+   end if
 
    ! Loop over cells
    do ind=1,twotondim
@@ -63,8 +64,8 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
          igrid_amr = active(ilevel)%igrid(igrid_mg)
          icell_amr = iskip_amr + igrid_amr
 
-         phi_c = gr_pot(icell_amr,igrp)   ! Value of GR field on center cell
-         nb_sum=0.0d0                     ! Sum of GR field on neighbors
+         phi_c = gr_pot(icell_amr,igr)   ! Value of GR field on center cell
+         nb_sum=0.0d0                    ! Sum of GR field on neighbors
 
          ! SCAN FLAG TEST
          if(flag2(icell_amr)/ngridmax==0) then
@@ -79,7 +80,7 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
                   end if
                   icell_nbor_amr = igrid_nbor_amr + &
                       (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
-                  nb_sum = nb_sum + gr_pot(icell_nbor_amr,igrp)
+                  nb_sum = nb_sum + gr_pot(icell_nbor_amr,igr)
                end do
             end do
          else ! PERFORM SCAN
@@ -114,7 +115,7 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
                             phi_c*(f(icell_nbor_amr,3)/f(icell_amr,3))
                      else
                         ! Neighbor cell is active, use its true potential
-                        nb_sum = nb_sum + gr_pot(icell_nbor_amr,igrp)
+                        nb_sum = nb_sum + gr_pot(icell_nbor_amr,igr)
                      end if
                   end if
                end do
@@ -142,7 +143,6 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
    use gr_commons
    implicit none
    integer, intent(in) :: ilevel,igr
-   integer :: igrp
    logical, intent(in) :: redstep
 
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
@@ -175,9 +175,11 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
 
    ngrid=active(ilevel)%ngrid
    
-   ! Set field index
-   igrp=igr
-   if(igr>6) igrp=igr-6
+   ! Sanity check for linear GR cases
+   if(igr>4.and.igr<7) then
+      print '(A)','igr out of range in gauss_seidel_mg_fine_gr_ln. Please check.'
+      call clean_stop
+   end if
 
    ! Loop over cells, with red/black ordering
    do ind0=1,twotondim/2      ! Only half of the cells for a red or black sweep
@@ -213,11 +215,11 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
                   end if
                   icell_nbor_amr = igrid_nbor_amr + &
                       (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
-                  nb_sum = nb_sum + gr_pot(icell_nbor_amr,igrp)
+                  nb_sum = nb_sum + gr_pot(icell_nbor_amr,igr)
                end do
             end do
             ! Update the potential, solving for potential on icell_amr
-            gr_pot(icell_amr,igrp) = (nb_sum - dx2*f(icell_amr,2)) / dtwondim
+            gr_pot(icell_amr,igr) = (nb_sum - dx2*f(icell_amr,2)) / dtwondim
          else
             ! Use the finer "solve" Gauss-Seidel near boundaries,
             ! with all necessary checks
@@ -250,13 +252,13 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
                         weight = weight + f(icell_nbor_amr,3)/f(icell_amr,3)
                      else
                         ! Neighbor cell is active, increment neighbor sum
-                        nb_sum = nb_sum + gr_pot(icell_nbor_amr,igrp)
+                        nb_sum = nb_sum + gr_pot(icell_nbor_amr,igr)
                      end if
                   end if
                end do
             end do
             ! Update the potential, solving for potential on icell_amr
-            gr_pot(icell_amr,igrp) = (nb_sum - dx2*f(icell_amr,2)) / (dtwondim - weight)
+            gr_pot(icell_amr,igr) = (nb_sum - dx2*f(icell_amr,2)) / (dtwondim - weight)
          end if
       end do
    end do
@@ -272,7 +274,6 @@ subroutine interpolate_and_correct_fine_gr_ln(ifinelevel,igr)
    use gr_commons
    implicit none
    integer, intent(in) :: ifinelevel,igr
-   integer :: igrp
 
    integer  :: i, ind_father, ind_average, ind_f, iskip_f_amr
    integer  :: ngrid_f, istart, nbatch
@@ -306,9 +307,11 @@ subroutine interpolate_and_correct_fine_gr_ln(ifinelevel,igr)
    ccc(:,7)=(/25,26,22,23,16,17,13,14/)
    ccc(:,8)=(/27,26,24,23,18,17,15,14/)
 
-   ! Set field index
-   igrp = igr
-   if(igr>6) igrp = igr-6
+   ! Sanity check for linear GR cases
+   if(igr>4.and.igr<7) then
+      print '(A)','igr out of range in interpolate_and_correct_fine_gr_ln. Please check.'
+      call clean_stop
+   end if
 
    ! Loop over fine grids by vector sweeps
    ngrid_f=active(ifinelevel)%ngrid
@@ -362,7 +365,7 @@ subroutine interpolate_and_correct_fine_gr_ln(ifinelevel,igr)
 
          ! Correct potential
          do i=1,nbatch
-            gr_pot(icell_amr(i),igrp) = gr_pot(icell_amr(i),igrp)+corr(i)
+            gr_pot(icell_amr(i),igr) = gr_pot(icell_amr(i),igr)+corr(i)
          end do
 
       end do
