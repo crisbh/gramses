@@ -531,13 +531,9 @@ subroutine make_initial_gr(ilevel,icount,igr)
   !
   !
   !
-  integer::igrid,ncache,i,ngrid,ind,iskip,idim,igrp
+  integer::igrid,ncache,i,ngrid,ind,iskip,idim
   integer ,dimension(1:nvector),save::ind_grid,ind_cell,ind_cell_father
   real(dp),dimension(1:nvector,1:twotondim),save::phi_int
-
-  ! Set GR field index
-  igrp = igr
-  if(igr>6) igrp = igr-6
 
   ! Loop over myid grids by vector sweeps
   ncache=active(ilevel)%ngrid
@@ -556,7 +552,7 @@ subroutine make_initial_gr(ilevel,icount,igr)
               ind_cell(i)=iskip+ind_grid(i)
            end do
            do i=1,ngrid
-              gr_pot(ind_cell(i),igrp)=0.0d0
+              gr_pot(ind_cell(i),igr)=0.0d0
            end do
            do idim=1,ndim
               if(idim==3.and.igr>1) cycle
@@ -582,7 +578,7 @@ subroutine make_initial_gr(ilevel,icount,igr)
               ind_cell(i)=iskip+ind_grid(i)
            end do
            do i=1,ngrid
-              gr_pot(ind_cell(i),igrp)=phi_int(i,ind)
+              gr_pot(ind_cell(i),igr)=phi_int(i,ind)
            end do
            do idim=1,ndim
               if(idim==3.and.igr>1) cycle

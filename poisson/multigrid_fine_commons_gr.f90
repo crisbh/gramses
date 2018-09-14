@@ -83,7 +83,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       call make_virtual_fine_dp(gr_mat(:,1),ilevel)      ! Update boundaries
    else if(igr==7) then
       do ivect=1,6
-         call comp_gr_mat4         (ilevel,icount,ivect) ! Calculate argument for div(A_ij) vector sources
+         call comp_gr_mat_aij  (ilevel,icount,ivect)     ! Calculate argument for div(A_ij) vector sources
          call make_virtual_fine_dp(f(:,2),ilevel)        ! Update boundaries
          call source_fine_gr_vector(ilevel,icount,ivect) ! Calculate div(A_ij) vector sources
       end do

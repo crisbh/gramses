@@ -10,8 +10,9 @@ subroutine source_fine_gr_vector(ilevel,icount,ivect)
 #endif
   integer::ilevel,icount,ivect
   !---------------------------------------------------------------------------------
-  ! This subroutine calls the next one to calculate the div(A^ij) source terms.
-  ! These are stored into gr_mat(1-3).
+  ! This subroutine is a wrapper for the next one to calculate div(A^ij) source terms.
+  ! The A^ij components are taken from the f(2) array.
+  ! The result is stored into gr_mat(2-4).
   !---------------------------------------------------------------------------------
   integer::igrid,ngrid,ncache,i
   integer ,dimension(1:nvector),save::ind_grid
@@ -33,9 +34,9 @@ subroutine source_fine_gr_vector(ilevel,icount,ivect)
 
   ! Update boundaries when vector source terms are completed
   !if(ivect==6)then
-  !   call make_virtual_fine_dp(gr_mat(1,1),ilevel)
   !   call make_virtual_fine_dp(gr_mat(1,2),ilevel)
   !   call make_virtual_fine_dp(gr_mat(1,3),ilevel)
+  !   call make_virtual_fine_dp(gr_mat(1,4),ilevel)
   !end if
 
 111 format('   Entering source_fine_gr_vector for level ',I2)
@@ -58,7 +59,8 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
   integer::ngrid,ilevel,icount,ivect
   integer,dimension(1:nvector)::ind_grid
   !---------------------------------------------------------------------------------
-  ! This subroutine calculates div(A^ij) source terms 
+  ! This subroutine calculates div(A^ij) source terms.
+  ! The A^ij components are taken from the f(2) array.
   !---------------------------------------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc,igrm
   real(dp)::dx,dx2
@@ -235,10 +237,10 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
      do i=1,ngrid
         if(.not.bdy(i,ind)) then
            if(i1.eq.i2) then
-              gr_mat(ind_cell(i),i2+1)=gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind)
+              gr_mat(ind_cell(i),i2+1)=2.0D0*(gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind))
            else
-              gr_mat(ind_cell(i),i2+1)=gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind)
-              gr_mat(ind_cell(i),i1+1)=gr_mat(ind_cell(i),i1+1)            +div_aij2(i,ind)
+              gr_mat(ind_cell(i),i2+1)=2.0D0*(gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind))
+              gr_mat(ind_cell(i),i1+1)=2.0D0*(gr_mat(ind_cell(i),i1+1)            +div_aij2(i,ind))
            end if
         end if
      end do

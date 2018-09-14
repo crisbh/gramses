@@ -30,8 +30,8 @@ recursive subroutine amr_step(ilevel,icount)
   integer,dimension(1:6) :: gr_ord2
 
   ! Specific ordering of gr_pots for synchro and move
-  gr_ord1(1:5)=(9,8,7,5,6   ) ! Smallest to largest (sync)
-  gr_ord2(1:6)=(6,5,7,8,9,10) ! Largest to smallest (move)
+  gr_ord1(1:5)=(/9,8,7,5,6   /) ! Smallest to largest (sync)
+  gr_ord2(1:6)=(/6,5,7,8,9,10/) ! Largest to smallest (move)
 
   if(numbtot(1,ilevel)==0)return
 

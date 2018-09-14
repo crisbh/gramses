@@ -1,6 +1,6 @@
 !#########################################################
 !#########################################################
-subroutine comp_gr_mat4(ilevel,icount,ivect)
+subroutine comp_gr_mat_aij(ilevel,icount,ivect)
   use amr_commons
   use pm_commons
   use poisson_commons
@@ -12,8 +12,9 @@ subroutine comp_gr_mat4(ilevel,icount,ivect)
 #endif
   integer::ilevel,icount,ivect
   !------------------------------------------------------------
-  ! This subroutine calls comp_gr_mat4 to calculate the correct
-  ! Aij component and store it into gr_mat(4) for later use
+  ! This subroutine is a wrapper for gr_mat_aij_components
+  ! to calculate the correct Aij component from a given ivect
+  ! The result is stored in f(2) for later use
   !------------------------------------------------------------
   integer::igrid,ngrid,ncache,i,ind,iskip,ix,iy,iz
   integer::nx_loc,idim
@@ -120,8 +121,8 @@ subroutine comp_gr_mat4(ilevel,icount,ivect)
         do i=1,ngrid
            ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
         end do
-        ! Compute a given gr_mat(6) component
-        call gr_mat4_components(ind_grid,ngrid,ilevel,icount,ivect)
+        ! Compute a given A^ij component
+        call gr_mat_aij_components(ind_grid,ngrid,ilevel,icount,ivect)
      end do
      ! End loop over grids
 
@@ -187,14 +188,14 @@ subroutine comp_gr_mat4(ilevel,icount,ivect)
      epot_tot=epot_tot+epot_loc
      rho_max(ilevel)=rho_loc
 
-111 format('   Entering comp_gr_mat4 for level ',I2)
+111 format('   Entering comp_gr_mat_aij for level ',I2)
 
-end subroutine comp_gr_mat4
+end subroutine comp_gr_mat_aij
 !#########################################################
 !#########################################################
 !#########################################################
 !#########################################################
-subroutine gr_mat4_components(ind_grid,ngrid,ilevel,icount,ivect)
+subroutine gr_mat_aij_components(ind_grid,ngrid,ilevel,icount,ivect)
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -209,6 +210,7 @@ subroutine gr_mat4_components(ind_grid,ngrid,ilevel,icount,ivect)
   ! This routine compute the A_ij components from (U,V^i) 
   ! in grids ind_grid(:) at level ilevel, using a
   ! 3 nodes kernel (3 points FDA).
+  ! The result is stored in f(2) for later use
   !-------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc
   real(dp)::dx,dx2
@@ -406,11 +408,11 @@ subroutine gr_mat4_components(ind_grid,ngrid,ilevel,icount,ivect)
      end do    ! End loop over igrp 
      
      do i=1,ngrid
-        if(.not.bdy(i))then
-           f(ind_cell(i),2)=aij(i)*(1.0D0+gr_pot(ind_cell(i),6)/ac2)/(1.0D0+gr_pot(ind_cell(i),5)/ac2)**6          
+        if(.not.bdy(i)) then
+           f(ind_cell(i),2)=2.0D0*aij(i)*(1.0D0+gr_pot(ind_cell(i),6)/ac2/(1.0D0-0.5D0*gr_pot(ind_cell(i),5)))/(1.0D0-0.5D0*gr_pot(ind_cell(i),5)/ac2)**6          
         end if
      end do
 
   end do       ! End loop over fine cells
 
-end subroutine gr_mat4_components
+end subroutine gr_mat_aij_components
