@@ -237,10 +237,10 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
      do i=1,ngrid
         if(.not.bdy(i,ind)) then
            if(i1.eq.i2) then
-              gr_mat(ind_cell(i),i2+1)=2.0D0*(gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind))
+              gr_mat(ind_cell(i),i2+1)=gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind)
            else
-              gr_mat(ind_cell(i),i2+1)=2.0D0*(gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind))
-              gr_mat(ind_cell(i),i1+1)=2.0D0*(gr_mat(ind_cell(i),i1+1)            +div_aij2(i,ind))
+              gr_mat(ind_cell(i),i2+1)=gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind)
+              gr_mat(ind_cell(i),i1+1)=gr_mat(ind_cell(i),i1+1)            +div_aij2(i,ind)
            end if
         end if
      end do
