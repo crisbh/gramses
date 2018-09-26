@@ -11,10 +11,10 @@ subroutine source_fine_gr_aij_aij(ilevel,icount)
   integer::info
 #endif
   integer::ilevel,icount
-  !------------------------------------------------------------------
-  ! This subroutine calls comp_fine_gr_aij_aij to calculate A_ijA^ij.
+  !-----------------------------------------------------------------------------
+  ! This subroutine is a wrapper for comp_fine_gr_aij_aij to calculate A_ijA^ij.
   ! The result is stored in gr_mat(1).
-  !------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   integer::igrid,ngrid,ncache,i,ind,iskip,ix,iy,iz
   integer::nx_loc,idim
   real(dp)::dx,dx_loc,scale,fact,fourpi
@@ -209,6 +209,7 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
   ! This routine compute the A_ij components from (U,V^i) 
   ! in grids ind_grid(:) at level ilevel, using a
   ! 3 nodes kernel (3 points FDA).
+  ! The Result is stored into gr_mat(1).
   !-------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc
   real(dp)::dx,dx2
@@ -302,8 +303,8 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
 
   ! Loop over fine cells
   do ind=1,twotondim
-     bdy(1:nvector)=.false.
-     dv (1:nvector)=0.0D0
+     bdy(1:nvector    )=.false.
+     dv (1:nvector    )=0.0D0
      aij(1:nvector,1:6)=0.0D0
      iskip=ncoarse+(ind-1)*ngridmax
      do i=1,ngrid
