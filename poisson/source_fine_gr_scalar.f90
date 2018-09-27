@@ -157,7 +157,7 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
 
      end do ! End loop over idim
     
-     ! Store div(V) or div(B) directly into f(2) 
+     ! Store div(V) or div(B) directly into f(2) as a source term
      do i=1,ngrid
         f(ind_cell(i),2)=dvb(i)
      end do

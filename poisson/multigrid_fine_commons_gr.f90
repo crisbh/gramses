@@ -323,7 +323,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
 
       if(gr_lin) then
          ! Converged?
-         if(err<epsilon .or. iter>=MAXITER) exit
+         if(err<epsilon_gr .or. iter>=MAXITER) exit
 
          ! Not converged, check error and possibly enable safe mode for the level
          if(err > last_err*SAFE_FACTOR .and. (.not. safe_mode(ilevel))) then

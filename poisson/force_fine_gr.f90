@@ -431,7 +431,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
         id4=jjj(idim,4,ind); ig4=iii(idim,4,ind); ih4=ncoarse+(id4-1)*ngridmax
 
         ! Gather GR potential
-        if(idim==igrp-6) then                                                   ! case of 2 direct neighbours
+        if(idim==igrp-6) then                                ! case of 2 direct neighbours
            ! Node 1
            do i=1,ngrid
               if(igridn2(i,ig5)>0) then
@@ -448,7 +448,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
                  phi2(i)=pot_sons(i,id6,ig6) 
               end if
            end do
-        else                                                                    ! case of 4 diagonal neighbours
+        else                                                 ! case of 4 diagonal neighbours
            ! Node 1
            do i=1,ngrid
               if(igridn2(i,ig1)>0) then
