@@ -2,6 +2,7 @@ ubroutine init_time
   use amr_commons
   use hydro_commons
   use pm_commons
+  use gr_commons
   use cooling_module
 #ifdef grackle
   use grackle_parameters

@@ -65,6 +65,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   use pm_commons
   use poisson_commons
   use gr_commons
+  use gr_parameters
   use hydro_commons, ONLY: uold,smallr
   implicit none
   integer::ng,np,ilevel,igrp

@@ -83,9 +83,11 @@ end subroutine synchro_fine_gr
 !####################################################################
 subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   use amr_commons
+  use amr_parameters
   use pm_commons
   use poisson_commons
   use gr_commons
+  use gr_parameters
   implicit none
   integer::ng,np,ilevel,igrp
   integer,dimension(1:nvector)::ind_grid

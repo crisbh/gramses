@@ -658,6 +658,8 @@ subroutine restore_mg_level_gr(ilevel)
    use amr_commons
    use pm_commons
    use poisson_commons
+   use gr_commons
+
    implicit none
 
    integer, intent(in) :: ilevel

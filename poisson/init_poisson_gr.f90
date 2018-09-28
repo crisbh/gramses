@@ -4,7 +4,7 @@ subroutine init_poisson_gr
   use amr_commons
   use poisson_commons
   use gr_commons
-
+  use gr_parameters
   implicit none
 
 #ifndef WITHOUTMPI

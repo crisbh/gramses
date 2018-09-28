@@ -4,6 +4,7 @@ recursive subroutine amr_step(ilevel,icount)
   use hydro_commons
   use poisson_commons
   use gr_commons
+  use gr_parameters
 #ifdef RT
   use rt_hydro_commons
   use SED_module
@@ -29,7 +30,7 @@ recursive subroutine amr_step(ilevel,icount)
   integer,dimension(1:5) :: gr_ord1
   integer,dimension(1:6) :: gr_ord2
 
-  ! Specific ordering of gr_pots for synchro and move
+  ! Specific ordering of gr_pots for synchro and move steps
   gr_ord1(1:5)=(/9,8,7,5,6   /) ! Smallest to largest (sync)
   gr_ord2(1:6)=(/6,5,7,8,9,10/) ! Largest to smallest (move)
 

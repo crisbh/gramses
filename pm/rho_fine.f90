@@ -8,6 +8,7 @@ subroutine rho_fine(ilevel,icount)
   use hydro_commons
   use poisson_commons
   use gr_commons
+  use gr_parameters
   use cooling_module
   implicit none
 #ifndef WITHOUTMPI
