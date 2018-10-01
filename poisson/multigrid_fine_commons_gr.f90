@@ -36,7 +36,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
 #endif
 
    integer, intent(in) :: ilevel,icount,igr
-
+   integer :: ivect
    integer, parameter  :: MAXITER  = 50
    real(dp), parameter :: SAFE_FACTOR = 0.5
 

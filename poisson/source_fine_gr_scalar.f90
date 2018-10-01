@@ -118,6 +118,10 @@ subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
         ind_cell(i)=iskip+ind_grid(i)
      end do
 
+     do i=1,ngrid
+        f(ind_cell(i),2)=0.0D0
+     end do
+
      ! Loop over dimensions/igrp
      do idim=1,ndim
         ! Pick correct component to calculate derivative along a given direction

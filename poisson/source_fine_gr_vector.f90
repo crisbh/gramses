@@ -66,25 +66,24 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
   real(dp)::dx,dx2
   real(dp)::scale,dx_loc
 
-  integer                        :: i1,i2
   integer                        :: id1,id2
   integer                        :: ig1,ig2
   integer                        :: ih1,ih2
   integer,dimension(1:9,1:2,1:8) :: ggg,hhh
-  integer,dimension(1:9,1:6    ) :: ok_idim
+  integer,dimension(1:3,1:6    ) :: ok_idim
 
-  real(dp),dimension(   1:6    ) :: accl      
+  real(dp) :: accl      
 
   integer, dimension(1:nvector                          ),save :: icelln
   integer ,dimension(1:nvector                          ),save :: ind_cell
-  integer ,dimension(1:nvector,0:twondim                ),save :: igridn
+  integer ,dimension(1:nvector,            1:threetondim),save :: igridn
   integer, dimension(1:nvector,            1:threetondim),save :: nbors_cells
   integer, dimension(1:nvector,1:twotondim              ),save :: nbors_grids
   real(dp),dimension(1:nvector                          ),save :: phi1,phi2
 
-  logical, dimension(1:nvector,1:twotondim              ),save :: bdy
+  logical, dimension(1:nvector                          ),save :: bdy
   logical, dimension(1:nvector,1:twotondim              ),save :: div_aij_sons
-  logical, dimension(1:nvector                          ),save :: div_aij1,div_aij2
+  logical, dimension(1:nvector,1:3                      ),save :: div_aij
 
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
@@ -123,16 +122,13 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
   ggg(9,1,1:8)=(/ 5, 5, 8, 8,14,14,17,17/); hhh(9,1,1:8)=(/7,8,5,6,3,4,1,2/)
   ggg(9,2,1:8)=(/11,11,14,14,20,20,23,23/); hhh(9,2,1:8)=(/7,8,5,6,3,4,1,2/)
 
-  ! Wether to accummulate div(A) or not for a given ivect
-  accl(1:6)=(/0.0D0,0.0D0,0.0D0,1.0D0,1.0D0,1.0D0/)
-
   ! Useful derivatives of A_ij for a given ivect
-  ok_idim(1:9,1)=(/1,0,0,0,0,0,0,0,0/)
-  ok_idim(1:9,2)=(/1,1,0,0,0,0,0,0,0/)
-  ok_idim(1:9,3)=(/1,0,1,0,0,0,0,0,0/)
-  ok_idim(1:9,4)=(/0,1,0,0,0,0,0,0,0/)
-  ok_idim(1:9,5)=(/0,1,1,0,0,0,0,0,0/)
-  ok_idim(1:9,6)=(/0,0,1,0,0,0,0,0,0/)
+  ok_idim(1:3,1)=(/2,0,0/)
+  ok_idim(1:3,2)=(/3,2,0/)
+  ok_idim(1:3,3)=(/4,0,2/)
+  ok_idim(1:3,4)=(/0,3,0/)
+  ok_idim(1:3,5)=(/0,4,3/)
+  ok_idim(1:3,6)=(/0,0,4/)
 
   ! Gather father cells of the central grids
   do i=1,ngrid
@@ -172,30 +168,20 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
 
   !!!!!DO COMMUNICATIONS!!!!!!!
 
-  bdy(1:nvector,1:twotondim)=.false.
-
-  ! i1 is the 1st dimension along which to calculate the derivative of A_ij
-  ! i2 is the 2nd dimension along which to calculate the derivative of A_ij
-  do i1=1,3
-     if(ok_idim(i1,ivect)>0) exit
-  end do
-  do i2=3,1,-1
-     if(ok_idim(i2,ivect)>0) exit
-  end do
+  bdy    (1:nvector    )=.false.
+  div_aij(1:nvector,1:3)=0.0D0
 
   ! Loop over cells
   do ind=1,twotondim
-     div_aij1(1:nvector)=0.0D0
-     div_aij2(1:nvector)=0.0D0
 
      iskip=ncoarse+(ind-1)*ngridmax
-
      do i=1,ngrid
         ind_cell(i)=iskip+ind_grid(i)
      end do
 
-     ! Loop over 9 directions
-     do idim=1,9
+     ! Loop over 3 directions
+     do idim=1,3
+        
         ! Loop over nodes
         id1=hhh(idim,1,ind); ig1=ggg(idim,1,ind); ih1=ncoarse+(id1-1)*ngridmax
         id2=hhh(idim,2,ind); ig2=ggg(idim,2,ind); ih2=ncoarse+(id2-1)*ngridmax
@@ -207,44 +193,44 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
         ! Gather A_ij
         do i=1,ngrid
            if(igridn(i,ig1)>0)then
-              if(ok_idim(idim,ivect)>0) phi1(i)=f(igridn(i,ig1)+ih1,2)
+              phi1(i)=f(igridn(i,ig1)+ih1,2)
            else
-              bdy(i,1:8)=.true.      
+              bdy(i)=.true.      
            end if
         end do
         do i=1,ngrid
            if(igridn(i,ig2)>0)then
-              if(ok_idim(idim,ivect)>0) phi2(i)=f(igridn(i,ig2)+ih2,2)
+              phi2(i)=f(igridn(i,ig2)+ih2,2)
            else
-              bdy(i,1:8)=.true.      
+              bdy(i)=.true.      
            end if
         end do
         
-        ! Calculate source term contribution from one of the 6 A_ij components.
-        if((idim.eq.i1))
+        if(ok_idim(idim,ivect)>0) then
            do i=1,ngrid
-              div_aij1(i)=(phi2(i)-phi1(i))/(2.0D0*dx)
-           end do
-        end if
-        if((idim.eq.i2).and.(i2>i1))
-           do i=1,ngrid
-              div_aij2(i)=(phi2(i)-phi1(i))/(2.0D0*dx)
+              div_aij(i,idim)=(phi2(i)-phi1(i))/(2.0D0*dx)
            end do
         end if
 
      end do ! End loop over idim
      
-     do i=1,ngrid
-        if(.not.bdy(i,ind)) then
-           if(i1.eq.i2) then
-              gr_mat(ind_cell(i),i2+1)=gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind)
-           else
-              gr_mat(ind_cell(i),i2+1)=gr_mat(ind_cell(i),i2+1)*accl(ivect)+div_aij1(i,ind)
-              gr_mat(ind_cell(i),i1+1)=gr_mat(ind_cell(i),i1+1)            +div_aij2(i,ind)
+     do idim=1,3
+        if(ok_idim(idim,ivect)==0) cycle
+
+        if(idim.eq.1) accl=0.0D0
+        if(idim.ne.1) accl=1.0D0
+        do i=1,ngrid
+           if(.not.bdy(i)) then
+              gr_mat(ind_cell(i),ok_idim(idim,ivect))=gr_mat(ind_cell(i),ok_idim(idim,ivect))*accl+div_aij(i,idim)
            end if
-        end if
-     end do
+        end do
   
+     end do 
+
   end do    ! End loop over fine cells
+
+  !igrm(1:6,1)=(/2,3,4,0,0,0/)
+  !igrm(1:6,2)=(/0,2,0,3,4,0/)
+  !igrm(1:6,3)=(/0,0,2,0,3,4/)
 
 end subroutine source_from_gr_mat_vector
