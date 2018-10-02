@@ -167,13 +167,16 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
   end if
 
   !!!!!DO COMMUNICATIONS!!!!!!!
+  !   call make_virtual_fine_dp(gr_mat(1,2),ilevel)
+  !   call make_virtual_fine_dp(gr_mat(1,3),ilevel)
+  !   call make_virtual_fine_dp(gr_mat(1,4),ilevel)
 
   bdy    (1:nvector    )=.false.
   div_aij(1:nvector,1:3)=0.0D0
 
   ! Loop over cells
   do ind=1,twotondim
-
+     !bdy    (1:nvector    )=.false.
      iskip=ncoarse+(ind-1)*ngridmax
      do i=1,ngrid
         ind_cell(i)=iskip+ind_grid(i)
@@ -206,6 +209,7 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
            end if
         end do
         
+        ! Decide if we need the derivative for a given ivect
         if(ok_idim(idim,ivect)>0) then
            do i=1,ngrid
               div_aij(i,idim)=(phi2(i)-phi1(i))/(2.0D0*dx)
@@ -224,13 +228,8 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
               gr_mat(ind_cell(i),ok_idim(idim,ivect))=gr_mat(ind_cell(i),ok_idim(idim,ivect))*accl+div_aij(i,idim)
            end if
         end do
-  
      end do 
 
   end do    ! End loop over fine cells
-
-  !igrm(1:6,1)=(/2,3,4,0,0,0/)
-  !igrm(1:6,2)=(/0,2,0,3,4,0/)
-  !igrm(1:6,3)=(/0,0,2,0,3,4/)
 
 end subroutine source_from_gr_mat_vector
