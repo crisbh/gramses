@@ -24,11 +24,24 @@ recursive subroutine amr_step(ilevel,icount)
   ! Each routine is called using a specific order, don't change it,   !
   ! unless you check all consequences first                           !
   !-------------------------------------------------------------------!
+  
   integer::i,idim,ivar
   logical::ok_defrag,output_now_all
   logical,save::first_step=.true.
   integer,dimension(1:5) :: gr_ord1
   integer,dimension(1:6) :: gr_ord2
+
+  ! Declare test parameters
+  real(dp) :: test_rho,test_rhobar
+  integer  :: ind,iskip
+
+  integer  :: ix,iy,iz                            ! BH_test
+  real(dp),dimension(1:twotondim,1:ndim) :: xc,xx ! BH_test
+  real(dp) :: dx                                  ! BH_test
+  real(dp) :: yy,zz                               ! BH_test
+  real(dp) :: rr,xs,ys,zs                         ! BH_spherical
+  real(dp) :: Amp,pii                             ! BH_test_1D
+  real(dp) :: rand                                ! BH_test_uniform
 
   ! Specific ordering of gr_pots for synchro and move steps
   gr_ord1(1:5)=(/9,8,7,5,6   /) ! Smallest to largest (sync)
@@ -260,7 +273,7 @@ recursive subroutine amr_step(ilevel,icount)
   endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!! Test block below !!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!! GR Test block below !!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   if(ilevel==levelmin) then
@@ -286,16 +299,18 @@ recursive subroutine amr_step(ilevel,icount)
               if (idim.eq.3)  zs = xx(i,idim) ! BH_spherical
            end do            ! BH_test
 
-           ! Set (V_i,U) to calculate Aij
-           ! Also set psi and phi to 0
-           gr_pot(active(ilevel)%igrid(i)+iskip,5) = 0.0D0 
-           gr_pot(active(ilevel)%igrid(i)+iskip,6) = 0.0D0 
-           ! Consider all permutations using a 1D source 
+           ! Test A_ij calculation
+           ! Set (V_i,U) to calculate A_ij. Remember to consider all components
            gr_pot(active(ilevel)%igrid(i)+iskip,1) = sin(2.0D0*pii*xs)
            gr_pot(active(ilevel)%igrid(i)+iskip,2) = 0.0D0 
            gr_pot(active(ilevel)%igrid(i)+iskip,3) = 0.0D0 
            gr_pot(active(ilevel)%igrid(i)+iskip,4) = 0.0D0 
 
+           ! Also set psi and phi to 0 so f(2)=2*A_ij
+           gr_pot(active(ilevel)%igrid(i)+iskip,5) = 0.0D0 
+           gr_pot(active(ilevel)%igrid(i)+iskip,6) = 0.0D0 
+
+           ! Consider all permutations using a 1D source 
            !rr = sqrt((xs-0.5d0)**2+(ys-0.5d0)**2+(zs-0.5d0)**2)! BH_spherical
            !if (rr .le. 0.1d0) then                               ! BH_spherical
            !   rho(active(ilevel)%igrid(i)+iskip) = 23.77d0+1.0d0! BH_spherical
@@ -337,10 +352,10 @@ recursive subroutine amr_step(ilevel,icount)
      call make_virtual_fine_dp(gr_pot(1,5),ilevel)
      call make_virtual_fine_dp(gr_pot(1,6),ilevel)
 
-     ! Call function for all ivect cases
+     ! Call function for all ivect cases (last entry)
      call comp_gr_aij(ilevel,icount,1)
 
-     ! Communicate
+     ! Communicate Aij stored in f(2)
      call make_virtual_fine_dp(f(1,2),ilevel)
  
      do ind=1,twotondim
@@ -363,7 +378,7 @@ recursive subroutine amr_step(ilevel,icount)
            end do            ! BH_test
            
            if(ys>0.5D0.and.ys<0.5D0+1.0D0/256.0D0.and.zs>0.5D0.and.zs<0.5D0+1.0D0/256.0D0) then
-              write(*,*) myid,xs,f(active(ilevel)%igrid(i)+iskip,2)
+              write(*,*) myid, xs, f(active(ilevel)%igrid(i)+iskip,2)
            end if    
         end do
 
@@ -373,7 +388,7 @@ recursive subroutine amr_step(ilevel,icount)
   end if
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!! End test block !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!! End GR test block !!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !-------------------------------------------

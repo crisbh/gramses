@@ -553,12 +553,13 @@ subroutine init_cosmo
            write(*,*)'Expected n1=',nx*2**levelmin &
                 &           ,' n2=',ny*2**levelmin &
                 &           ,' n3=',nz*2**levelmin
-           call clean_stop
+!           call clean_stop   ! GR_test uncomment when running simulations with IC's
         endif
      end if
 
      ! Compute box length in the initial conditions in units of h-1 Mpc
      boxlen_ini=dble(nx)*2**levelmin*dxini(levelmin)*(h0/100.)
+     boxlen_ini=256.0D0 ! GR_test changed box length in Mpc/h 
 
   CASE ('gadget')
      if (verbose) write(*,*)'Reading in gadget format from '//TRIM(initfile(levelmin))
