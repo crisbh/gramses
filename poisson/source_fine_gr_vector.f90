@@ -171,12 +171,12 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
   !   call make_virtual_fine_dp(gr_mat(1,3),ilevel)
   !   call make_virtual_fine_dp(gr_mat(1,4),ilevel)
 
-  bdy    (1:nvector    )=.false.
+  !bdy    (1:nvector    )=.false.
   div_aij(1:nvector,1:3)=0.0D0
 
   ! Loop over cells
   do ind=1,twotondim
-     !bdy    (1:nvector    )=.false.
+     bdy(1:nvector)=.false.
      iskip=ncoarse+(ind-1)*ngridmax
      do i=1,ngrid
         ind_cell(i)=iskip+ind_grid(i)

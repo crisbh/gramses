@@ -259,6 +259,123 @@ recursive subroutine amr_step(ilevel,icount)
      end if
   endif
 
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!! Test block below !!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if(ilevel==levelmin) then
+!    test_rho=0.0D0
+     do ind=1,twotondim
+
+        iz = (ind-1)/4        ! BH_test
+        iy = (ind-1-4*iz)/2   ! BH_test
+        ix =  ind-1-4*iz-2*iy ! BH_test
+        dx=0.5d0**ilevel      ! BH_test
+        if(ndim>0) xc(ind,1) = (dble(ix)-0.5d0)*dx ! BH_test
+        if(ndim>1) xc(ind,2) = (dble(iy)-0.5d0)*dx ! BH_test
+        if(ndim>2) xc(ind,3) = (dble(iz)-0.5d0)*dx ! BH_test
+
+        iskip=ncoarse+(ind-1)*ngridmax
+        Amp   =  0.1d0                     ! BH_1D
+        pii   =  4.0d0*atan(1.0d0)         ! BH_1D 
+        do i=1,active(ilevel)%ngrid
+           do idim=1,ndim    ! BH_test
+              xx(i,idim) = xg(active(ilevel)%igrid(i),idim) + xc(ind,idim)  ! BH_test
+              if (idim.eq.1)  xs = xx(i,idim) ! BH_spherical  
+              if (idim.eq.2)  ys = xx(i,idim) ! BH_spherical
+              if (idim.eq.3)  zs = xx(i,idim) ! BH_spherical
+           end do            ! BH_test
+
+           ! Set (V_i,U) to calculate Aij
+           ! Also set psi and phi to 0
+           gr_pot(active(ilevel)%igrid(i)+iskip,5) = 0.0D0 
+           gr_pot(active(ilevel)%igrid(i)+iskip,6) = 0.0D0 
+           ! Consider all permutations using a 1D source 
+           gr_pot(active(ilevel)%igrid(i)+iskip,1) = sin(2.0D0*pii*xs)
+           gr_pot(active(ilevel)%igrid(i)+iskip,2) = 0.0D0 
+           gr_pot(active(ilevel)%igrid(i)+iskip,3) = 0.0D0 
+           gr_pot(active(ilevel)%igrid(i)+iskip,4) = 0.0D0 
+
+           !rr = sqrt((xs-0.5d0)**2+(ys-0.5d0)**2+(zs-0.5d0)**2)! BH_spherical
+           !if (rr .le. 0.1d0) then                               ! BH_spherical
+           !   rho(active(ilevel)%igrid(i)+iskip) = 23.77d0+1.0d0! BH_spherical
+           !else                                                 ! BH_spherical
+           !   rho(active(ilevel)%igrid(i)+iskip) = -0.10d0+1.0d0! BH_spherical
+           !end if                                               ! BH_spherical
+            !rho(active(ilevel)%igrid(i)+iskip) = 1.0d0                                                 ! BH_test_uniform
+!           rho(active(ilevel)%igrid(i)+iskip) = Amp*sin(2.0d0*pii*xs)+1.0d0                          ! BH_sine_1D           
+!            rho(active(ilevel)%igrid(i)+iskip) = Amp*(1.0d0-2.82209637555d0*exp(-(xs-0.5d0)**2/0.2**2)) + 1.0d0 ! BH_gauss_1D
+!            rho(active(ilevel)%igrid(i)+iskip) = -0.5d0*(-1.d0+xs)*xs*(-1.d0+2.d0*xs) + 1.0d0         ! BH_cubic_1D
+!          test_rho=test_rho+rho(active(ilevel)%igrid(i)+iskip)    
+        end do
+     end do
+     !write(*,*) rho_tot !BH_test_rho
+     !call clean_stop
+!     do icpu=1,ncpu
+!        do ind=1,twotondim
+!           do i=1,reception(icpu,ilevel)%ngrid
+!              rho(reception(icpu,ilevel)%igrid(i)+iskip)=1.0D0
+!           end do
+!        end do
+!     end do
+!    call make_virtual_reverse_dp(rho(1),ilevel) !BAOJIU
+!    call make_virtual_fine_dp   (rho(1),ilevel) !BAOJIU
+#ifndef WITHOUTMPI
+!    call MPI_ALLREDUCE(test_rho,test_rhobar,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+#endif
+#ifdef WITHOUTMPI
+!    test_rhobar=test_rho
+#endif
+!    test_rhobar=test_rhobar/dble((2**levelmin)**3)
+!    if(verbose) write(*,*) 'The average density at a=',aexp,' is',test_rhobar
+  
+     ! Communicate gr_pot
+     call make_virtual_fine_dp(gr_pot(1,1),ilevel)
+     call make_virtual_fine_dp(gr_pot(1,2),ilevel)
+     call make_virtual_fine_dp(gr_pot(1,3),ilevel)
+     call make_virtual_fine_dp(gr_pot(1,4),ilevel)
+     call make_virtual_fine_dp(gr_pot(1,5),ilevel)
+     call make_virtual_fine_dp(gr_pot(1,6),ilevel)
+
+     ! Call function for all ivect cases
+     call comp_gr_aij(ilevel,icount,1)
+
+     ! Communicate
+     call make_virtual_fine_dp(f(1,2),ilevel)
+ 
+     do ind=1,twotondim
+
+        iz = (ind-1)/4        ! BH_test
+        iy = (ind-1-4*iz)/2   ! BH_test
+        ix =  ind-1-4*iz-2*iy ! BH_test
+        dx=0.5d0**ilevel      ! BH_test
+        if(ndim>0) xc(ind,1) = (dble(ix)-0.5d0)*dx ! BH_test
+        if(ndim>1) xc(ind,2) = (dble(iy)-0.5d0)*dx ! BH_test
+        if(ndim>2) xc(ind,3) = (dble(iz)-0.5d0)*dx ! BH_test
+
+        iskip=ncoarse+(ind-1)*ngridmax
+        do i=1,active(ilevel)%ngrid
+           do idim=1,ndim    ! BH_test
+              xx(i,idim) = xg(active(ilevel)%igrid(i),idim) + xc(ind,idim)  ! BH_test
+              if (idim.eq.1)  xs = xx(i,idim) ! BH_spherical  
+              if (idim.eq.2)  ys = xx(i,idim) ! BH_spherical
+              if (idim.eq.3)  zs = xx(i,idim) ! BH_spherical
+           end do            ! BH_test
+           
+           if(ys>0.5D0.and.ys<0.5D0+1.0D0/256.0D0.and.zs>0.5D0.and.zs<0.5D0+1.0D0/256.0D0) then
+              write(*,*) myid,xs,f(active(ilevel)%igrid(i)+iskip,2)
+           end if    
+        end do
+
+     end do
+  
+     call clean_stop
+  end if
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!! End test block !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   !-------------------------------------------
   ! Sort particles between ilevel and ilevel+1
   !-------------------------------------------

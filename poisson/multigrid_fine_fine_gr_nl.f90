@@ -110,7 +110,7 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
          else
             op =  nb_sum-6.0D0*potc - potc*gr_b - gr_a
          end if
-            f(icell_amr,1) = -op*oneoverdx2
+         f(icell_amr,1) = -op*oneoverdx2
       end do
    end do
 
@@ -229,7 +229,7 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
 
             if(igr==5) then 
                op = (nb_sum-6.0D0*potc)*(1.0D0-potc/2ac2) - dx2*(gr_a-aomega*(1.0D0-potc/2ac2)**6 + gr_b/(1.0D0-potc/2ac2)**6)
-               dop= -nb_sum/2ac2 - 6.0D0 + 12.0D0/2ac2 &
+               dop= -nb_sum/2ac2 - 6.0D0 + 12.0D0*potc/2ac2 &
                     -dx2*(6.0D0*aomega*(1.0D0-potc/2ac2)**5/2ac2 + 6.0D0*gr_b/(1.0D0-potc/2ac2)**7/2ac2)
             else
                op =  nb_sum - 6.0D0*potc - potc*gr_b - gr_a
@@ -397,6 +397,7 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
          ! Calculate space-dependent coefficients
          if(igr==6) then 
             gr_b = aomega*(rho(icell_f_amr)+2.0D0*gr_mat(icell_f_amr,4)+5.0D0*(1.0D0-gr_pot(icell_f_amr,5)/2ac2)**6) + &
+                   1.75D0*gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/2ac2)**6
             gr_b = gr_b/(1.0D0-gr_pot(icell_f_amr,5)/2ac2)**2/2ac2
          end if
 

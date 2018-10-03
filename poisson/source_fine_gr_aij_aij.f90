@@ -51,12 +51,12 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
 
   integer::ngrid,ilevel,icount
   integer,dimension(1:nvector)::ind_grid
-  !-------------------------------------------------
-  ! This routine compute the A_ij components from (U,V^i) 
+  !-----------------------------------------------------
+  ! This routine computes A_ij*A^ij (scalar) from (U,V^i) 
   ! in grids ind_grid(:) at level ilevel, using a
   ! 3 nodes kernel (3 points FDA).
   ! The Result is stored into gr_mat(1).
-  !-------------------------------------------------
+  !----------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc
   real(dp)::dx,dx2
   real(dp)::scale,dx_loc
@@ -162,6 +162,10 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
         do idim=1,9
            ! Only do idim=4-9 for igrp=4
            if(idim>3.and.igrp<4) cycle
+
+           pot1(1:nvector)=0.0D0
+           pot2(1:nvector)=0.0D0
+
            ! Loop over nodes
            id1=hhh(idim,1,ind); ig1=ggg(idim,1,ind); ih1=ncoarse+(id1-1)*ngridmax
            id2=hhh(idim,2,ind); ig2=ggg(idim,2,ind); ih2=ncoarse+(id2-1)*ngridmax
