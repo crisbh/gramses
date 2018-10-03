@@ -30,7 +30,7 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    integer, intent(in) :: ilevel,igr
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
-   real(dp) :: dx, oneoverdx2, phi_c, nb_sum
+   real(dp) :: dx, dx2, oneoverdx2, phi_c, nb_sum
    integer  :: ngrid
    integer  :: ind, igrid_mg, idim, inbor
    integer  :: icell_mg, iskip_mg, igrid_nbor_mg, icell_nbor_mg
@@ -38,16 +38,16 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    integer  :: igshift, igrid_nbor_amr
 
    real(dp) :: dtwondim = (twondim)
-   real(dp) :: ctilde,2ac2,aomega
+   real(dp) :: ctilde,twoac2,aomega
    real(dp) :: potc,gr_a,gr_b,op
 
    dx  = 0.5d0**ilevel
    oneoverdx2 = 1.0d0/(dx*dx)
 
    ! Set constants
-   dx2     = (0.5d0**ilevel)**2        ! Cell size squared
+   dx2     = dx**2                     ! Cell size squared
    ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   twoac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -101,8 +101,8 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
             end do
           
             if(igr==5) then 
-               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/2ac2) + &
-                    dx2*(aomega*(1.0D0-potc/2ac2)**6-0.25D0*gr_b/(1.0D0-potc/2ac2)**6)
+               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) + &
+                    dx2*(aomega*((1.0D0-potc/twoac2)**6-1.0D0)-0.25D0*gr_b/(1.0D0-potc/twoac2)**6)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
@@ -114,6 +114,39 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    end do
 
 end subroutine cmp_residual_mg_coarse_gr_nl
+
+subroutine cmp_uvar_norm2_coarse_gr_nl(ivar,ilevel,norm2,n_cell_c)
+   use amr_commons
+   use poisson_commons
+   use gr_commons
+   use gr_parameters
+
+   implicit none
+
+   integer,  intent(in)  :: ilevel,ivar
+   real(dp), intent(out) :: norm2,n_cell_c
+
+   real(dp) :: dx2
+   integer  :: ngrid
+   integer  :: ind,igrid_mg,icell_mg,iskip_mg
+
+   ! Set constants
+   dx2  = (0.5d0**ilevel)**ndim
+   ngrid=active_mg(myid,ilevel)%ngrid
+
+   norm2    = 0.0d0
+   n_cell_c = 0.0d0
+   do ind=1,twotondim
+      iskip_mg = (ind-1)*ngrid
+      do igrid_mg=1,ngrid
+         icell_mg = iskip_mg+igrid_mg
+         if(active_mg(myid,ilevel)%u(icell_mg,4)<=0.0 .and. ivar/=4) cycle
+         norm2    = norm2+(active_mg(myid,ilevel)%u(icell_mg,ivar))**2.0
+         n_cell_c = n_cell_c+1.0d0
+      end do
+   end do
+!  norm2 = dx2*norm2
+end subroutine cmp_uvar_norm2_coarse_gr_nl   
 
 ! ------------------------------------------------------------------------
 ! Gauss-Seidel smoothing
@@ -142,13 +175,13 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
    integer  :: igshift, igrid_nbor_amr
    real(dp) :: dtwondim = (twondim)
 
-   real(dp) :: ctilde,2ac2,aomega
+   real(dp) :: ctilde,twoac2,aomega
    real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
    dx2     = (0.5d0**ilevel)**2        ! Cell size squared
    ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   twoac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    ired  (1,1:4)=(/1,0,0,0/)
@@ -191,11 +224,11 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
          ! Read scan flag
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then
          
-         gr_b = active_mg(myid,ilevel)%u(icell_mg,6) ! Restricted coeff in coarse cell
-         potc = active_mg(myid,ilevel)%u(icell_mg,1) ! Value of GR field on center cell
-         nb_sum=0.0d0                                ! Sum of GR field on neighbors
+            gr_b = active_mg(myid,ilevel)%u(icell_mg,6) ! Restricted coeff in coarse cell
+            potc = active_mg(myid,ilevel)%u(icell_mg,1) ! Value of GR field on center cell
+            nb_sum=0.0d0                                ! Sum of GR field on neighbors
 
-           ! Use max-speed "dumb" Gauss-Seidel for "inner" cells
+            ! Use max-speed "dumb" Gauss-Seidel for "inner" cells
             ! Those cells are active, have all their neighbors active
             ! and all neighbors are in the AMR+MG trees
             do inbor=1,2
@@ -220,10 +253,10 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
             end do
             
             if(igr==5) then 
-               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/2ac2) + &
-                    dx2*(aomega*(1.0D0-potc/2ac2)**6-0.25D0*gr_b/(1.0D0-potc/2ac2)**6)
-               dop= -nb_sum/2ac2 - 6.0D0 + 12.0D0/2ac2 &
-                    -dx2*(6.0D0*aomega*(1.0D0-potc/2ac2)**5/2ac2 + 6.0D0*gr_b/(1.0D0-potc/2ac2)**7/2ac2)
+               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) + &
+                    dx2*(aomega*((1.0D0-potc/twoac2)**6-1.0D0)-0.25D0*gr_b/(1.0D0-potc/twoac2)**6)
+               dop= -nb_sum/twoac2 - 6.0D0 + 12.0D0*potc/twoac2 &
+                    -dx2*(6.0D0*aomega*(1.0D0-potc/twoac2)**5/twoac2 + 1.5D0*gr_b/(1.0D0-potc/twoac2)**7/twoac2)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
                dop= -6.0D0 - dx2*gr_b 
@@ -267,13 +300,13 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
 
    real(dp) :: dx,dx2,oneoverdx2,nb_sum
    real(dp) :: dtwondim = (twondim)
-   real(dp) :: ctilde,2ac2,aomega
+   real(dp) :: ctilde,twoac2,aomega
    real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
    dx2     = (0.5d0**ilevel)**2        ! Cell size squared
    ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   twoac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -303,9 +336,9 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
          icell_mg  = iskip_mg+igrid_mg                          ! mg cell index
 
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then
-         gr_b = active_mg(myid,ilevel)%u(icell_mg,6)  ! Restricted coeff in coarse cell
-         potc = active_mg(myid,ilevel)%u(icell_mg,5)  ! Value of GR field on center cell
-         nb_sum=0.0d0                                 ! Sum of GR field on neighbors
+            gr_b = active_mg(myid,ilevel)%u(icell_mg,6)  ! Restricted coeff in coarse cell
+            potc = active_mg(myid,ilevel)%u(icell_mg,5)  ! Value of GR field on center cell
+            nb_sum=0.0d0                                 ! Sum of GR field on neighbors
 
             do inbor=1,2
                do idim=1,ndim
@@ -324,8 +357,8 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
             end do
 
             if(igr==5) then 
-               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/2ac2) + &
-                    dx2*(aomega*(1.0D0-potc/2ac2)**6-0.25D0*gr_b/(1.0D0-potc/2ac2)**6)
+               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) + &
+                    dx2*(aomega*((1.0D0-potc/twoac2)**6-1.0D0)-0.25D0*gr_b/(1.0D0-potc/twoac2)**6)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if

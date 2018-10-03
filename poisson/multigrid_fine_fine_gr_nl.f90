@@ -38,13 +38,13 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
    real(dp) :: dtwondim = (twondim)
 
-   real(dp) :: ctilde,2ac2,aomega
+   real(dp) :: ctilde,twoac2,aomega
    real(dp) :: potc,gr_a,gr_b,op
    
    ! Set constants
    dx2     = (0.5d0**ilevel)**2        ! Cell size squared
    ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   twoac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -76,12 +76,12 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
             gr_a = aomega*rho   (icell_amr  )
             gr_b = 0.25D0*gr_mat(icell_amr,1)
          else
-            gr_a = aomega*(rho(icell_amr)+      gr_mat(icell_amr,4)-      (1.0D0-gr_pot(icell_amr,5)/2ac2)**6) + &
-                          gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/2ac2)**6
-            gr_b = aomega*(rho(icell_amr)+2.0D0*gr_mat(icell_amr,4)+5.0D0*(1.0D0-gr_pot(icell_amr,5)/2ac2)**6) + &
-                   1.75D0*gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/2ac2)**6
-            gr_a = gr_a*dx2/(1.0D0-gr_pot(icell_amr,5)/2ac2)
-            gr_b = gr_b*dx2/(1.0D0-gr_pot(icell_amr,5)/2ac2)**2/2ac2
+            gr_a = aomega*(rho(icell_amr)+      gr_mat(icell_amr,4)-      (1.0D0-gr_pot(icell_amr,5)/twoac2)**6) + &
+                          gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/twoac2)**6
+            gr_b = aomega*(rho(icell_amr)+2.0D0*gr_mat(icell_amr,4)+5.0D0*(1.0D0-gr_pot(icell_amr,5)/twoac2)**6) + &
+                   1.75D0*gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/twoac2)**6
+            gr_a = gr_a*dx2/(1.0D0-gr_pot(icell_amr,5)/twoac2)
+            gr_b = gr_b*dx2/(1.0D0-gr_pot(icell_amr,5)/twoac2)**2/twoac2
          end if
 
          ! SCAN FLAG TEST
@@ -106,7 +106,7 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
          end if ! END SCAN TEST
 
          if(igr==5) then 
-            op = (nb_sum-6.0D0*potc)*(1.0D0-potc/2ac2) - dx2*(gr_a-aomega*(1.0D0-potc/2ac2)**6+gr_b/(1.0D0-potc/2ac2)**6)
+            op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) - dx2*(gr_a-aomega*(1.0D0-potc/twoac2)**6+gr_b/(1.0D0-potc/twoac2)**6)
          else
             op =  nb_sum-6.0D0*potc - potc*gr_b - gr_a
          end if
@@ -115,6 +115,45 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
    end do
 
 end subroutine cmp_residual_mg_fine_gr_nl
+
+subroutine cmp_residual_norm2_fine_gr_nl(ilevel,norm2,n_cell_f)
+   use amr_commons
+   use poisson_commons
+   implicit none
+
+   integer,  intent(in)  :: ilevel
+   real(dp), intent(out) :: norm2,n_cell_f
+
+   integer  :: ngrid
+   integer  :: ind,igrid_mg
+   integer  :: igrid_amr,icell_amr,iskip_amr
+
+   real(dp) :: dx2
+
+   ! Set constants
+   dx2  = (0.5d0**ilevel)**2
+   ngrid=active(ilevel)%ngrid
+
+   norm2    = 0.0d0
+   n_cell_f = 0.0d0
+   ! Loop over cells
+   do ind=1,twotondim
+      iskip_amr = ncoarse+(ind-1)*ngridmax
+      ! Loop over active grids
+      do igrid_mg=1,ngrid
+         igrid_amr = active(ilevel)%igrid(igrid_mg)
+         icell_amr = iskip_amr+igrid_amr
+         if(f(icell_amr,3)<=0.0) then      ! Do not count masked cells
+            cycle
+         end if
+         norm2    = norm2+abs(f(icell_amr,1))**2
+         n_cell_f = n_cell_f+1.0d0
+      end do
+   end do
+
+end subroutine cmp_residual_norm2_fine_gr_nl 
+
+
 
 ! ##################################################################
 ! ##################################################################
@@ -144,13 +183,13 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
 
    real(dp) :: dtwondim = (twondim)
-   real(dp) :: ctilde,2ac2,aomega
+   real(dp) :: ctilde,twoac2,aomega
    real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
    dx2     = (0.5d0**ilevel)**2        ! Cell size squared
    ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   twoac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    ired  (1,1:4)=(/1,0,0,0/)
@@ -195,12 +234,12 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
             gr_a = aomega*rho   (icell_amr  )
             gr_b = 0.25D0*gr_mat(icell_amr,1)
          else
-            gr_a = aomega*(rho(icell_amr)+      gr_mat(icell_amr,4)-      (1.0D0-gr_pot(icell_amr,5)/2ac2)**6) + &
-                          gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/2ac2)**6
-            gr_b = aomega*(rho(icell_amr)+2.0D0*gr_mat(icell_amr,4)+5.0D0*(1.0D0-gr_pot(icell_amr,5)/2ac2)**6) + &
-                   1.75D0*gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/2ac2)**6
-            gr_a = gr_a*dx2/(1.0D0-gr_pot(icell_amr,5)/2ac2)
-            gr_b = gr_b*dx2/(1.0D0-gr_pot(icell_amr,5)/2ac2)**2/2ac2
+            gr_a = aomega*(rho(icell_amr)+      gr_mat(icell_amr,4)-      (1.0D0-gr_pot(icell_amr,5)/twoac2)**6) + &
+                          gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/twoac2)**6
+            gr_b = aomega*(rho(icell_amr)+2.0D0*gr_mat(icell_amr,4)+5.0D0*(1.0D0-gr_pot(icell_amr,5)/twoac2)**6) + &
+                   1.75D0*gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/twoac2)**6
+            gr_a = gr_a*dx2/(1.0D0-gr_pot(icell_amr,5)/twoac2)
+            gr_b = gr_b*dx2/(1.0D0-gr_pot(icell_amr,5)/twoac2)**2/twoac2
          end if
 
          ! Read scan flag
@@ -228,9 +267,9 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
             end do
 
             if(igr==5) then 
-               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/2ac2) - dx2*(gr_a-aomega*(1.0D0-potc/2ac2)**6 + gr_b/(1.0D0-potc/2ac2)**6)
-               dop= -nb_sum/2ac2 - 6.0D0 + 12.0D0*potc/2ac2 &
-                    -dx2*(6.0D0*aomega*(1.0D0-potc/2ac2)**5/2ac2 + 6.0D0*gr_b/(1.0D0-potc/2ac2)**7/2ac2)
+               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) - dx2*(gr_a-aomega*(1.0D0-potc/twoac2)**6 + gr_b/(1.0D0-potc/twoac2)**6)
+               dop= -nb_sum/twoac2 - 6.0D0 + 12.0D0*potc/twoac2 &
+                    -dx2*(6.0D0*aomega*(1.0D0-potc/twoac2)**5/twoac2 + 6.0D0*gr_b/(1.0D0-potc/twoac2)**7/twoac2)
             else
                op =  nb_sum - 6.0D0*potc - potc*gr_b - gr_a
                dop= -6.0D0 - gr_b 
@@ -352,19 +391,19 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
 
    real(dp) :: rho1
    real(dp) :: dtwotondim = (twotondim)
-   real(dp) :: ctilde,2ac2,aomega
+   real(dp) :: ctilde,twoac2,aomega
    real(dp) :: gr_b
 
    integer  :: icoarselevel
    integer  :: ix,iy,iz
-   real(dp) :: ctilde,xc,dx
+   real(dp) :: xc,dx
    integer,dimension(:),allocatable::n_masked
 
    icoarselevel=ifinelevel-1
    
    ! Set constants
    ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   twoac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    ! Sanity check for non-linear GR cases
@@ -395,9 +434,9 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
 
          ! Calculate space-dependent coefficients
          if(igr==6) then 
-            gr_b = aomega*(rho(icell_f_amr)+2.0D0*gr_mat(icell_f_amr,4)+5.0D0*(1.0D0-gr_pot(icell_f_amr,5)/2ac2)**6) + &
-                   1.75D0*gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/2ac2)**6
-            gr_b = gr_b/(1.0D0-gr_pot(icell_f_amr,5)/2ac2)**2/2ac2
+            gr_b = aomega*(rho(icell_f_amr)+2.0D0*gr_mat(icell_f_amr,4)+5.0D0*(1.0D0-gr_pot(icell_f_amr,5)/twoac2)**6) + &
+                   1.75D0*gr_mat(icell_f_amr,1)/(1.0D0-gr_pot(icell_f_amr,5)/twoac2)**6
+            gr_b = gr_b/(1.0D0-gr_pot(icell_f_amr,5)/twoac2)**2/twoac2
          end if
 
          if(f(icell_f_amr,3)<=0d0) cycle

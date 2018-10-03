@@ -43,7 +43,10 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    integer :: ifine, i, iter, icpu
    logical :: allmasked, gr_lin
    real(kind=8) :: err, last_err
-   real(kind=8) :: res_norm2, i_res_norm2
+   real(kind=8) :: res_norm2, i_res_norm2, residual, residual_old
+   real(dp) :: n_cell_f,n_cell_f_tot,n_cell_c,n_cell_c_tot
+   real(dp) :: trunc_norm2,trunc_norm2_tot,trunc_err
+
 #ifndef WITHOUTMPI
    logical :: allmasked_tot
    real(kind=8) :: res_norm2_tot, i_res_norm2_tot
@@ -248,7 +251,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       call make_reverse_mg_dp(2,ilevel-1) ! communicate rhs
        
       if(.not.gr_lin)then
-         call restrict_gr_pot_fine_reverse(ilevel)
+         call restrict_gr_pot_fine_reverse_gr_nl(ilevel,igr)
          call make_reverse_mg_dp(5,ilevel-1) ! communicate gr_pot
       end if
 
@@ -265,9 +268,9 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
 
          ! Multigrid-solve the upper level
          if(gr_lin) then
-            call recursive_multigrid_coarse      (ilevel-1, safe_mode(ilevel))
+            call recursive_multigrid_coarse   (ilevel-1, safe_mode(ilevel))
          else
-            call recursive_multigrid_coarse_gr_nl(ilevel-1, safe_mode(ilevel))
+            call recursive_multigrid_coarse_gr(ilevel-1, safe_mode(ilevel),igr)
          end if
 
          ! Interpolate coarse solution and correct fine solution
@@ -303,26 +306,47 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
          call cmp_residual_mg_fine_gr_nl(ilevel,igr)
       end if
       call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
-      call cmp_residual_norm2_fine(ilevel,res_norm2)
+
+      if(gr_lin) then
+         call cmp_residual_norm2_fine(ilevel,res_norm2)
+      else
+         call cmp_residual_norm2_fine_gr_nl(ilevel,res_norm2,n_cell_f)
+      end if
+
 #ifndef WITHOUTMPI
       call MPI_ALLREDUCE(res_norm2,res_norm2_tot,1, &
               & MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
       res_norm2=res_norm2_tot
+
+      if(.not.gr_lin) then   
+         call MPI_ALLREDUCE(n_cell_f ,n_cell_f_tot ,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+         n_cell_f  = n_cell_f_tot
+      end if
 #endif
 
       if(gr_lin) then
          last_err = err
-         err = sqrt(res_norm2/(i_res_norm2+1d-20))
+         err = dsqrt(res_norm2/(i_res_norm2+1d-20))
       else
-         !TO DO 
+         residual = dsqrt(res_norm2)/n_cell_f
+         call cmp_uvar_norm2_coarse_gr_nl(2,ilevel-1,trunc_norm2,n_cell_c)
+      
+#ifndef WITHOUTMPI
+         call MPI_ALLREDUCE(trunc_norm2,trunc_norm2_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+         call MPI_ALLREDUCE(n_cell_c   ,n_cell_c_tot   ,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+         trunc_norm2 = trunc_norm2_tot
+         n_cell_c    = n_cell_c_tot
+#endif
+
+      trunc_err = dsqrt(trunc_norm2)/n_cell_c
       end if    
       
-      ! Verbosity
-      if(verbose) print '(A,I5,A,I5,A,1pE10.3)','   ==> Step=', &
-         & iter,'GR_pot:',igr,' Error=',err
-
       if(gr_lin) then
-         ! Converged?
+         ! Verbosity
+         if(verbose) print '(A,I5,A,I5,A,1pE10.3)','   ==> Step=', &
+            & iter,'GR_pot:',igr,' Error=',err
+        
+         ! Converged? 
          if(err<epsilon_gr .or. iter>=MAXITER) exit
 
          ! Not converged, check error and possibly enable safe mode for the level
@@ -331,17 +355,31 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
             safe_mode(ilevel) = .true.
          end if
       else
-         !TO DO  
+         ! Verbosity
+         if(verbose) print '(A,I4,A,1e13.6,A,1e13.6)','   ==> Step=',iter,', Residual =',residual,', Truncation error= ',trunc_err
+
+         ! Converged? 
+         if(residual<1.0d-8 .or. residual<0.01d0*trunc_err .or. dabs(residual-residual_old)<1.0d-10) exit
+
+         if(iter>=MAXITER) then
+            write(*,*) 'iter has exceeded MAXITER; the code is not converging!'
+            call clean_stop
+         end if
+ 
+         residual_old = residual
+
       end if    
+
    end do main_iteration_loop
 
    if(gr_lin) then
-      if(myid==1) print '(A,I5,A,I5,A,1pE10.3)','   ==> Level=',ilevel, ' Step=', &
-            iter,' Error=',err
+      if(myid==1) print '(A,I5,A,I5,A,1pE10.3)','   ==> Level=',ilevel, &
+             ' igr=',igr, ' Error=',err
       if(myid==1 .and. iter==MAXITER) print *,'WARN: Fine multigrid GR &
       &equation failed to converge...'
    else
-      ! TO DO
+      if(myid==1) print '(A,I5,A,I5,A,1E15.6, A, 1e15.6)','   ==> Level=',ilevel,' igr=',&
+               igr,' Residual=',residual,' Truncation error=',trunc_err
    end if
    
    ! ---------------------------------------------------------------------
@@ -466,7 +504,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
       if(.not.gr_lin) then
          call restrict_gr_pot_coarse_reverse_gr_nl(ifinelevel)
          call make_reverse_mg_dp(5,ifinelevel-1) ! communicate rhs
-         call make_physical_rhs_coarse_gr_nl(ifinelevel-1)
+         call make_physical_rhs_coarse_gr_nl(ifinelevel-1,igr)
       end if
 
       ! Reset correction from upper level before solve

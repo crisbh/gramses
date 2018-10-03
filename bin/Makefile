@@ -25,8 +25,8 @@ endif
 # Fortran compiler options and directives
 
 # --- No MPI, gfortran -------------------------------
-F90 = gfortran -O3 -frecord-marker=4 -fbacktrace -ffree-line-length-none -g
-FFLAGS = -x f95-cpp-input $(DEFINES) -DWITHOUTMPI
+#F90 = gfortran -O3 -frecord-marker=4 -fbacktrace -ffree-line-length-none -g
+#FFLAGS = -x f95-cpp-input $(DEFINES) -DWITHOUTMPI
 
 # --- No MPI, tau ----------------------------------
 #F90 = tau_f90.sh -optKeepFiles -optPreProcess -optCPPOpts=$(DEFINES) -DWITHOUTMPI
@@ -64,8 +64,8 @@ FFLAGS = -x f95-cpp-input $(DEFINES) -DWITHOUTMPI
 #FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
 
 # --- MPI, ifort syntax, additional checks -----------
-#F90 = mpif90
-#FFLAGS = -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds -cpp $(DEFINES) -DNOSYSTEM
+F90 = mpif90
+FFLAGS = -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds -cpp $(DEFINES) -DNOSYSTEM
 
 
 # --- MPI, ifort syntax ------------------------------
@@ -111,17 +111,18 @@ AMROBJ = read_params.o init_amr.o init_time.o init_refine.o adaptive_loop.o amr_
 PMOBJ = init_part.o output_part.o rho_fine.o synchro_fine.o move_fine.o newdt_fine.o particle_tree.o \
         add_list.o remove_list.o star_formation.o sink_particle.o feedback.o clump_finder.o clump_merger.o \
         flag_formation_sites.o init_sink.o output_sink.o
+
+# GR extra files for GR simulations
+PMOBJ += move_fine_gr.o synchro_fine_gr.o
+
 # Poisson solver objects
 POISSONOBJ = init_poisson.o phi_fine_cg.o interpol_phi.o force_fine.o multigrid_coarse.o multigrid_fine_commons.o \
              multigrid_fine_fine.o multigrid_fine_coarse.o gravana.o boundary_potential.o rho_ana.o output_poisson.o
 
 # GR extra files for GR simulations
-POISSONOBJ += comp_gr_aij.o                 init_poisson_gr.o interpol_gr_mat.o interpol_gr_pot.o \
-		                                    multigrid_fine_commons_gr.o multigrid_fine_fine_gr_ln.o multigrid_fine_fine_gr_nl.o\
+POISSONOBJ += comp_gr_aij.o force_fine_gr.o init_poisson_gr.o interpol_gr_mat.o interpol_gr_pot.o \
+		      multigrid_fine_coarse_gr_nl.o multigrid_fine_commons_gr.o multigrid_fine_fine_gr_ln.o multigrid_fine_fine_gr_nl.o \
 			  source_fine_gr_aij_aij.o source_fine_gr_scalar.o source_fine_gr_vector.o
-# force_fine_gr.o 
-# multigrid_fine_coarse_gr_nl.o 
-
 
 # Hydro objects
 HYDROOBJ = init_hydro.o init_flow_fine.o write_screen.o output_hydro.o courant_fine.o godunov_fine.o \
