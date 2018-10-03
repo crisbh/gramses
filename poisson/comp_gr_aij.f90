@@ -58,14 +58,16 @@ subroutine gr_aij_components(ind_grid,ngrid,ilevel,icount,ivect)
   ! 3 nodes kernel (3 points FDA).
   ! The result is stored in f(2) for later use
   !-------------------------------------------------
-  integer::i,idim,ind,iskip,nx_loc
+  integer::i,idim,ind,iskip,nx_loc,inbor
   real(dp)::dx,dx2
   real(dp)::scale,dx_loc
 
   integer                        :: id1,id2
   integer                        :: ig1,ig2
   integer                        :: ih1,ih2
-  integer,dimension(1:9,1:2,1:8) :: ggg,hhh
+  integer, dimension(1:9,1:2,1:8) :: ggg,hhh
+  integer, dimension(1:9,1:6    ) :: xxx,yyy
+  real(dp),dimension(1:9,1:6    ) :: ppp,qqq
 
   integer, dimension(1:nvector                          ),save :: icelln
   integer, dimension(1:nvector                          ),save :: ind_cell
@@ -75,8 +77,8 @@ subroutine gr_aij_components(ind_grid,ngrid,ilevel,icount,ivect)
  
   real(dp),dimension(1:nvector                          ),save :: dv
   real(dp),dimension(1:nvector                          ),save :: pot1,pot2
-  real(dp),dimension(1:nvector,1:twotondim              ),save :: aij
-  logical, dimension(1:nvector,1:twotondim              ),save :: bdy
+  real(dp),dimension(1:nvector                          ),save :: aij
+  logical, dimension(1:nvector                          ),save :: bdy
   
   integer :: sgn,igrp             
  

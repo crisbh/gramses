@@ -227,6 +227,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
   real(dp),dimension(1:nvector                    ),save::phi1,phi2,phi3,phi4
   real(dp),dimension(1:nvector,1:twotondim, 1:ndim),save::phi_left,phi_right
   real(dp),dimension(1:nvector,1:twotondim, 1:27  ),save::pot_sons
+  integer, dimension(1:nvector                    ),save::icelln     
   integer, dimension(1:nvector,1:threetondim      ),save::nbors_cells
   integer, dimension(1:nvector,1:twotondim        ),save::nbors_grids
 
@@ -408,7 +409,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
         if(igrp==8.and.iy==1.and.iz.mod.2==0.and.ix.mod.2==0) cycle
         if(igrp==9.and.iz==1.and.ix.mod.2==0.and.iy.mod.2==0) cycle
 
-        call interpol_gr_pot(nbor_cells(1,inbor),pot_sons(1,1,inbor),ngrid,ilevel,icount,10)
+        call interpol_gr_pot(nbors_cells(1,inbor),pot_sons(1,1,inbor),ngrid,ilevel,icount,10)
      end do
   end if
 

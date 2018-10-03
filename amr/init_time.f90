@@ -1,4 +1,4 @@
-ubroutine init_time
+subroutine init_time
   use amr_commons
   use hydro_commons
   use pm_commons
@@ -786,7 +786,7 @@ subroutine friedman(O_mat_0,O_vac_0,O_k_0,alpha,axp_min, &
   integer::ntable
   real(kind=8)::O_mat_0, O_vac_0, O_k_0
   real(kind=8)::alpha,axp_min
-  real(dp),dimension(0:ntable)::axp_out,tau_out,t_out
+  real(dp),dimension(0:ntable)::axp_out,hexp_out,tau_out,t_out
   ! ######################################################!
   ! This subroutine assumes that axp = 1 at z = 0 (today) !
   ! and that t and tau = 0 at z = 0 (today).              !

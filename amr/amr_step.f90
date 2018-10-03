@@ -18,7 +18,7 @@ recursive subroutine amr_step(ilevel,icount)
   integer::mpi_err
 #endif
   integer::ilevel,icount
-  integer::igrp,igrm
+  integer::igr,igrp,igrm
   !-------------------------------------------------------------------!
   ! This routine is the adaptive-mesh/adaptive-time-step main driver. !
   ! Each routine is called using a specific order, don't change it,   !
