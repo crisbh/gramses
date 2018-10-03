@@ -456,7 +456,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
          if(active_mg(icpu,ifinelevel-1)%ngrid==0) cycle
          active_mg(icpu,ifinelevel-1)%u(:,2)=0.0d0
          if(.not.gr_lin) then
-            active_mg(icpu, ilevel-1)%u(:,5)=0.0d0
+            active_mg(icpu,ifinelevel-1)%u(:,5)=0.0d0
          end if
       end do
 
@@ -480,7 +480,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
       end do
 
       ! Multigrid-solve the upper level
-      call recursive_multigrid_coarse_gr(ifinelevel-1, safe)
+      call recursive_multigrid_coarse_gr(ifinelevel-1, safe, igr)
 
       ! Interpolate coarse solution and correct back into fine solution
       if(gr_lin) then

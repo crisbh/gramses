@@ -265,10 +265,8 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
    integer  :: icell_nbor_amr,igrid_nbor_amr
    integer  :: cpu_nbor_amr
 
-   real(dp) :: dx,dx2,oneoverdx2
+   real(dp) :: dx,dx2,oneoverdx2,nb_sum
    real(dp) :: dtwondim = (twondim)
-   real(dp) :: eta1,eta2,eta3,ctilde,ctilde2,o_l,op,dens
-   real(dp) :: sfc,nb_sum_sf2 
    real(dp) :: ctilde,2ac2,aomega
    real(dp) :: potc,gr_a,gr_b,op,dop
 

@@ -114,10 +114,15 @@ PMOBJ = init_part.o output_part.o rho_fine.o synchro_fine.o move_fine.o newdt_fi
 # Poisson solver objects
 POISSONOBJ = init_poisson.o phi_fine_cg.o interpol_phi.o force_fine.o multigrid_coarse.o multigrid_fine_commons.o \
              multigrid_fine_fine.o multigrid_fine_coarse.o gravana.o boundary_potential.o rho_ana.o output_poisson.o
+
 # GR extra files for GR simulations
-POISSONOBJ += comp_gr_aij.o force_fine_gr.o init_poisson_gr.o interpol_gr_mat.o interpol_gr_pot.o\
-		      multigrid_fine_coarse_gr_nl.o multigrid_fine_commons_gr.o multigrid_fine_fine_gr_ln.o multigrid_fine_fine_gr_nl.o\
+POISSONOBJ += comp_gr_aij.o                 init_poisson_gr.o interpol_gr_mat.o interpol_gr_pot.o \
+		                                    multigrid_fine_commons_gr.o multigrid_fine_fine_gr_ln.o multigrid_fine_fine_gr_nl.o\
 			  source_fine_gr_aij_aij.o source_fine_gr_scalar.o source_fine_gr_vector.o
+# force_fine_gr.o 
+# multigrid_fine_coarse_gr_nl.o 
+
+
 # Hydro objects
 HYDROOBJ = init_hydro.o init_flow_fine.o write_screen.o output_hydro.o courant_fine.o godunov_fine.o \
            uplmde.o umuscl.o interpol_hydro.o godunov_utils.o condinit.o hydro_flag.o hydro_boundary.o \

@@ -14,7 +14,6 @@ subroutine interpol_gr_mat(ind_cell,phi_int,ncell,ilevel,icount,igrm)
   integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   integer::i,ind,indice,ind_average,ind_father
-  integer::igrm
   real(dp)::dx
   real(dp)::aa,bb,cc,dd,coeff,add
   integer,dimension(1:8,1:8)::ccc

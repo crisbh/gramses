@@ -363,7 +363,6 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
    icoarselevel=ifinelevel-1
    
    ! Set constants
-   dx2     = (0.5d0**ilevel)**2        ! Cell size squared
    ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
    2ac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
