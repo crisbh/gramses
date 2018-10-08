@@ -67,7 +67,6 @@ endif
 F90 = mpif90
 FFLAGS = -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds -cpp $(DEFINES) -DNOSYSTEM
 
-
 # --- MPI, ifort syntax ------------------------------
 #F90 = ftn
 #FFLAGS = -xAVX -g -traceback -fpp -fast $(DEFINES) -DNOSYSTEM #-DRT 

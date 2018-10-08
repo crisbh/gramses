@@ -33,10 +33,11 @@ recursive subroutine amr_step(ilevel,icount)
 
   ! Declare test parameters
   real(dp) :: test_rho,test_rhobar
-  integer  :: ind,iskip
+  integer  :: ind,iskip,ngrid,igrid_amr,icell_amr
 
   integer  :: ix,iy,iz                            ! BH_test
-  real(dp),dimension(1:twotondim,1:ndim) :: xc,xx ! BH_test
+  real(dp),dimension(1:twotondim,1:ndim) :: xc    ! BH_test
+  !real(dp),dimension(1:nvector  ,1:ndim) :: xx    ! BH_test
   real(dp) :: dx                                  ! BH_test
   real(dp) :: yy,zz                               ! BH_test
   real(dp) :: rr,xs,ys,zs                         ! BH_spherical
@@ -278,8 +279,15 @@ recursive subroutine amr_step(ilevel,icount)
 
   if(ilevel==levelmin) then
 !    test_rho=0.0D0
-     do ind=1,twotondim
+     ngrid=active(ilevel)%ngrid
 
+     !if(verbose) write(*,*) 'ngrid =',ngrid, 'nvector =',nvector
+   
+     ! Loop over cells
+     do ind=1,twotondim
+        iskip = ncoarse + (ind-1)*ngridmax
+
+        ! Set position of cell centers relative to grid center
         iz = (ind-1)/4        ! BH_test
         iy = (ind-1-4*iz)/2   ! BH_test
         ix =  ind-1-4*iz-2*iy ! BH_test
@@ -288,27 +296,31 @@ recursive subroutine amr_step(ilevel,icount)
         if(ndim>1) xc(ind,2) = (dble(iy)-0.5d0)*dx ! BH_test
         if(ndim>2) xc(ind,3) = (dble(iz)-0.5d0)*dx ! BH_test
 
-        iskip=ncoarse+(ind-1)*ngridmax
         Amp   =  0.1d0                     ! BH_1D
         pii   =  4.0d0*atan(1.0d0)         ! BH_1D 
-        do i=1,active(ilevel)%ngrid
+
+        ! Loop over active grids
+        do i=1,ngrid
+           igrid_amr = active(ilevel)%igrid(i)
+           icell_amr = igrid_amr + iskip
+
            do idim=1,ndim    ! BH_test
-              xx(i,idim) = xg(active(ilevel)%igrid(i),idim) + xc(ind,idim)  ! BH_test
-              if (idim.eq.1)  xs = xx(i,idim) ! BH_spherical  
-              if (idim.eq.2)  ys = xx(i,idim) ! BH_spherical
-              if (idim.eq.3)  zs = xx(i,idim) ! BH_spherical
+              !xx(i,idim) = xg(igrid_amr,idim) + xc(ind,idim)  ! BH_test
+              if (idim.eq.1)  xs = xg(igrid_amr,idim) + xc(ind,idim) 
+              if (idim.eq.2)  ys = xg(igrid_amr,idim) + xc(ind,idim) 
+              if (idim.eq.3)  zs = xg(igrid_amr,idim) + xc(ind,idim) 
            end do            ! BH_test
 
            ! Test A_ij calculation
            ! Set (V_i,U) to calculate A_ij. Remember to consider all components
-           gr_pot(active(ilevel)%igrid(i)+iskip,1) = sin(2.0D0*pii*xs)
-           gr_pot(active(ilevel)%igrid(i)+iskip,2) = 0.0D0 
-           gr_pot(active(ilevel)%igrid(i)+iskip,3) = 0.0D0 
-           gr_pot(active(ilevel)%igrid(i)+iskip,4) = 0.0D0 
+           gr_pot(icell_amr,1) = sin(2.0D0*pii*xs)
+           gr_pot(icell_amr,2) = 0.0D0 
+           gr_pot(icell_amr,3) = 0.0D0 
+           gr_pot(icell_amr,4) = 0.0D0 
 
            ! Also set psi and phi to 0 so f(2)=2*A_ij
-           gr_pot(active(ilevel)%igrid(i)+iskip,5) = 0.0D0 
-           gr_pot(active(ilevel)%igrid(i)+iskip,6) = 0.0D0 
+           gr_pot(icell_amr,5) = 0.0D0 
+           gr_pot(icell_amr,6) = 0.0D0 
 
            ! Consider all permutations using a 1D source 
            !rr = sqrt((xs-0.5d0)**2+(ys-0.5d0)**2+(zs-0.5d0)**2)! BH_spherical
@@ -357,8 +369,12 @@ recursive subroutine amr_step(ilevel,icount)
 
      ! Communicate Aij stored in f(2)
      call make_virtual_fine_dp(f(1,2),ilevel)
+     
+     ngrid=active(ilevel)%ngrid
  
+     ! Loop over cells
      do ind=1,twotondim
+        iskip = ncoarse + (ind-1)*ngridmax
 
         iz = (ind-1)/4        ! BH_test
         iy = (ind-1-4*iz)/2   ! BH_test
@@ -368,22 +384,26 @@ recursive subroutine amr_step(ilevel,icount)
         if(ndim>1) xc(ind,2) = (dble(iy)-0.5d0)*dx ! BH_test
         if(ndim>2) xc(ind,3) = (dble(iz)-0.5d0)*dx ! BH_test
 
-        iskip=ncoarse+(ind-1)*ngridmax
-        do i=1,active(ilevel)%ngrid
+        ! Loop over active grids
+        do i=1,ngrid
+           igrid_amr = active(ilevel)%igrid(i)
+           icell_amr = igrid_amr + iskip
+           
            do idim=1,ndim    ! BH_test
-              xx(i,idim) = xg(active(ilevel)%igrid(i),idim) + xc(ind,idim)  ! BH_test
-              if (idim.eq.1)  xs = xx(i,idim) ! BH_spherical  
-              if (idim.eq.2)  ys = xx(i,idim) ! BH_spherical
-              if (idim.eq.3)  zs = xx(i,idim) ! BH_spherical
+              !xx(i,idim) = xg(igrid_amr,idim) + xc(ind,idim)  ! BH_test
+              if (idim.eq.1)  xs = xg(igrid_amr,idim) + xc(ind,idim) 
+              if (idim.eq.2)  ys = xg(igrid_amr,idim) + xc(ind,idim) 
+              if (idim.eq.3)  zs = xg(igrid_amr,idim) + xc(ind,idim) 
            end do            ! BH_test
            
            if(ys>0.5D0.and.ys<0.5D0+1.0D0/256.0D0.and.zs>0.5D0.and.zs<0.5D0+1.0D0/256.0D0) then
-              write(*,*) myid, xs, f(active(ilevel)%igrid(i)+iskip,2)
+              write(*,*) myid, xs, f(icell_amr,2)
            end if    
         end do
 
      end do
-  
+     
+     if (myid==1) write(*,*) 'GR test finished. Now exiting.' 
      call clean_stop
   end if
 
