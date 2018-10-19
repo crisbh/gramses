@@ -35,7 +35,7 @@ recursive subroutine amr_step(ilevel,icount)
   real(dp) :: test_rho,test_rhobar
   integer  :: ind,iskip,ngrid,igrid_amr,icell_amr
 
-  integer  :: ix,iy,iz,ivtest,igrm1,igrm2         ! BH_test
+  integer  :: ix,iy,iz,ivtest                     ! BH_test
   real(dp),dimension(1:twotondim,1:ndim) :: xc    ! BH_test
   !real(dp),dimension(1:nvector  ,1:ndim) :: xx   ! BH_test
   real(dp) :: dx                                  ! BH_test
@@ -297,7 +297,8 @@ recursive subroutine amr_step(ilevel,icount)
         if(ndim>2) xc(ind,3) = (dble(iz)-0.5d0)*dx ! BH_test
 
         pii   =  4.0d0*datan(1.0d0)         ! BH_1D 
-        !Amp   =  1/4**3/pii**4
+        !Amp   =  0.25d0/pii 
+        !Amp   =  0.125d0/pii**2            ! BH_1D
 
         ! Loop over active grids
         do i=1,ngrid
@@ -311,21 +312,44 @@ recursive subroutine amr_step(ilevel,icount)
               if (idim.eq.3)  zs = xg(igrid_amr,idim) + xc(ind,idim) 
            end do            ! BH_test
 
-           ! Set Aij component and igrm to communicate
-           igrm1= 2
-           igrm2= 3
+           ! Test A_ij calculation
+           ! Set which component to calculate
+           ivtest = 1
+           ! Set (V_i,U) to calculate A_ij. Remember to consider all components
+           gr_pot(icell_amr,1) = dsin(2.0D0*pii*xs)
+           gr_pot(icell_amr,2) = 0.0d0      !dsin(2.0D0*pii*ys)
+           gr_pot(icell_amr,3) = 0.0d0      !dsin(2.0D0*pii*zs)
+           gr_pot(icell_amr,4) = 0.0d0 !Amp*(dsin(2.0D0*pii*ys)*zs)
 
-           ! Test div(Aij) calculation (vector source terms)
-           gr_pot(icell_amr,1) = dsin(2.0d0*pii*xs)*dsin(2.0d0*pii*ys)*dsin(2.0d0*pii*zs)
-           gr_pot(icell_amr,2) = dsin(2.0d0*pii*xs)*dsin(2.0d0*pii*ys)*dsin(2.0d0*pii*zs)
-           gr_pot(icell_amr,3) = dsin(2.0d0*pii*xs)*dsin(2.0d0*pii*ys)*dsin(2.0d0*pii*zs)
-           gr_pot(icell_amr,4) = dsin(2.0d0*pii*xs)*dsin(2.0d0*pii*ys)*dsin(2.0d0*pii*zs)
+           ! Also set psi and phi to 0 so f(2)=2*A_ij
+           gr_pot(icell_amr,5) = 0.0D0 
+           gr_pot(icell_amr,6) = 0.0D0 
 
-           ! Set phi and alpha to 0 so f(2)=2Aij
-           gr_pot(icell_amr,5) = 0.0d0
-           gr_pot(icell_amr,6) = 0.0d0 
+           ! Consider all permutations using a 1D source 
+           !rr = sqrt((xs-0.5d0)**2+(ys-0.5d0)**2+(zs-0.5d0)**2)  ! BH_spherical
+           !if (rr .le. 0.1d0) then                               ! BH_spherical
+           !   rho(active(ilevel)%igrid(i)+iskip) = 23.77d0+1.0d0! BH_spherical
+           !else                                                 ! BH_spherical
+           !   rho(active(ilevel)%igrid(i)+iskip) = -0.10d0+1.0d0! BH_spherical
+           !end if                                               ! BH_spherical
+            !rho(active(ilevel)%igrid(i)+iskip) = 1.0d0                                                 ! BH_test_uniform
+!           rho(active(ilevel)%igrid(i)+iskip) = Amp*sin(2.0d0*pii*xs)+1.0d0                          ! BH_sine_1D           
+!            rho(active(ilevel)%igrid(i)+iskip) = Amp*(1.0d0-2.82209637555d0*exp(-(xs-0.5d0)**2/0.2**2)) + 1.0d0 ! BH_gauss_1D
+!            rho(active(ilevel)%igrid(i)+iskip) = -0.5d0*(-1.d0+xs)*xs*(-1.d0+2.d0*xs) + 1.0d0         ! BH_cubic_1D
+!          test_rho=test_rho+rho(active(ilevel)%igrid(i)+iskip)    
         end do
      end do
+     !write(*,*) rho_tot !BH_test_rho
+     !call clean_stop
+!     do icpu=1,ncpu
+!        do ind=1,twotondim
+!           do i=1,reception(icpu,ilevel)%ngrid
+!              rho(reception(icpu,ilevel)%igrid(i)+iskip)=1.0D0
+!           end do
+!        end do
+!     end do
+!    call make_virtual_reverse_dp(rho(1),ilevel) !BAOJIU
+!    call make_virtual_fine_dp   (rho(1),ilevel) !BAOJIU
 #ifndef WITHOUTMPI
 !    call MPI_ALLREDUCE(test_rho,test_rhobar,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
 #endif
@@ -343,22 +367,12 @@ recursive subroutine amr_step(ilevel,icount)
      call make_virtual_fine_dp(gr_pot(1,5),ilevel)
      call make_virtual_fine_dp(gr_pot(1,6),ilevel)
 
-     do ivtest =1,6
-        ! Call Aij component calculation
-        call comp_gr_aij(ilevel,icount,ivtest)
+     ! Call function for all ivect cases (last entry)
+     call comp_gr_aij(ilevel,icount,ivtest)
 
-        ! Communicate Aij stored in f(2)
-        call make_virtual_fine_dp(f(1,2),ilevel)
-
-        ! Call div(Aij)
-        call source_fine_gr_vector(ilevel,icount,ivtest)
-     end do
+     ! Communicate Aij stored in f(2)
+     call make_virtual_fine_dp(f(1,2),ilevel)
      
-        ! Communicate div(Aij) stored into gr_mat(2-4)
-        call make_virtual_fine_dp(gr_mat(1,2),ilevel)
-        call make_virtual_fine_dp(gr_mat(1,3),ilevel)
-        call make_virtual_fine_dp(gr_mat(1,4),ilevel)
-
      ngrid=active(ilevel)%ngrid
  
      ! Loop over cells
@@ -385,20 +399,20 @@ recursive subroutine amr_step(ilevel,icount)
               if (idim.eq.3)  zs = xg(igrid_amr,idim) + xc(ind,idim) 
            end do            ! BH_test
 
-           rr = dsqrt((xs-0.5d0)**2+(ys-0.5d0)**2+(zs-0.5d0)**2) 
-           if((rr>0.1d0.and.rr<0.1d0+1.0d0/256.0d0).and.(ys>0.5D0.and.ys<0.5D0+1.0D0/256.0D0)) then
-              write(*,*) xs, zs, gr_mat(icell_amr,igrm1)
-           end if    
-
-           !if(xs>0.5D0.and.xs<0.5D0+1.0D0/256.0D0.and.ys>0.5D0.and.ys<0.5D0+1.0D0/256.0D0) then
-           !   write(*,*) zs, gr_mat(icell_amr,igrm1), gr_mat(icell_amr,igrm2)
+           !rr = dsqrt((xs-0.5d0)**2+(ys-0.5d0)**2+(zs-0.5d0)**2) 
+           !if((rr>0.1d0.and.rr<0.1d0+1.0d0/256.0d0).and.(xs>0.5D0.and.xs<0.5D0+1.0D0/256.0D0)) then
+           !   write(*,*) ys, zs, f(icell_amr,2)
            !end if    
+
+           if(zs>0.5D0.and.zs<0.5D0+1.0D0/256.0D0.and.ys>0.5D0.and.ys<0.5D0+1.0D0/256.0D0) then
+              write(*,*) ys, xs, f(icell_amr,2)
+           end if    
 
         end do
 
      end do
      
-     if (myid==1) write(*,*) 'GR test finished for scalar source. Now exiting.' 
+     if (myid==1) write(*,*) 'GR test finished for ivect =',ivtest, '. Now exiting.' 
      call clean_stop
   end if
 

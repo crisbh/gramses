@@ -405,9 +405,9 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
 
         if(ix.ne.1.and.iy.ne.1.and.iz.ne.1) cycle
 
-        if(igrp==7.and.ix==1.and.iy.mod.2==0.and.iz.mod.2==0) cycle
-        if(igrp==8.and.iy==1.and.iz.mod.2==0.and.ix.mod.2==0) cycle
-        if(igrp==9.and.iz==1.and.ix.mod.2==0.and.iy.mod.2==0) cycle
+        if((igrp==7).and.(ix==1).and.(mod(iy,2)==0).and.(mod(iz,2)==0)) cycle
+        if((igrp==8).and.(iy==1).and.(mod(iz,2)==0).and.(mod(ix,2)==0)) cycle
+        if((igrp==9).and.(iz==1).and.(mod(ix,2)==0).and.(mod(iy,2)==0)) cycle
 
         call interpol_gr_pot(nbors_cells(1,inbor),pot_sons(1,1,inbor),ngrid,ilevel,icount,10)
      end do

@@ -62,7 +62,7 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
   ! This subroutine calculates div(A^ij) source terms.
   ! The A^ij components are taken from the f(2) array.
   !---------------------------------------------------------------------------------
-  integer::i,idim,ind,iskip,nx_loc,igrm
+  integer::i,idim,ind,iskip,nx_loc,igrm,inbor
   real(dp)::dx,dx2
   real(dp)::scale,dx_loc
 
@@ -82,8 +82,8 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
   real(dp),dimension(1:nvector                          ),save :: phi1,phi2
 
   logical, dimension(1:nvector                          ),save :: bdy
-  logical, dimension(1:nvector,1:twotondim              ),save :: div_aij_sons
-  logical, dimension(1:nvector,1:3                      ),save :: div_aij
+  real(dp),dimension(1:nvector,1:twotondim              ),save :: div_aij_sons
+  real(dp),dimension(1:nvector,1:3                      ),save :: div_aij
 
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel

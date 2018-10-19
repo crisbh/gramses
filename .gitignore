@@ -1,3 +1,4 @@
+bin/*
 *.o
 *.mod
 ramses1d
