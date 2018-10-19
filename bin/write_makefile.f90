@@ -127,7 +127,7 @@ subroutine output_makefile(filename)
   write(ilun,format)"             multigrid_fine_fine.o multigrid_fine_coarse.o gravana.o boundary_potential.o rho_ana.o output_poisson.o"
   write(ilun,format)""
   write(ilun,format)"# GR extra files for GR simulations"
-  write(ilun,format)"POISSONOBJ += comp_gr_aij.o                 init_poisson_gr.o interpol_gr_mat.o interpol_gr_pot.o \"
+  write(ilun,format)"POISSONOBJ += comp_gr_aij.o force_fine_gr.o init_poisson_gr.o interpol_gr_mat.o interpol_gr_pot.o \"
   write(ilun,format)"		                                    multigrid_fine_commons_gr.o multigrid_fine_fine_gr_ln.o multigrid_fine_fine_gr_nl.o\"
   write(ilun,format)"			  source_fine_gr_aij_aij.o source_fine_gr_scalar.o source_fine_gr_vector.o"
   write(ilun,format)"# force_fine_gr.o "
