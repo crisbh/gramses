@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH -n 12
-#SBATCH -t 72:00:00
+#SBATCH -n 16
+#SBATCH -t 00:05:00
 #SBATCH -J gramses
 #SBATCH -o ./logs/%j.log
 #SBATCH -e ./logs/%j.err
@@ -13,7 +13,7 @@
 module purge
 module load intel_comp
 module load intel_mpi
-module load hdfview
+# module load hdfview
 unset I_MPI_HYDRA_BOOTSTRAP
 
 # compile

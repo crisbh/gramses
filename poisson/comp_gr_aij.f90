@@ -43,6 +43,7 @@ end subroutine comp_gr_aij
 !#########################################################
 subroutine gr_aij_components(ind_grid,ngrid,ilevel,icount,ivect)
   use amr_commons
+  use amr_parameters
   use pm_commons
   use hydro_commons
   use poisson_commons
