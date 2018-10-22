@@ -425,11 +425,6 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
         ! For direct neighbours
         id5=lll(idim,1,ind); ig5=kkk(idim,1,ind); ih5=ncoarse+(id5-1)*ngridmax
         id6=lll(idim,2,ind); ig6=kkk(idim,2,ind); ih6=ncoarse+(id6-1)*ngridmax
-        ! For diagonal neighbours
-        id1=jjj(idim,1,ind); ig1=iii(idim,1,ind); ih1=ncoarse+(id1-1)*ngridmax
-        id2=jjj(idim,2,ind); ig2=iii(idim,2,ind); ih2=ncoarse+(id2-1)*ngridmax
-        id3=jjj(idim,3,ind); ig3=iii(idim,3,ind); ih3=ncoarse+(id3-1)*ngridmax
-        id4=jjj(idim,4,ind); ig4=iii(idim,4,ind); ih4=ncoarse+(id4-1)*ngridmax
 
         ! Gather GR potential
         if(idim==igrp-6) then                                ! case of 2 direct neighbours
@@ -450,6 +445,11 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
               end if
            end do
         else                                                 ! case of 4 diagonal neighbours
+           ! For diagonal neighbours
+           id1=jjj(idim+igrp-8,1,ind); ig1=iii(idim+igrp-8,1,ind); ih1=ncoarse+(id1-1)*ngridmax
+           id2=jjj(idim+igrp-8,2,ind); ig2=iii(idim+igrp-8,2,ind); ih2=ncoarse+(id2-1)*ngridmax
+           id3=jjj(idim+igrp-8,3,ind); ig3=iii(idim+igrp-8,3,ind); ih3=ncoarse+(id3-1)*ngridmax
+           id4=jjj(idim+igrp-8,4,ind); ig4=iii(idim+igrp-8,4,ind); ih4=ncoarse+(id4-1)*ngridmax
            ! Node 1
            do i=1,ngrid
               if(igridn2(i,ig1)>0) then
@@ -485,7 +485,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
         end if
 
         if(idim==igrp-6) then
-           ! Laplacian of b     
+           ! Second derivative of b (\partial\i\partial_i{b})
            do i=1,ngrid
               f(ind_cell(i),idim)=f(ind_cell(i),idim)-(phi1(i)+phi2(i)-2.0D0*gr_pot(ind_cell(i),10))/dx2
            end do
