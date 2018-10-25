@@ -2,7 +2,7 @@
 &RUN_PARAMS 
 verbose=.false.
 cosmo=.true.
-pic=.false.
+pic=.true.
 poisson=.true.
 gr=.true.
 gr_newtonian=.false.

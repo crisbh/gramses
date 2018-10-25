@@ -1,4 +1,4 @@
-log/*
+logs/*
 bin/*
 *.o
 *.mod
@@ -8,3 +8,4 @@ ramses3d
 *.swp
 *.swo
 *.swn
+.ipynb_checkpoints/
