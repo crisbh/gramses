@@ -389,7 +389,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    ! ---------------------------------------------------------------------
    if(igr<10) then
       do ifine=1,ilevel-1
-         call restore_mg_level_gr(ifine)
+         call restore_mg_level_gr(ifine,igr)
       end do
       call restore_amr_level_gr(ilevel)
    else
@@ -692,7 +692,7 @@ end subroutine make_fine_bc_rhs_gr_ln
 ! Multigrid level restoration for the Poisson equation solver next
 ! ------------------------------------------------------------------------
 
-subroutine restore_mg_level_gr(ilevel)
+subroutine restore_mg_level_gr(ilevel,igr)
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -702,23 +702,27 @@ subroutine restore_mg_level_gr(ilevel)
 
    integer, intent(in) :: ilevel
 
-   integer :: igrid, icpu, cur_grid, cur_cpu
+   integer :: igrid, icpu, cur_grid, cur_cpu, igr
 
    do icpu=1,ncpu
       if(active_mg(icpu,ilevel)%ngrid>0)then
          active_mg(icpu,ilevel)%u(:,1)=0.0d0
          active_mg(icpu,ilevel)%u(:,2)=0.0d0
          active_mg(icpu,ilevel)%u(:,3)=0.0d0
-         active_mg(icpu,ilevel)%u(:,5)=0.0d0
-         active_mg(icpu,ilevel)%u(:,6)=0.0d0
+         if(igr==5.or.igr==6) then 
+            active_mg(icpu,ilevel)%u(:,5)=0.0d0 ! We only have these for the Non-linear equations
+            active_mg(icpu,ilevel)%u(:,6)=0.0d0 ! We only have these for the Non-linear equations
+         end if
       endif
 
       if(emission_mg(icpu,ilevel)%ngrid>0)then
          emission_mg(icpu,ilevel)%u(:,1)=0.0d0
          emission_mg(icpu,ilevel)%u(:,2)=0.0d0
          emission_mg(icpu,ilevel)%u(:,3)=0.0d0
-         emission_mg(icpu,ilevel)%u(:,5)=0.0d0
-         emission_mg(icpu,ilevel)%u(:,6)=0.0d0
+         if(igr==5.or.igr==6) then 
+            active_mg(icpu,ilevel)%u(:,5)=0.0d0 ! We only have these for the Non-linear equations
+            active_mg(icpu,ilevel)%u(:,6)=0.0d0 ! We only have these for the Non-linear equations
+         end if
       endif
 
    end do
