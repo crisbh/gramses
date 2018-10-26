@@ -720,8 +720,8 @@ subroutine restore_mg_level_gr(ilevel,igr)
          emission_mg(icpu,ilevel)%u(:,2)=0.0d0
          emission_mg(icpu,ilevel)%u(:,3)=0.0d0
          if(igr==5.or.igr==6) then 
-            active_mg(icpu,ilevel)%u(:,5)=0.0d0 ! We only have these for the Non-linear equations
-            active_mg(icpu,ilevel)%u(:,6)=0.0d0 ! We only have these for the Non-linear equations
+            emission_mg(icpu,ilevel)%u(:,5)=0.0d0 ! We only have these for the Non-linear equations
+            emission_mg(icpu,ilevel)%u(:,6)=0.0d0 ! We only have these for the Non-linear equations
          end if
       endif
 
