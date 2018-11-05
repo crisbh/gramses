@@ -364,7 +364,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   use hydro_commons, ONLY: mass_sph
   implicit none
   integer::ng,np,ilevel
-  integer::igrm
   integer ,dimension(1:nvector)::ind_cell,ind_grid_part,ind_part
   real(dp),dimension(1:nvector,1:ndim)::x0
   !------------------------------------------------------------------
