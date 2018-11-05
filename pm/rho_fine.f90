@@ -617,11 +617,11 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
 
      if(gr.and.gr2)then
         do j=1,np
-           vol2(j)=mmm(j)*W(j)/ctilde                         *vol(j,ind)/vol_loc  ! s0
+           vol2(j)=mmm(j)*W(j)/ctilde                  *vol(j,ind)/vol_loc  ! s0
            do idim=1,ndim
-              volv(j,idim)=mmm(j)*vp(ind_part(j),idim)/ctilde *vol(j,ind)/vol_loc  ! s1,s2,s3
+              volv(j,idim)=3.0d0*omega_m*aexp*mmm(j)*vp(ind_part(j),idim)/ctilde*vol(j,ind)/vol_loc  ! s1,s2,s3 ! 5.11.18 added prefactor to match Eqs.
            end do
-           vols(j)=mmm(j)*(W(j)**2-ctilde2)/W(j)/ctilde       *vol(j,ind)/vol_loc  ! s=trace(sij)
+           vols(j)=mmm(j)*(W(j)**2-ctilde2)/W(j)/ctilde*vol(j,ind)/vol_loc  ! s=trace(sij)
         end do
      else
         do j=1,np
