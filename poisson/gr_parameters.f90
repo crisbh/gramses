@@ -5,7 +5,7 @@ module gr_parameters
    real(dp) :: src_mean=0.0d0
 
    ! convergence criterion
-   real(dp) :: epsilon_gr=1.0D-8
+   real(dp) :: epsilon_gr=1.0D-5
 
    ! c in standard units
    real(dp) :: sol=299792458.0D0
