@@ -59,8 +59,9 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    gr_lin = .true.
    if(igr==5.or.igr==6) gr_lin = .false.
 
-   if(verbose) print '(A,I2)','Entering fine multigrid GR at level ',ilevel
+   if(verbose) print '(A,I2,A,I2)','Entering fine multigrid GR at level',ilevel, 'for igr=',igr
 
+   residual_old = 1.0d0
    ! ---------------------------------------------------------------------
    ! Prepare first guess, mask and BCs at finest level
    ! ---------------------------------------------------------------------
@@ -241,7 +242,8 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       do icpu=1,ncpu
          if(active_mg(icpu,ilevel-1)%ngrid==0) cycle
          active_mg(icpu,ilevel-1)%u(:,2)=0.0d0
-         if(.not.gr_lin) then
+!         if(.not.gr_lin) then
+         if(igr==6) then
             active_mg(icpu,ilevel-1)%u(:,5)=0.0d0
          end if
       end do
@@ -622,7 +624,7 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
    igrm=0
    if(igr<4           ) igrm=igr
    if(igr<10.and.igr>6) igrm=igr-5
-
+   
    ! Calculate source mean value for regularisation
    call cmp_source_mean_gr_ln(ilevel,igrm)
 
@@ -695,6 +697,7 @@ end subroutine make_fine_bc_rhs_gr_ln
 ! Multigrid level restoration for the Poisson equation solver next
 ! ------------------------------------------------------------------------
 
+!subroutine restore_mg_level_gr(ilevel)
 subroutine restore_mg_level_gr(ilevel,igr)
    use amr_commons
    use pm_commons
@@ -705,27 +708,24 @@ subroutine restore_mg_level_gr(ilevel,igr)
 
    integer, intent(in) :: ilevel
 
-   integer :: igrid, icpu, cur_grid, cur_cpu, igr
+   integer :: igrid, icpu, cur_grid, cur_cpu
+   integer :: igr
 
    do icpu=1,ncpu
       if(active_mg(icpu,ilevel)%ngrid>0)then
          active_mg(icpu,ilevel)%u(:,1)=0.0d0
          active_mg(icpu,ilevel)%u(:,2)=0.0d0
          active_mg(icpu,ilevel)%u(:,3)=0.0d0
-         if(igr==5.or.igr==6) then 
-            active_mg(icpu,ilevel)%u(:,5)=0.0d0 ! We only have these for the Non-linear equations
-            active_mg(icpu,ilevel)%u(:,6)=0.0d0 ! We only have these for the Non-linear equations
-         end if
+         if(igr==5.or.igr==6) active_mg(icpu,ilevel)%u(:,5)=0.0d0
+         if(igr==5.or.igr==6) active_mg(icpu,ilevel)%u(:,6)=0.0d0
       endif
 
       if(emission_mg(icpu,ilevel)%ngrid>0)then
          emission_mg(icpu,ilevel)%u(:,1)=0.0d0
          emission_mg(icpu,ilevel)%u(:,2)=0.0d0
          emission_mg(icpu,ilevel)%u(:,3)=0.0d0
-         if(igr==5.or.igr==6) then 
-            emission_mg(icpu,ilevel)%u(:,5)=0.0d0 ! We only have these for the Non-linear equations
-            emission_mg(icpu,ilevel)%u(:,6)=0.0d0 ! We only have these for the Non-linear equations
-         end if
+         if(igr==5.or.igr==6) emission_mg(icpu,ilevel)%u(:,5)=0.0d0
+         if(igr==5.or.igr==6) emission_mg(icpu,ilevel)%u(:,6)=0.0d0
       endif
 
    end do

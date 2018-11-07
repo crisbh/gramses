@@ -531,7 +531,11 @@ subroutine build_parent_comms_mg(active_f_comm, ifinelevel)
    active_mg(myid,icoarselevel)%ngrid=nact_tot
    if(nact_tot>0) then
       allocate( active_mg(myid,icoarselevel)%igrid(1:nact_tot) )
-      allocate( active_mg(myid,icoarselevel)%u(1:nact_tot*twotondim,1:4) )
+      if(.not.gr) then
+         allocate( active_mg(myid,icoarselevel)%u(1:nact_tot*twotondim,1:4) )
+      else ! Need u(5) and u(6) for the non-linear GR equations only
+         allocate( active_mg(myid,icoarselevel)%u(1:nact_tot*twotondim,1:6) )
+      end if
       allocate( active_mg(myid,icoarselevel)%f(1:nact_tot*twotondim,1:1) )
       active_mg(myid,icoarselevel)%igrid=0
       active_mg(myid,icoarselevel)%u=0.0d0
@@ -650,7 +654,11 @@ subroutine build_parent_comms_mg(active_f_comm, ifinelevel)
       emission_mg(icpu,icoarselevel)%ngrid=ngrids
       if(ngrids>0) then
          allocate(emission_mg(icpu,icoarselevel)%igrid(1:ngrids))
-         allocate(emission_mg(icpu,icoarselevel)%u(1:ngrids*twotondim,1:4) )
+         if(.not.gr) then
+            allocate(emission_mg(icpu,icoarselevel)%u(1:ngrids*twotondim,1:4) )
+         else
+            allocate(emission_mg(icpu,icoarselevel)%u(1:ngrids*twotondim,1:6) )
+         end if
          allocate(emission_mg(icpu,icoarselevel)%f(1:ngrids*twotondim,1:1))
          emission_mg(icpu,icoarselevel)%igrid=0
          emission_mg(icpu,icoarselevel)%u=0.0d0
@@ -717,7 +725,11 @@ subroutine build_parent_comms_mg(active_f_comm, ifinelevel)
       active_mg(icpu,icoarselevel)%ngrid=ngrids
       if(ngrids>0) then
          allocate(active_mg(icpu,icoarselevel)%igrid(1:ngrids))
-         allocate(active_mg(icpu,icoarselevel)%u(1:ngrids*twotondim,1:4))
+         if(.not.gr) then
+            allocate(active_mg(icpu,icoarselevel)%u(1:ngrids*twotondim,1:4))
+         else
+            allocate(active_mg(icpu,icoarselevel)%u(1:ngrids*twotondim,1:6))
+         end if
          allocate(active_mg(icpu,icoarselevel)%f(1:ngrids*twotondim,1:1))
          active_mg(icpu,icoarselevel)%igrid=0
          active_mg(icpu,icoarselevel)%u=0.0d0
