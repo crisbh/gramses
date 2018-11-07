@@ -44,10 +44,10 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    dx  = 0.5d0**ilevel
 
    ! Set constants
-   dx2     = dx**2                     ! Cell size squared
-   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   twoac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
-   aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
+   dx2    = dx**2                     ! Cell size squared
+   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -178,10 +178,10 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
    real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
-   dx2     = (0.5d0**ilevel)**2        ! Cell size squared
-   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   twoac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
-   aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
+   dx2    = (0.5d0**ilevel)**2        ! Cell size squared
+   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
@@ -303,10 +303,10 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
    real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
-   dx2     = (0.5d0**ilevel)**2        ! Cell size squared
-   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   twoac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
-   aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
+   dx2    = (0.5d0**ilevel)**2        ! Cell size squared
+   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
