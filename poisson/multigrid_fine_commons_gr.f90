@@ -242,7 +242,6 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       do icpu=1,ncpu
          if(active_mg(icpu,ilevel-1)%ngrid==0) cycle
          active_mg(icpu,ilevel-1)%u(:,2)=0.0d0
-!         if(.not.gr_lin) then
          if(.not.gr_lin) then
             active_mg(icpu,ilevel-1)%u(:,5)=0.0d0
          end if
