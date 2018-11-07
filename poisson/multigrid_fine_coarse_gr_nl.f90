@@ -30,7 +30,7 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    integer, intent(in) :: ilevel,igr
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
-   real(dp) :: dx, dx2, oneoverdx2, phi_c, nb_sum
+   real(dp) :: dx, dx2, phi_c, nb_sum
    integer  :: ngrid
    integer  :: ind, igrid_mg, idim, inbor
    integer  :: icell_mg, iskip_mg, igrid_nbor_mg, icell_nbor_mg
@@ -42,7 +42,6 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    real(dp) :: potc,gr_a,gr_b,op
 
    dx  = 0.5d0**ilevel
-   oneoverdx2 = 1.0d0/(dx*dx)
 
    ! Set constants
    dx2     = dx**2                     ! Cell size squared
@@ -109,7 +108,7 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
          end if ! END SCAN TEST
 
          ! Store ***MINUS THE RESIDUAL***
-         active_mg(myid,ilevel)%u(icell_mg,3) = -op*oneoverdx2 + active_mg(myid,ilevel)%u(icell_mg,2)
+         active_mg(myid,ilevel)%u(icell_mg,3) = -op/dx2 + active_mg(myid,ilevel)%u(icell_mg,2)
       end do
    end do
 
@@ -298,7 +297,7 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
    integer  :: icell_nbor_amr,igrid_nbor_amr
    integer  :: cpu_nbor_amr
 
-   real(dp) :: dx,dx2,oneoverdx2,nb_sum
+   real(dp) :: dx,dx2,nb_sum
    real(dp) :: dtwondim = (twondim)
    real(dp) :: ctilde,twoac2,aomega
    real(dp) :: potc,gr_a,gr_b,op,dop
