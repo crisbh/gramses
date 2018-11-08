@@ -30,7 +30,7 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
-   real(dp) :: dx, dx2, nb_sum
+   real(dp) :: dx, oneoverdx2, dx2, nb_sum
    integer  :: ngrid
    integer  :: ind, igrid_mg, idim, inbor
    integer  :: igrid_amr, icell_amr, iskip_amr
@@ -46,6 +46,8 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
    twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
+
+   oneoverdx2 = 1.0d0/dx2
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -107,10 +109,12 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
          if(igr==5) then 
             op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) - dx2*(gr_a-aomega*(1.0D0-potc/twoac2)**6+gr_b/(1.0D0-potc/twoac2)**6)
+            ! Regularisation with mean source term
+            op = op + dx2*src_mean*(1.0D0-potc/twoac2)
          else
             op =  nb_sum-6.0D0*potc - potc*gr_b - gr_a
          end if
-         f(icell_amr,1) = -op/dx2          
+         f(icell_amr,1) = -op*oneoverdx2
       end do
    end do
 
@@ -153,7 +157,89 @@ subroutine cmp_residual_norm2_fine_gr_nl(ilevel,norm2,n_cell_f)
 
 end subroutine cmp_residual_norm2_fine_gr_nl 
 
+! ##################################################################
+! ##################################################################
 
+subroutine cmp_source_mean_gr_nl(ilevel,igr)
+   use amr_commons
+   use pm_commons
+   use poisson_commons
+   use gr_commons
+   use gr_parameters
+   implicit none
+
+#ifndef WITHOUTMPI
+   include "mpif.h"
+#endif
+
+   integer, intent(in) :: ilevel, igr
+
+   integer  :: ind,iskip,i,info
+   integer  :: igrid_amr, icell_amr 
+   real(dp) :: test_src,test_srcbar
+
+   real(dp) :: ctilde,twoac2,aomega
+   real(dp) :: potc,gr_a,gr_b,rhs
+   
+   ! Set constants
+   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
+
+   if(ilevel.ne.levelmin) return
+
+  ! Sanity check for non-linear GR cases
+   if(igr>6.or.igr<5) then
+      print '(A)','igr out of range in cmp_source_mean_gr_nl. Please check.'  
+      call clean_stop
+   end if
+
+   test_src=0.0D0
+   ! Loop over cells
+   do ind=1,twotondim
+      iskip=ncoarse+(ind-1)*ngridmax
+      ! Loop over grids
+      do i=1,active(ilevel)%ngrid
+         igrid_amr = active(ilevel)%igrid(i)
+         icell_amr = iskip + igrid_amr 
+
+         potc = gr_pot(icell_amr,igr)    ! Value of GR field on center cell
+
+         ! Calculate space-dependent coefficients
+         if(igr==5) then 
+            gr_a = aomega*rho   (icell_amr  )
+            gr_b = 0.25D0*gr_mat(icell_amr,1)
+         else
+            gr_a = aomega*(rho(icell_amr)+      gr_mat(icell_amr,4)-      (1.0D0-gr_pot(icell_amr,5)/twoac2)**6) + &
+                          gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/twoac2)**6
+            gr_b = aomega*(rho(icell_amr)+2.0D0*gr_mat(icell_amr,4)+5.0D0*(1.0D0-gr_pot(icell_amr,5)/twoac2)**6) + &
+                   1.75D0*gr_mat(icell_amr,1)/(1.0D0-gr_pot(icell_amr,5)/twoac2)**6
+            gr_a = gr_a/(1.0D0-gr_pot(icell_amr,5)/twoac2)
+            gr_b = gr_b/(1.0D0-gr_pot(icell_amr,5)/twoac2)**2/twoac2
+         end if
+
+         ! Define which rhs is to calculate mean
+         if(igr==5) then 
+            rhs = (gr_a-aomega*(1.0D0-potc/twoac2)**6 + gr_b/(1.0D0-potc/twoac2)**6)/(1.0D0-potc/twoac2) 
+         else
+            rhs = potc*gr_b + gr_a
+         end if
+
+         ! Accummulate op
+         test_src=test_src+rhs
+      end do
+   end do
+#ifndef WITHOUTMPI
+   call MPI_ALLREDUCE(test_src,test_srcbar,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+#endif
+#ifdef WITHOUTMPI
+   test_srcbar=test_src
+#endif
+   test_srcbar=test_srcbar/dble((2**levelmin)**3)
+   ! if(verbose) write(*,*) 'The average source is',test_srcbar
+   src_mean = test_srcbar
+
+end subroutine cmp_source_mean_gr_nl
 
 ! ##################################################################
 ! ##################################################################
@@ -270,6 +356,9 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
                op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) - dx2*(gr_a-aomega*(1.0D0-potc/twoac2)**6 + gr_b/(1.0D0-potc/twoac2)**6)
                dop= -nb_sum/twoac2 - 6.0D0 + 12.0D0*potc/twoac2 &
                     -dx2*(6.0D0*aomega*(1.0D0-potc/twoac2)**5/twoac2 + 6.0D0*gr_b/(1.0D0-potc/twoac2)**7/twoac2)
+               ! Regularisation with mean source term
+               op = op +dx2*src_mean*(1.0D0-potc/twoac2)
+               dop= dop-dx2*src_mean/twoac2
             else
                op =  nb_sum - 6.0D0*potc - potc*gr_b - gr_a
                dop= -6.0D0 - gr_b 
@@ -402,9 +491,9 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
    icoarselevel=ifinelevel-1
    
    ! Set constants
-   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
-   aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
+   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   twoac2  = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    ! Sanity check for non-linear GR cases
    if(igr>6.or.igr<5) then

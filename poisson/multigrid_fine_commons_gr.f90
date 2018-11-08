@@ -219,16 +219,19 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igr) ! Black step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field 
+            call cmp_source_mean_gr_nl(ilevel,igr)              ! Regularisation of Eq.
          end do
       end if
 
       ! Compute residual and restrict into upper level RHS
       if(gr_lin) then
          call cmp_residual_mg_fine_gr_ln(ilevel,igr)
+         call make_virtual_fine_dp(f(1,1),ilevel)   ! Communicate residual
       else
          call cmp_residual_mg_fine_gr_nl(ilevel,igr)
+         call make_virtual_fine_dp(f(1,1),ilevel)   ! Communicate residual
+         call cmp_source_mean_gr_nl(ilevel,igr)     ! Regularisation of Eq.
       end if   
-      call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
       if(iter==1.and.gr_lin) then
          call cmp_residual_norm2_fine(ilevel,i_res_norm2)
 #ifndef WITHOUTMPI
@@ -297,6 +300,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igr) ! Black step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
+            call cmp_source_mean_gr_nl(ilevel,igr)              ! Regularisation of Eq.
          end do
       end if    
 
