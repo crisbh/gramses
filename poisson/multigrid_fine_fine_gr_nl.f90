@@ -30,7 +30,7 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
-   real(dp) :: dx, oneoverdx2, dx2, nb_sum
+   real(dp) :: dx, dx2, nb_sum
    integer  :: ngrid
    integer  :: ind, igrid_mg, idim, inbor
    integer  :: igrid_amr, icell_amr, iskip_amr
@@ -46,8 +46,6 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
    twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
-
-   oneoverdx2 = 1.0d0/dx2
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -114,7 +112,7 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
          else
             op =  nb_sum-6.0D0*potc - potc*gr_b - gr_a
          end if
-         f(icell_amr,1) = -op*oneoverdx2
+         f(icell_amr,1) = -op/dx2       
       end do
    end do
 
