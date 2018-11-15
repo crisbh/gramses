@@ -83,7 +83,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       call source_fine_gr_scalar (ilevel,icount,igr)     ! Calculate div(V)
       call make_virtual_fine_dp(f(:,2),ilevel)           ! Update boundaries
    else if(igr==5) then
-!      call source_fine_gr_aij_aij(ilevel,icount    )     ! Calculate A_ij*A^ij
+      call source_fine_gr_aij_aij(ilevel,icount    )     ! Calculate A_ij*A^ij
       call make_virtual_fine_dp(gr_mat(:,1),ilevel)      ! Update boundaries
    else if(igr==7) then
       do ivect=1,6
@@ -211,7 +211,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
             if (i.eq.1 .and. iter.eq.1) then
                src_mean = 0.0d0
             end if
-   call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igr) ! Red step
+            call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igr) ! Red step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_ln(ilevel,.false.,igr) ! Black step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field 
@@ -732,16 +732,20 @@ subroutine restore_mg_level_gr(ilevel,igr)
          active_mg(icpu,ilevel)%u(:,1)=0.0d0
          active_mg(icpu,ilevel)%u(:,2)=0.0d0
          active_mg(icpu,ilevel)%u(:,3)=0.0d0
-         if(igr==5.or.igr==6) active_mg(icpu,ilevel)%u(:,5)=0.0d0
-         if(igr==5.or.igr==6) active_mg(icpu,ilevel)%u(:,6)=0.0d0
+         if(igr==5.or.igr==6) then
+            active_mg(icpu,ilevel)%u(:,5)=0.0d0  ! We only use these for the Non-linear equations
+            active_mg(icpu,ilevel)%u(:,6)=0.0d0
+         end if
       endif
 
       if(emission_mg(icpu,ilevel)%ngrid>0)then
          emission_mg(icpu,ilevel)%u(:,1)=0.0d0
          emission_mg(icpu,ilevel)%u(:,2)=0.0d0
          emission_mg(icpu,ilevel)%u(:,3)=0.0d0
-         if(igr==5.or.igr==6) emission_mg(icpu,ilevel)%u(:,5)=0.0d0
-         if(igr==5.or.igr==6) emission_mg(icpu,ilevel)%u(:,6)=0.0d0
+         if(igr==5.or.igr==6) then
+            emission_mg(icpu,ilevel)%u(:,5)=0.0d0  ! We only use these for the Non-linear equations
+            emission_mg(icpu,ilevel)%u(:,6)=0.0d0
+         end if
       endif
 
    end do
