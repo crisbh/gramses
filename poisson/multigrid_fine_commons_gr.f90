@@ -59,7 +59,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    gr_lin = .true.
    if(igr==5.or.igr==6) gr_lin = .false.
 
-   if(verbose) print '(A,I2,A,I2)','Entering fine multigrid GR at level',ilevel, 'for igr=',igr
+   if(verbose) print '(A,I2,A,I2)','Entering fine multigrid GR at level' ,ilevel,' for igr=',igr
 
    residual_old = 1.0d0
    ! ---------------------------------------------------------------------
@@ -83,7 +83,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       call source_fine_gr_scalar (ilevel,icount,igr)     ! Calculate div(V)
       call make_virtual_fine_dp(f(:,2),ilevel)           ! Update boundaries
    else if(igr==5) then
-      call source_fine_gr_aij_aij(ilevel,icount    )     ! Calculate A_ij*A^ij
+!      call source_fine_gr_aij_aij(ilevel,icount    )     ! Calculate A_ij*A^ij
       call make_virtual_fine_dp(gr_mat(:,1),ilevel)      ! Update boundaries
    else if(igr==7) then
       do ivect=1,6
@@ -208,30 +208,36 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       ! Pre-smoothing
       if(gr_lin) then
          do i=1,ngs_fine_gr_ln_pre
-            call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igr) ! Red step
+            if (i.eq.1 .and. iter.eq.1) then
+               src_mean = 0.0d0
+            end if
+   call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igr) ! Red step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_ln(ilevel,.false.,igr) ! Black step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field 
          end do
       else
          do i=1,ngs_fine_gr_nl_pre
+            if (i.eq.1 .and. iter.eq.1) then
+               src_mean = 0.0d0
+            end if
             call gauss_seidel_mg_fine_gr_nl(ilevel,.true. ,igr) ! Red step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igr) ! Black step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field 
-            call cmp_source_mean_gr_nl(ilevel,igr)              ! Regularisation of Eq.
+            call cmp_source_mean_gr_nl(ilevel,igr)              ! Mean of rhs for regularisation
          end do
       end if
 
       ! Compute residual and restrict into upper level RHS
       if(gr_lin) then
          call cmp_residual_mg_fine_gr_ln(ilevel,igr)
-         call make_virtual_fine_dp(f(1,1),ilevel)   ! Communicate residual
+         call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
       else
          call cmp_residual_mg_fine_gr_nl(ilevel,igr)
-         call make_virtual_fine_dp(f(1,1),ilevel)   ! Communicate residual
-         call cmp_source_mean_gr_nl(ilevel,igr)     ! Regularisation of Eq.
+         call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
       end if   
+
       if(iter==1.and.gr_lin) then
          call cmp_residual_norm2_fine(ilevel,i_res_norm2)
 #ifndef WITHOUTMPI
@@ -253,10 +259,14 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       ! Restrict and do reverse-comm
       call restrict_residual_fine_reverse(ilevel)
       call make_reverse_mg_dp(2,ilevel-1) ! communicate rhs
+      call make_virtual_mg_dp(2,ilevel-1) ! communicate rhs
        
       if(.not.gr_lin)then
          call restrict_gr_pot_fine_reverse_gr_nl(ilevel,igr)
          call make_reverse_mg_dp(5,ilevel-1) ! communicate gr_pot
+         call make_virtual_mg_dp(5,ilevel-1) ! communicate gr_pot 
+         call make_physical_rhs_coarse_gr_nl(ilevel-1,igr) 
+         call cmp_phys_rhs_mean_gr_nl(ilevel-1,igr) ! rhs mean for regularisation at the coarse level (currently=0)
       end if
 
       if(ilevel>1) then
@@ -300,7 +310,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igr) ! Black step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
-            call cmp_source_mean_gr_nl(ilevel,igr)              ! Regularisation of Eq.
+            call cmp_source_mean_gr_nl(ilevel,igr)              ! Calculate rhs mean for regularisation 
          end do
       end if    
 
@@ -361,10 +371,10 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
          end if
       else
          ! Verbosity
-         if(verbose) print '(A,I4,A,1e13.6,A,1e13.6)','   ==> Step=',iter,', Residual =',residual,', Truncation error= ',trunc_err
+         if(verbose) print '(A,I4,A,1e13.6,A,1e13.6,A,1e13.6,A,1e13.6)','   ==> Step=',iter,', Residual =',residual,', Truncation error= ',trunc_err, ', src_mean =', src_mean,', rhs_mean= ', rhs_mean
 
          ! Converged? 
-         if(residual<1.0d-8 .or. residual<0.01d0*trunc_err .or. dabs(residual-residual_old)<1.0d-10) exit
+         if(residual<1.0d-8 .or. residual<0.001d0*trunc_err .or. dabs(residual-residual_old)<1.0d-10) exit
 
          if(iter>=MAXITER) then
             write(*,*) 'iter has exceeded MAXITER; the code is not converging!'
@@ -506,10 +516,13 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
       ! Restrict and do reverse-comm
       call restrict_residual_coarse_reverse(ifinelevel)
       call make_reverse_mg_dp(2,ifinelevel-1) ! communicate rhs
+      call make_virtual_mg_dp(2,ifinelevel-1)   
       if(.not.gr_lin) then
          call restrict_gr_pot_coarse_reverse_gr_nl(ifinelevel)
          call make_reverse_mg_dp(5,ifinelevel-1) ! communicate rhs
+         call make_virtual_mg_dp(5,ifinelevel-1)
          call make_physical_rhs_coarse_gr_nl(ifinelevel-1,igr)
+         call cmp_phys_rhs_mean_gr_nl(ifinelevel-1,igr) ! rhs mean for regularisation at the coarse level (currently=0)
       end if
 
       ! Reset correction from upper level before solve
@@ -529,7 +542,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
       if(gr_lin) then
          call interpolate_and_correct_coarse      (ifinelevel)
       else
-         call interpolate_and_correct_coarse_gr_nl(ifinelevel,igr)
+         call interpolate_and_correct_coarse_gr_nl(ifinelevel)
       end if
       call make_virtual_mg_dp(1,ifinelevel)  ! Communicate solution
 
@@ -719,20 +732,16 @@ subroutine restore_mg_level_gr(ilevel,igr)
          active_mg(icpu,ilevel)%u(:,1)=0.0d0
          active_mg(icpu,ilevel)%u(:,2)=0.0d0
          active_mg(icpu,ilevel)%u(:,3)=0.0d0
-         if(igr==5.or.igr==6) then 
-            active_mg(icpu,ilevel)%u(:,5)=0.0d0 ! We only have these for the Non-linear equations
-            active_mg(icpu,ilevel)%u(:,6)=0.0d0 ! We only have these for the Non-linear equations
-         end if 
+         if(igr==5.or.igr==6) active_mg(icpu,ilevel)%u(:,5)=0.0d0
+         if(igr==5.or.igr==6) active_mg(icpu,ilevel)%u(:,6)=0.0d0
       endif
 
       if(emission_mg(icpu,ilevel)%ngrid>0)then
          emission_mg(icpu,ilevel)%u(:,1)=0.0d0
          emission_mg(icpu,ilevel)%u(:,2)=0.0d0
          emission_mg(icpu,ilevel)%u(:,3)=0.0d0
-         if(igr==5.or.igr==6) then 
-            emission_mg(icpu,ilevel)%u(:,5)=0.0d0 ! We only have these for the Non-linear equations
-            emission_mg(icpu,ilevel)%u(:,6)=0.0d0 ! We only have these for the Non-linear equations
-         end if 
+         if(igr==5.or.igr==6) emission_mg(icpu,ilevel)%u(:,5)=0.0d0
+         if(igr==5.or.igr==6) emission_mg(icpu,ilevel)%u(:,6)=0.0d0
       endif
 
    end do

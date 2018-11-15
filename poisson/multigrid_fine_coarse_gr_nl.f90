@@ -30,16 +30,15 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
    integer, intent(in) :: ilevel,igr
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
-   real(dp) :: dx, dx2, phi_c, nb_sum
+   real(dp) :: dx, dx2, nb_sum
    integer  :: ngrid
    integer  :: ind, igrid_mg, idim, inbor
    integer  :: icell_mg, iskip_mg, igrid_nbor_mg, icell_nbor_mg
    integer  :: igrid_amr, iskip_amr, cpu_nbor_amr
    integer  :: igshift, igrid_nbor_amr
 
-   real(dp) :: dtwondim = (twondim)
    real(dp) :: ctilde,twoac2,aomega
-   real(dp) :: potc,gr_a,gr_b,op
+   real(dp) :: potc,gr_b,op
 
    dx  = 0.5d0**ilevel
 
@@ -102,6 +101,10 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
             if(igr==5) then 
                op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) + &
                     dx2*(aomega*((1.0D0-potc/twoac2)**6-1.0D0)-0.25D0*gr_b/(1.0D0-potc/twoac2)**6)
+!               ! Regularisation with mean source term
+               op = op +dx2*src_mean*(1.0D0-potc/twoac2)
+!               ! Regularisation with PHYSICAL RHS MEAN (COARSE LEVEL)
+               op = op +dx2*rhs_mean*(1.0D0-potc/twoac2)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
@@ -147,6 +150,74 @@ subroutine cmp_uvar_norm2_coarse_gr_nl(ivar,ilevel,norm2,n_cell_c)
 !  norm2 = dx2*norm2
 end subroutine cmp_uvar_norm2_coarse_gr_nl   
 
+! ##################################################################
+! ##################################################################
+
+subroutine cmp_phys_rhs_mean_gr_nl(ilevel,igr)
+   use amr_commons
+   use pm_commons
+   use poisson_commons
+   use gr_commons
+   use gr_parameters
+   implicit none
+
+#ifndef WITHOUTMPI
+   include "mpif.h"
+#endif
+
+   integer, intent(in) :: ilevel, igr
+
+   integer  :: ngrid
+   integer  :: ind,iskip_mg,info
+   integer  :: igrid_mg, icell_mg  
+   real(dp) :: test_src,test_srcbar
+
+   real(dp) :: ctilde,twoac2
+   real(dp) :: potc
+
+   ! Set constants
+   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   twoac2  = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+
+   if(ilevel.ne.levelmin) return
+
+  ! Sanity check for non-linear GR cases
+   if(igr>6.or.igr<5) then
+      print '(A)','igr out of range in cmp_phys_rhs_mean_gr_nl. Please check.'  
+      call clean_stop
+   end if
+
+   test_src=0.0D0
+   ngrid=active_mg(myid,ilevel)%ngrid
+
+   ! Loop over cells myid
+   do ind=1,twotondim
+      iskip_mg  = (ind-1)*ngrid
+      ! Loop over active grids myid
+      do igrid_mg=1,ngrid
+         icell_mg = iskip_mg + igrid_mg  
+
+         potc = active_mg(myid,ilevel)%u(icell_mg,1) ! Value of GR field (coarse level)
+
+         if(verbose) write(*,*) 'potc= ', potc
+         ! SCAN FLAG TEST
+         if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then ! NO SCAN
+            test_src=test_src+active_mg(myid,ilevel)%u(icell_mg,2)/(1.0d0-potc/twoac2)
+         end if ! END SCAN TEST
+      end do
+   end do
+#ifndef WITHOUTMPI
+   call MPI_ALLREDUCE(test_src,test_srcbar,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+#endif
+#ifdef WITHOUTMPI
+   test_srcbar=test_src
+#endif
+   test_srcbar=test_srcbar/dble((2**levelmin)**3)
+   ! if(verbose) write(*,*) 'The average source is',test_srcbar
+   rhs_mean = test_srcbar
+
+end subroutine cmp_phys_rhs_mean_gr_nl
+
 ! ------------------------------------------------------------------------
 ! Gauss-Seidel smoothing
 ! ------------------------------------------------------------------------
@@ -166,16 +237,15 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
    integer, dimension(1:3,1:4)     :: ired, iblack
 
-   real(dp) :: dx2, nb_sum, weight
+   real(dp) :: dx2, nb_sum
    integer  :: ngrid
    integer  :: ind, ind0, igrid_mg, idim, inbor
    integer  :: igrid_amr, cpu_nbor_amr
    integer  :: iskip_mg, igrid_nbor_mg, icell_mg, icell_nbor_mg
    integer  :: igshift, igrid_nbor_amr
-   real(dp) :: dtwondim = (twondim)
 
    real(dp) :: ctilde,twoac2,aomega
-   real(dp) :: potc,gr_a,gr_b,op,dop
+   real(dp) :: potc,gr_b,op,dop
 
    ! Set constants
    dx2    = (0.5d0**ilevel)**2        ! Cell size squared
@@ -256,12 +326,21 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
                     dx2*(aomega*((1.0D0-potc/twoac2)**6-1.0D0)-0.25D0*gr_b/(1.0D0-potc/twoac2)**6)
                dop= -nb_sum/twoac2 - 6.0D0 + 12.0D0*potc/twoac2 &
                     -dx2*(6.0D0*aomega*(1.0D0-potc/twoac2)**5/twoac2 + 1.5D0*gr_b/(1.0D0-potc/twoac2)**7/twoac2)
+
+               ! Regularisation with mean source term (from fine level)
+               op = op +dx2*src_mean*(1.0D0-potc/twoac2)
+               dop= dop-dx2*src_mean/twoac2
+               ! Regularisation with PHYSICAL RHS MEAN (COARSE LEVEL)
+               op = op +dx2*rhs_mean*(1.0D0-potc/twoac2)
+               dop= dop-dx2*rhs_mean/twoac2
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
                dop= -6.0D0 - dx2*gr_b 
             end if
             
+            ! Include phys_rhs into the equation
             op = op - active_mg(myid,ilevel)%u(icell_mg,2)*dx2
+
             ! Update the GR potential, solving for potential on icell_amr
             active_mg(myid,ilevel)%u(icell_mg,1)=active_mg(myid,ilevel)%u(icell_mg,1) -&
                                                  op/dop
@@ -294,13 +373,12 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
    integer  :: iskip_mg,igrid_mg,icell_mg
    integer  :: iskip_amr,igrid_amr,icell_amr
    integer  :: icell_nbor_mg,igrid_nbor_mg
-   integer  :: icell_nbor_amr,igrid_nbor_amr
+   integer  :: igrid_nbor_amr
    integer  :: cpu_nbor_amr
 
-   real(dp) :: dx,dx2,nb_sum
-   real(dp) :: dtwondim = (twondim)
+   real(dp) :: dx2,nb_sum
    real(dp) :: ctilde,twoac2,aomega
-   real(dp) :: potc,gr_a,gr_b,op,dop
+   real(dp) :: potc,gr_b,op
 
    ! Set constants
    dx2    = (0.5d0**ilevel)**2        ! Cell size squared
@@ -336,7 +414,7 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
 
          if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then
             gr_b = active_mg(myid,ilevel)%u(icell_mg,6)  ! Restricted coeff in coarse cell
-            potc = active_mg(myid,ilevel)%u(icell_mg,5)  ! Value of GR field on center cell
+            potc = active_mg(myid,ilevel)%u(icell_mg,5)  ! RESTRICTED GR field on center cell
             nb_sum=0.0d0                                 ! Sum of GR field on neighbors
 
             do inbor=1,2
@@ -358,6 +436,8 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
             if(igr==5) then 
                op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) + &
                     dx2*(aomega*((1.0D0-potc/twoac2)**6-1.0D0)-0.25D0*gr_b/(1.0D0-potc/twoac2)**6)
+               ! Regularisation with mean source term
+               op = op +dx2*src_mean*(1.0D0-potc/twoac2)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
@@ -538,12 +618,13 @@ end subroutine restrict_coeff_coarse_reverse_gr_nl
 ! Interpolation and correction
 ! ------------------------------------------------------------------------
 
-subroutine interpolate_and_correct_coarse_gr_nl(ifinelevel,igr)
+!subroutine interpolate_and_correct_coarse_gr_nl(ifinelevel,igr)
+subroutine interpolate_and_correct_coarse_gr_nl(ifinelevel)
    use amr_commons
    use poisson_commons
    use gr_commons   
    implicit none
-   integer, intent(in) :: ifinelevel, igr
+   integer, intent(in) :: ifinelevel
 
    integer  :: i, ind_father, ind_average, ind_f, iskip_f_amr, ngrid_f, istart, nbatch
    integer  :: icell_c_amr, igrid_c_amr, igrid_c_mg, icell_c_mg, iskip_f_mg, icell_f_mg

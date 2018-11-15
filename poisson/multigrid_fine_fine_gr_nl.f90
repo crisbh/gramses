@@ -30,13 +30,11 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
-   real(dp) :: dx, dx2, nb_sum
+   real(dp) :: dx2, nb_sum
    integer  :: ngrid
    integer  :: ind, igrid_mg, idim, inbor
    integer  :: igrid_amr, icell_amr, iskip_amr
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
-
-   real(dp) :: dtwondim = (twondim)
 
    real(dp) :: ctilde,twoac2,aomega
    real(dp) :: potc,gr_a,gr_b,op
@@ -110,9 +108,9 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
             ! Regularisation with mean source term
             op = op + dx2*src_mean*(1.0D0-potc/twoac2)
          else
-            op =  nb_sum-6.0D0*potc - potc*gr_b - gr_a
+            op = nb_sum-6.0D0*potc - potc*gr_b - gr_a
          end if
-         f(icell_amr,1) = -op/dx2       
+         f(icell_amr,1) = -op/dx2
       end do
    end do
 
@@ -180,9 +178,9 @@ subroutine cmp_source_mean_gr_nl(ilevel,igr)
    real(dp) :: potc,gr_a,gr_b,rhs
    
    ! Set constants
-   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
-   aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
+   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   twoac2  = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    if(ilevel.ne.levelmin) return
 
@@ -216,7 +214,7 @@ subroutine cmp_source_mean_gr_nl(ilevel,igr)
             gr_b = gr_b/(1.0D0-gr_pot(icell_amr,5)/twoac2)**2/twoac2
          end if
 
-         ! Define which rhs is to calculate mean
+         ! Define rhs to calculate its mean
          if(igr==5) then 
             rhs = (gr_a-aomega*(1.0D0-potc/twoac2)**6 + gr_b/(1.0D0-potc/twoac2)**6)/(1.0D0-potc/twoac2) 
          else
@@ -234,7 +232,7 @@ subroutine cmp_source_mean_gr_nl(ilevel,igr)
    test_srcbar=test_src
 #endif
    test_srcbar=test_srcbar/dble((2**levelmin)**3)
-   ! if(verbose) write(*,*) 'The average source is',test_srcbar
+   ! if(verbose) rite(*,*) 'The average source is',test_srcbar
    src_mean = test_srcbar
 
 end subroutine cmp_source_mean_gr_nl
@@ -260,21 +258,20 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
    integer, dimension(1:3,1:4)     :: ired, iblack
 
-   real(dp) :: dx2, nb_sum, weight
+   real(dp) :: dx2, nb_sum
    integer  :: ngrid
    integer  :: ind, ind0, igrid_mg, idim, inbor
    integer  :: igrid_amr, icell_amr, iskip_amr
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
 
-   real(dp) :: dtwondim = (twondim)
    real(dp) :: ctilde,twoac2,aomega
    real(dp) :: potc,gr_a,gr_b,op,dop
 
    ! Set constants
-   dx2    = (0.5d0**ilevel)**2        ! Cell size squared
-   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
-   aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
+   dx2     = (0.5d0**ilevel)**2        ! Cell size squared
+   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   twoac2  = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
@@ -354,6 +351,7 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
                op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) - dx2*(gr_a-aomega*(1.0D0-potc/twoac2)**6 + gr_b/(1.0D0-potc/twoac2)**6)
                dop= -nb_sum/twoac2 - 6.0D0 + 12.0D0*potc/twoac2 &
                     -dx2*(6.0D0*aomega*(1.0D0-potc/twoac2)**5/twoac2 + 6.0D0*gr_b/(1.0D0-potc/twoac2)**7/twoac2)
+
                ! Regularisation with mean source term
                op = op +dx2*src_mean*(1.0D0-potc/twoac2)
                dop= dop-dx2*src_mean/twoac2
@@ -482,15 +480,13 @@ subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
    real(dp) :: gr_b
 
    integer  :: icoarselevel
-   integer  :: ix,iy,iz
-   real(dp) :: xc,dx
    integer,dimension(:),allocatable::n_masked
 
    icoarselevel=ifinelevel-1
    
    ! Set constants
    ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   twoac2  = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   twoac2    = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega  = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
    ! Sanity check for non-linear GR cases
