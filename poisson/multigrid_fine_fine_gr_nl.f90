@@ -109,6 +109,8 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
             op = op + dx2*src_mean*(1.0D0-potc/twoac2)
          else
             op = nb_sum-6.0D0*potc - potc*gr_b - gr_a
+            ! Regularisation with mean source term
+            op = op + dx2*src_mean
          end if
          f(icell_amr,1) = -op/dx2
       end do
@@ -358,6 +360,8 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
             else
                op =  nb_sum - 6.0D0*potc - potc*gr_b - gr_a
                dop= -6.0D0 - gr_b 
+               ! Regularisation with mean source term
+               op = op +dx2*src_mean
             end if
 
             ! Update the GR potential, solving for potential on icell_amr
