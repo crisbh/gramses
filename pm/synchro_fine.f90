@@ -502,7 +502,7 @@ subroutine sync(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
      if(gr.and.gr_newtonian.and.gr2) dteff(j)=-dteff(j) ! Revert Newtonian synchro
   end do
 
-  if(.not.gr.and..not.gr_newtonian)then
+  if((.not.gr).and.(.not.gr_newtonian))then
      ! Update particles level
      do j=1,np
         levelp(ind_part(j))=ilevel
