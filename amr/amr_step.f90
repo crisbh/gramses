@@ -221,7 +221,7 @@ recursive subroutine amr_step(ilevel,icount)
      if(gr.and.gr_newtonian) gr2=.false.                          
      call rho_fine(ilevel,icount)
  
-     ! Newtonian synchro
+     ! Newtonian synchro approximation
      if(gr.and.gr_newtonian)then
         ! Compute gravitational potential
         if(ilevel>levelmin)then
@@ -237,7 +237,7 @@ recursive subroutine amr_step(ilevel,icount)
         ! Compute gravitational acceleration
         call force_fine(ilevel,icount)
 
-        ! Synchronize remaining particles for gravity
+        ! Synchronize particles with Newtonian potential
         if(pic)then
                                   call timer('particles','start')
            if(static_dm.or.static_stars)then
@@ -247,8 +247,9 @@ recursive subroutine amr_step(ilevel,icount)
            end if
         end if
         gr2=.true.
+        ! Calculate Relativistic source terms with Newtonian synchro 
         call rho_fine(ilevel,icount)
-        ! Synchronize remaining particles for gravity
+        ! REVERT Newtonian synchro
         if(pic)then
                                   call timer('particles','start')
            if(static_dm.or.static_stars)then
@@ -309,6 +310,7 @@ recursive subroutine amr_step(ilevel,icount)
            end if
         end if
      else
+        ! Solve the 10 GR potentials
         do igr=1,10
            call multigrid_fine_gr(ilevel,icount,igr)
         end do

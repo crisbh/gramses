@@ -367,6 +367,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      end do
   end if
     
+  ! Calculate beta on particles. Recall that beta^i=B^i+grad(b), but f(igrp==10)=-grad(b)
   if(igrp==10) then
      gr_bet(1:np,1:ndim)=0.0D0
      do ind=1,twotondim
