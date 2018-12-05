@@ -63,7 +63,7 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
   ! The A^ij components are taken from the f(2) array.
   !---------------------------------------------------------------------------------
   integer::i,idim,ind,iskip,nx_loc,igrm,inbor
-  real(dp)::dx,dx2
+  real(dp)::dx
   real(dp)::scale,dx_loc
 
   integer                        :: id1,id2
