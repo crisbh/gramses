@@ -356,8 +356,8 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   end do
 #endif
   
-  if(igrp<5.or.igrp>10) then
-     print'(A)','igrp out of range in force coeff computation in move. Please check.'
+  if(igrp<5.or.igrp>9) then
+     print'(A)','igrp out of range in force coeff computation in synchro. Please check.'
      call clean_stop
   end if
 
@@ -448,7 +448,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      endif
   end do
 
-  ! Update particles level only on the last iteration
+  ! Update particles level ONLY on the last iteration
   if(igrp==6) then
      do j=1,np
         levelp(ind_part(j))=ilevel

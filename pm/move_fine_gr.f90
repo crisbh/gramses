@@ -348,7 +348,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   end if
 
   ! Calculate Lorentz factor from the 4-velocity normalisation
-  if(igrp==5.or.igrp==6.or.igrp==10) then
+  if((igrp==5).or.(igrp==6).or.(igrp==10)) then
      W(1:np)     =0.0D0
      gr_psi(1:np)=0.0D0
      gr_xi (1:np)=0.0D0
@@ -367,7 +367,8 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      end do
   end if
     
-  ! Calculate beta on particles. Recall that beta^i=B^i+grad(b), but f(igrp==10)=-grad(b)
+  ! Calculate beta on particles. 
+  ! Recall that beta^i=B^i+grad(b), but f(igrp==10)=-grad(b)
   if(igrp==10) then
      gr_bet(1:np,1:ndim)=0.0D0
      do ind=1,twotondim
@@ -402,7 +403,7 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      end do
   end if
 
-  if(igrp<10) then
+  if(igrp<10) then              ! Update velocities 
      ! Gather 3-force
      ff(1:np,1:ndim)=0.0D0
      if(tracer.and.hydro)then
@@ -480,8 +481,8 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         end do
      end do
  
-  else
-     ! Update position ONLY after velocity has been fully updated by this routine 
+  else  ! igrp==10 
+        ! Update position ONLY after velocity has been fully updated by this routine 
      do idim=1,ndim
         if(static)then
            do j=1,np

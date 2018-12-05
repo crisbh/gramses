@@ -33,7 +33,7 @@ recursive subroutine amr_step(ilevel,icount)
 
   ! Specific ordering of gr_pots for synchro and move steps
   gr_ord1(1:5)=(/9,8,7,5,6   /) ! Smallest to largest (sync)
-  gr_ord2(1:6)=(/6,5,7,8,9,10/) ! Largest to smallest (move)
+  gr_ord2(1:6)=(/6,5,7,8,9,10/) ! Largest to smallest (move). igrp==10 does the position update.
 
   if(numbtot(1,ilevel)==0)return
 
@@ -310,7 +310,7 @@ recursive subroutine amr_step(ilevel,icount)
            end if
         end if
      else
-        ! Solve the 10 GR potentials
+        ! Solve the 10 GR potentials.
         do igr=1,10
            call multigrid_fine_gr(ilevel,icount,igr)
         end do
@@ -517,6 +517,7 @@ recursive subroutine amr_step(ilevel,icount)
      end if
   else
      ! Use GR fields from largest to smallest for move 
+     ! The last step (igrp==10) does the position update in move.
      do i=1,6  
         igrp = gr_ord2(i)
         ! Compute force contribution from gr_pot

@@ -336,8 +336,9 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
 
   !---------------------------------------------------------------------------
   ! This block is used to calculate the force contribution \partial_i(beta^j).
-  ! This is needed to update velocities.
-  ! Recall that beta^j = B^j + \partial^j(b)
+  ! This is needed to update velocities in synchro_fine and move_fine.
+  ! Recall that beta^j = B^j + \partial^j(b), and f(:) has \partial_i(B^j).
+  ! Bellow we append the contribution \partial_i\partial^j(b) to f(:).
   !---------------------------------------------------------------------------
 
   if(igrp<7.or.igrp==10) return
@@ -484,6 +485,7 @@ subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
            end do
         end if
 
+        ! We now add the -grad(b) piece to f(:), so we can get \partial_i\beta^j.
         if(idim==igrp-6) then
            ! Second derivative of b (\partial\i\partial_i{b})
            do i=1,ngrid
