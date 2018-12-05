@@ -104,7 +104,7 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
 !               ! Regularisation with mean source term
                op = op +dx2*src_mean*(1.0D0-potc/twoac2)
 !               ! Regularisation with PHYSICAL RHS MEAN (COARSE LEVEL)
-               op = op +dx2*rhs_mean*(1.0D0-potc/twoac2)
+!               op = op +dx2*rhs_mean*(1.0D0-potc/twoac2)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
@@ -152,71 +152,6 @@ end subroutine cmp_uvar_norm2_coarse_gr_nl
 
 ! ##################################################################
 ! ##################################################################
-
-subroutine cmp_phys_rhs_mean_gr_nl(ilevel,igr)
-   use amr_commons
-   use pm_commons
-   use poisson_commons
-   use gr_commons
-   use gr_parameters
-   implicit none
-
-#ifndef WITHOUTMPI
-   include "mpif.h"
-#endif
-
-   integer, intent(in) :: ilevel, igr
-
-   integer  :: ngrid
-   integer  :: ind,iskip_mg,info
-   integer  :: igrid_mg, icell_mg  
-   real(dp) :: test_src,test_srcbar
-
-   real(dp) :: ctilde,twoac2
-   real(dp) :: potc
-
-   ! Set constants
-   ctilde  = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   twoac2  = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
-
-   if(ilevel.ne.levelmin) return
-
-  ! Sanity check for non-linear GR cases
-   if(igr>6.or.igr<5) then
-      print '(A)','igr out of range in cmp_phys_rhs_mean_gr_nl. Please check.'  
-      call clean_stop
-   end if
-
-   test_src=0.0D0
-   ngrid=active_mg(myid,ilevel)%ngrid
-
-   ! Loop over cells myid
-   do ind=1,twotondim
-      iskip_mg  = (ind-1)*ngrid
-      ! Loop over active grids myid
-      do igrid_mg=1,ngrid
-         icell_mg = iskip_mg + igrid_mg  
-
-         potc = active_mg(myid,ilevel)%u(icell_mg,1) ! Value of GR field (coarse level)
-
-         if(verbose) write(*,*) 'potc= ', potc
-         ! SCAN FLAG TEST
-         if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then ! NO SCAN
-            test_src=test_src+active_mg(myid,ilevel)%u(icell_mg,2)/(1.0d0-potc/twoac2)
-         end if ! END SCAN TEST
-      end do
-   end do
-#ifndef WITHOUTMPI
-   call MPI_ALLREDUCE(test_src,test_srcbar,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
-#endif
-#ifdef WITHOUTMPI
-   test_srcbar=test_src
-#endif
-   test_srcbar=test_srcbar/dble((2**levelmin)**3)
-   ! if(verbose) write(*,*) 'The average source is',test_srcbar
-   rhs_mean = test_srcbar
-
-end subroutine cmp_phys_rhs_mean_gr_nl
 
 ! ------------------------------------------------------------------------
 ! Gauss-Seidel smoothing
@@ -331,8 +266,8 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
                op = op +dx2*src_mean*(1.0D0-potc/twoac2)
                dop= dop-dx2*src_mean/twoac2
                ! Regularisation with PHYSICAL RHS MEAN (COARSE LEVEL)
-               op = op +dx2*rhs_mean*(1.0D0-potc/twoac2)
-               dop= dop-dx2*rhs_mean/twoac2
+!               op = op +dx2*rhs_mean*(1.0D0-potc/twoac2)
+!               dop= dop-dx2*rhs_mean/twoac2
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
                dop= -6.0D0 - dx2*gr_b 

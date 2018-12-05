@@ -266,7 +266,6 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
          call make_reverse_mg_dp(5,ilevel-1) ! communicate gr_pot
          call make_virtual_mg_dp(5,ilevel-1) ! communicate gr_pot 
          call make_physical_rhs_coarse_gr_nl(ilevel-1,igr) 
-         call cmp_phys_rhs_mean_gr_nl(ilevel-1,igr) ! rhs mean for regularisation at the coarse level (currently=0)
       end if
 
       if(ilevel>1) then
@@ -371,7 +370,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
          end if
       else
          ! Verbosity
-         if(verbose) print '(A,I4,A,1e13.6,A,1e13.6,A,1e13.6,A,1e13.6)','   ==> Step=',iter,', Residual =',residual,', Truncation error= ',trunc_err, ', src_mean =', src_mean,', rhs_mean= ', rhs_mean
+         if(verbose) print '(A,I4,A,1e13.6,A,1e13.6,A,1e13.6,A,1e13.6)','   ==> Step=',iter,', Residual =',residual,', Truncation error= ',trunc_err, ', src_mean =', src_mean
 
          ! Converged? 
          if(residual<1.0d-8 .or. residual<0.001d0*trunc_err .or. dabs(residual-residual_old)<1.0d-10) exit
@@ -522,7 +521,6 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
          call make_reverse_mg_dp(5,ifinelevel-1) ! communicate rhs
          call make_virtual_mg_dp(5,ifinelevel-1)
          call make_physical_rhs_coarse_gr_nl(ifinelevel-1,igr)
-         call cmp_phys_rhs_mean_gr_nl(ifinelevel-1,igr) ! rhs mean for regularisation at the coarse level (currently=0)
       end if
 
       ! Reset correction from upper level before solve
