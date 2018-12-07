@@ -640,7 +640,9 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
    if(igr<10.and.igr>6) igrm=igr-5
    
    ! Calculate source mean value for regularisation
-   call cmp_source_mean_gr_ln(ilevel,igrm)
+   if((igr.ne.4).and.(igr.ne.10)) then
+      call cmp_source_mean_gr_ln(ilevel,igrm)
+   end if
 
    ! Loop over cells
    do ind=1,twotondim
