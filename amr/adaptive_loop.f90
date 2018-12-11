@@ -76,7 +76,6 @@ subroutine adaptive_loop
   do ! Main time loop
                                call timer('coarse levels','start')
 
-  aexp = 1.0D0 ! GR_test             
                                
 #ifndef WITHOUTMPI
      tt1=MPI_WTIME()
