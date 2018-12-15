@@ -101,18 +101,21 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
                   nb_sum = nb_sum + gr_pot(icell_nbor_amr,igr)
                end do
             end do
+
+            if(igr==5) then 
+               op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) - dx2*(gr_a-aomega*(1.0D0-potc/twoac2)**6+gr_b/(1.0D0-potc/twoac2)**6)
+               ! Regularisation with mean source term
+               op = op + dx2*src_mean*(1.0D0-potc/twoac2)
+            else
+               op = nb_sum-6.0D0*potc - potc*gr_b - gr_a
+               ! Regularisation with mean source term
+               op = op + dx2*src_mean
+            end if
+            f(icell_amr,1) = -op/dx2
+         else                       
+            f(icell_amr,1) = 0.0d0 
          end if ! END SCAN TEST
 
-         if(igr==5) then 
-            op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) - dx2*(gr_a-aomega*(1.0D0-potc/twoac2)**6+gr_b/(1.0D0-potc/twoac2)**6)
-            ! Regularisation with mean source term
-            op = op + dx2*src_mean*(1.0D0-potc/twoac2)
-         else
-            op = nb_sum-6.0D0*potc - potc*gr_b - gr_a
-            ! Regularisation with mean source term
-            op = op + dx2*src_mean
-         end if
-         f(icell_amr,1) = -op/dx2
       end do
    end do
 

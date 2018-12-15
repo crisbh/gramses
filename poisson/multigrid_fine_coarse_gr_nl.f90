@@ -108,6 +108,8 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
+         else
+            op = 0.0d0 
          end if ! END SCAN TEST
 
          ! Store ***MINUS THE RESIDUAL***
@@ -376,6 +378,8 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
+         else
+            op = 0.0d0
          end if
          
          active_mg(myid,ilevel)%u(icell_mg,2) = active_mg(myid,ilevel)%u(icell_mg,2)+op/dx2
