@@ -87,7 +87,7 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
 
   real(dp):: ctilde,oneovera2c
   ctilde   = sol/boxlen_ini/100000.0d0       ! Speed of light in code units
-  oneovera2c = 1/aexp**2/ctilde              ! Aij code units factor 
+  oneovera2c = 1/aexp**2/ctilde              ! Aij code units factor ! Debug 22-12-18
 
   ! Mesh size at level ilevel
   dx=0.5D0**ilevel
@@ -216,7 +216,7 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
         ! Decide if we need the derivative for a given ivect
         if(ok_idim(idim,ivect)>0) then
            do i=1,ngrid
-              div_aij(i,idim)=(phi2(i)-phi1(i))/(2.0D0*dx)*oneovera2c  
+              div_aij(i,idim)=(phi2(i)-phi1(i))/(2.0D0*dx)*oneovera2c  ! Debug 22-12-18
            end do
         end if
 
