@@ -319,6 +319,7 @@ recursive subroutine amr_step(ilevel,icount)
         do i=1,5     
            igrp = gr_ord1(i)
            ! Compute force contribution from gr_pot
+           if(ilevel>levelmin) call force_fine_gr(ilevel-1,icount,igrp)
            call force_fine_gr(ilevel,icount,igrp)
 
            ! Synchronize remaining particles for gravity
@@ -521,6 +522,7 @@ recursive subroutine amr_step(ilevel,icount)
      do i=1,6  
         igrp = gr_ord2(i)
         ! Compute force contribution from gr_pot
+        if(ilevel>levelmin) call force_fine_gr(ilevel-1,icount,igrp) 
         call force_fine_gr(ilevel,icount,igrp)
         if(pic)then
                                   call timer('particles','start')
