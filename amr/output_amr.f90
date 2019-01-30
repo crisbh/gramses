@@ -26,6 +26,7 @@ subroutine dump_all
   call write_screen
   call title(ifout,nchar)
   ifout=ifout+1
+  if(t>=tout(iout).or.aexp>=aout(iout)-1.0D-8)iout=iout+1
   if(t>=tout(iout).or.aexp>=aout(iout))iout=iout+1
   output_done=.true.
 

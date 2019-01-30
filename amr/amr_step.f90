@@ -25,7 +25,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! unless you check all consequences first                           !
   !-------------------------------------------------------------------!
   
-  integer::i,idim,ivar
+  integer::i,idim,ivar,info, ii
   logical::ok_defrag,output_now_all
   logical,save::first_step=.true.
   integer,dimension(1:5) :: gr_ord1
@@ -38,6 +38,18 @@ recursive subroutine amr_step(ilevel,icount)
   if(numbtot(1,ilevel)==0)return
 
   if(verbose)write(*,999)icount,ilevel
+
+  if(cosmo.and.dabs(t_next).lt.1.0D-8)then
+     ! Find neighbouring scale factors
+     ii=1
+     do while(aexp_frw(ii)>aout(iout).and.ii<n_frw)
+        ii=ii+1
+     end do
+     ! Interpolate expansion factor for the next step
+     t_next = tau_frw(ii  )*(aout(iout)-aexp_frw(ii-1))/(aexp_frw(ii  )-aexp_frw(ii-1)) + &
+            & tau_frw(ii-1)*(aout(iout)-aexp_frw(ii  ))/(aexp_frw(ii-1)-aexp_frw(ii  ))
+
+  end if
 
   !-------------------------------------------
   ! Make new refinements and update boundaries
