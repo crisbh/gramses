@@ -26,8 +26,7 @@ recursive subroutine amr_step(ilevel,icount)
   !-------------------------------------------------------------------!
   
   integer::i,idim,ivar,info, ii
-!  logical::ok_defrag,output_now_all
-  logical::ok_defrag,ok_output ! 31-01-19
+  logical::ok_defrag,output_now_all
   logical,save::first_step=.true.
   integer,dimension(1:5) :: gr_ord1
   integer,dimension(1:6) :: gr_ord2
@@ -40,7 +39,6 @@ recursive subroutine amr_step(ilevel,icount)
 
   if(verbose)write(*,999)icount,ilevel
 
-    !----------------------------31-01-19----------------------------!
   if(cosmo.and.dabs(t_next).lt.1.0D-8)then
      ! Find neighbouring scale factors
      ii=1
@@ -52,7 +50,6 @@ recursive subroutine amr_step(ilevel,icount)
             & tau_frw(ii-1)*(aout(iout)-aexp_frw(ii  ))/(aexp_frw(ii-1)-aexp_frw(ii  ))
 
   end if
-    !----------------------------31-01-19----------------------------!
 
   !-------------------------------------------
   ! Make new refinements and update boundaries
@@ -165,91 +162,40 @@ recursive subroutine amr_step(ilevel,icount)
   !------------------------
   ! Output results to files
   !------------------------
-
-    !----------------------------31-01-19----------------------------!
-
-  ok_output=.false.
   if(ilevel==levelmin)then
-     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout)-1.0D-8.or.t>=tout(iout))then
+
+#ifdef WITHOUTMPI
+     output_now_all = output_now
+#else
+     ! check if any of the processes received a signal for output
+     call MPI_BARRIER(MPI_COMM_WORLD,mpi_err)
+     call MPI_ALLREDUCE(output_now,output_now_all,1,MPI_LOGICAL,MPI_LOR,MPI_COMM_WORLD,mpi_err)
+#endif
+     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.EQV..true.)then
                                call timer('io','start')
         if(.not.ok_defrag)then
            call defrag
         endif
-        ok_output=.true.
+
         call dump_all
 
-        if(cosmo)then
-           ! Find neighbouring scale factors
-           ii=1
-           do while(aexp_frw(ii)>aout(iout).and.ii<n_frw)
-              ii=ii+1
-           end do
-           ! Interpolate expansion factor for the next step
-           t_next = tau_frw(ii  )*(aout(iout)-aexp_frw(ii-1))/(aexp_frw(ii  )-aexp_frw(ii-1)) + &
-                  & tau_frw(ii-1)*(aout(iout)-aexp_frw(ii  ))/(aexp_frw(ii-1)-aexp_frw(ii  ))
-        end if
-
-!        if(gas_analytics) call gas_ana ! from ecosmog
-
-        ! Run the clumpfinder
+        ! Run the clumpfinder, (produce output, don't keep arrays alive on output)
+        ! CAREFUL: create_output is used to destinguish between the case where
+        ! the clumpfinder is called from create_sink or directly from amr_step.
 #if NDIM==3
         if(clumpfind .and. ndim==3) call clump_finder(.true.,.false.)
 #endif
-!        if(clumpfind .and. ndim==3) call clump_finder(.true.)  ! from ecosmog
 
         ! Dump lightcone
         if(lightcone .and. ndim==3) call output_cone()
-!        if(lightcone) call output_cone()   ! from ecosmog
+
+        if (output_now_all.EQV..true.) then
+          output_now=.false.
+        endif
 
      endif
 
-     ! Important can't be done in sink routines because it must be done after dump all
-     if(sink)acc_rate=0.
-
   endif
-
-    !----------------------------31-01-19----------------------------!
-
-
-    !-------------------Default output block (31-01-19)-------------------!
-
-!  if(ilevel==levelmin)then
-!
-!#ifdef WITHOUTMPI
-!     output_now_all = output_now
-!#else
-!     ! check if any of the processes received a signal for output
-!     call MPI_BARRIER(MPI_COMM_WORLD,mpi_err)
-!     call MPI_ALLREDUCE(output_now,output_now_all,1,MPI_LOGICAL,MPI_LOR,MPI_COMM_WORLD,mpi_err)
-!#endif
-!     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.EQV..true.)then
-!                               call timer('io','start')
-!        if(.not.ok_defrag)then
-!           call defrag
-!        endif
-!
-!        call dump_all
-!
-!        ! Run the clumpfinder, (produce output, don't keep arrays alive on output)
-!        ! CAREFUL: create_output is used to destinguish between the case where
-!        ! the clumpfinder is called from create_sink or directly from amr_step.
-!#if NDIM==3
-!        if(clumpfind .and. ndim==3) call clump_finder(.true.,.false.)
-!#endif
-!
-!        ! Dump lightcone
-!        if(lightcone .and. ndim==3) call output_cone()
-!
-!        if (output_now_all.EQV..true.) then
-!          output_now=.false.
-!        endif
-!
-!     endif
-!
-!  endif
-
-    !----------------End Default output block (31-01-19)------------------!
-
 
   !----------------------------
   ! Output frame to movie dump (without synced levels)
@@ -440,18 +386,6 @@ recursive subroutine amr_step(ilevel,icount)
   !----------------------
                                call timer('courant','start')
   call newdt_fine(ilevel)
-  
-    !----------------------------31-01-19----------------------------!
-
-  if(ilevel.eq.levelmin .and. cosmo) then
-     if(t+dtnew(ilevel).gt.t_next .and. t.le.t_next) then
-        dtnew(ilevel) = t_next-t
-     end if
-     if(myid.eq.1) write(*,'(100e15.6)') 1.0,t,dtnew(ilevel),t+dtnew(ilevel),t_next,aout(iout)
-  end if
- 
-    !----------------------------31-01-19----------------------------!
-
   if(ilevel>levelmin)then
      dtnew(ilevel)=MIN(dtnew(ilevel-1)/real(nsubcycle(ilevel-1)),dtnew(ilevel))
   end if
