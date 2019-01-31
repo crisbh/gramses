@@ -269,7 +269,7 @@ subroutine cmp_residual_norm2_fine(ilevel, norm2)
          norm2 = norm2 + f(icell_amr,1)**2
       end do
    end do
-   norm2 = dx2*norm2
+!   norm2 = dx2*norm2   ! Remove dx2 factor from residual calculation
 
 end subroutine cmp_residual_norm2_fine
 
