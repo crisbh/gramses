@@ -320,7 +320,7 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
         if(.not.bdy(i)) then
            gr_mat(ind_cell(i),1) =        aij(i,1)**2+aij(i,4)**2+aij(i,6)**2 + &
                                  & 2.0D0*(aij(i,2)**2+aij(i,3)**2+aij(i,5)**2)
-           gr_mat(ind_cell(i),1) = aij_aij_sons(i,ind)*oneovera2c2  
+           gr_mat(ind_cell(i),1) = gr_mat(ind_cell(i),1)*oneovera2c2  
         else
            gr_mat(ind_cell(i),1) = aij_aij_sons(i,ind) 
         end if
