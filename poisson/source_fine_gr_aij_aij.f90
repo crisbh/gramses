@@ -74,7 +74,7 @@ subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
   
   real(dp),dimension(1:nvector                          ),save :: dv
   real(dp),dimension(1:nvector                          ),save :: pot1,pot2
-  real(dp),dimension(1:nvector,1:twotondim              ),save :: aij
+  real(dp),dimension(1:nvector,1:twondim                ),save :: aij
   real(dp),dimension(1:nvector,1:twotondim              ),save :: aij_aij_sons 
   logical, dimension(1:nvector                          ),save :: bdy
 
