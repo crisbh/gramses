@@ -238,7 +238,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
          call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
       end if   
 
-      if(iter==1.and.gr_lin) then
+      if(iter==1.and.(gr_lin.or.igr==6)) then
          call cmp_residual_norm2_fine(ilevel,i_res_norm2)
 #ifndef WITHOUTMPI
          call MPI_ALLREDUCE(i_res_norm2,i_res_norm2_tot,1, &
@@ -338,7 +338,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       end if
 #endif
 
-      if(gr_lin) then
+      if(gr_lin.or.(igr==6)) then
          last_err = err
          err = dsqrt(res_norm2/(i_res_norm2+1d-20))
       else
@@ -355,7 +355,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       trunc_err = dsqrt(trunc_norm2)/n_cell_c
       end if    
       
-      if(gr_lin) then
+      if(gr_lin.or.(igr==6)) then
          ! Verbosity
          if(verbose) print '(A,I5,A,I5,A,1pE10.3)','   ==> Step=', &
             & iter,'GR_pot:',igr,' Error=',err
