@@ -40,6 +40,11 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
    dx  = 0.5d0**ilevel
    oneoverdx2 = 1.0d0/(dx*dx)
 
+   ! CBH
+   real(dp) :: coeff_ic, ctilde, 
+   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   coeff_ic = 1.0d0                   ! Coefficient for initial conditions
+
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
@@ -84,6 +89,12 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
                end do
             end do
          else ! PERFORM SCAN
+             ! SANITY CHECK CBH 
+            if (nstep_coarse.eq.-1) then
+               print'(A)','Using boundary cells during initial conditions preparation. Please check.'
+               call clean_stop
+            end if
+
             if(f(icell_amr,3)<=0.0) then
                f(icell_amr,1)=0.0d0
                cycle
@@ -122,8 +133,18 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
             end do
          end if ! END SCAN TEST
 
+         ! Calculate beta for initial conditions
+         if (nstep_coarse.eq.-1) then !CBH
+            if (igr.le.3) then 
+               dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx*dx
+               coeff_ic = 2.0d0/aexp**2/ctilde    ! Coefficient for source term
+            else
+               dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx*dx
+            end if
+         end if
+
          ! Store ***MINUS THE RESIDUAL*** in f(:,1), using BC-modified RHS
-         f(icell_amr,1) = -oneoverdx2*( nb_sum - dtwondim*phi_c )+f(icell_amr,2)
+         f(icell_amr,1) = -oneoverdx2*( nb_sum - dtwondim*phi_c )+f(icell_amr,2)*coeff_ic    ! CHANGE dtwondim CBH
       end do
    end do
 
@@ -200,6 +221,11 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
    ! Set constants
    dx2  = (0.5d0**ilevel)**2
 
+   ! CBH
+   real(dp) :: coeff_ic, ctilde, 
+   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   coeff_ic = 1.0d0                   ! Coefficient for initial conditions
+
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
    ired  (2,1:4)=(/1,4,0,0/)
@@ -259,9 +285,26 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
                   nb_sum = nb_sum + gr_pot(icell_nbor_amr,igr)
                end do
             end do
+
+            ! Calculate beta for initial conditions
+            if (nstep_coarse.eq.-1) then !CBH
+               if (igr.le.3) then 
+                  dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx2
+                  coeff_ic = 2.0d0/aexp**2/ctilde    ! Coefficient for source term
+               else
+                  dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx2
+               end if
+            end if
+
             ! Update the potential, solving for potential on icell_amr
-            gr_pot(icell_amr,igr) = (nb_sum - dx2*f(icell_amr,2)) / dtwondim
+            gr_pot(icell_amr,igr) = (nb_sum - dx2*f(icell_amr,2)*coeff_ic) / dtwondim    ! CHANGE dtwondim CBH
          else
+            ! Add sanity check with nstep_coarse    ! CBH 
+            if (nstep_coarse.eq.-1) then
+               print'(A)','Using boundary cells during initial conditions preparation. Please check.'
+               call clean_stop
+            end if    
+
             ! Use the finer "solve" Gauss-Seidel near boundaries,
             ! with all necessary checks
             if (f(icell_amr,3)<=0.0) cycle

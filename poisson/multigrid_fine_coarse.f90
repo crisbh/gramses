@@ -164,6 +164,11 @@ subroutine cmp_residual_mg_coarse(ilevel)
    dx  = 0.5d0**ilevel
    oneoverdx2 = 1.0d0/(dx*dx)
 
+   ! CBH
+   real(dp) :: coeff_ic, ctilde, 
+   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   coeff_ic = 1.0d0                   ! Coefficient for initial conditions
+
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
@@ -208,6 +213,12 @@ subroutine cmp_residual_mg_coarse(ilevel)
                end do
             end do
          else ! PERFORM SCAN
+            ! Add sanity check with nstep_coarse    ! CBH 
+            if (nstep_coarse.eq.-1) then
+               print'(A)','Using boundary cells during initial conditions preparation. Please check.'
+               call clean_stop
+            end if    
+           
             if(active_mg(myid,ilevel)%u(icell_mg,4)<=0.0) then
                active_mg(myid,ilevel)%u(icell_mg,3)=0.0
                cycle
@@ -252,9 +263,18 @@ subroutine cmp_residual_mg_coarse(ilevel)
             end do
          end if ! END SCAN TEST
 
+         if (nstep_coarse.eq.-1) then !CBH
+            if (igr.le.3) then 
+               dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx*dx
+               coeff_ic = 2.0d0/aexp**2/ctilde    ! Coefficient for source term
+            else
+               dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx*dx
+            end if
+         end if
+
          ! Store ***MINUS THE RESIDUAL***
          active_mg(myid,ilevel)%u(icell_mg,3) = &
-          -oneoverdx2*( nb_sum - dtwondim*phi_c )+active_mg(myid,ilevel)%u(icell_mg,2)
+          -oneoverdx2*( nb_sum - dtwondim*phi_c )+active_mg(myid,ilevel)%u(icell_mg,2)  ! CBH dtwondim
       end do
    end do
 
@@ -353,6 +373,11 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
    ! Set constants
    dx2  = (0.5d0**ilevel)**2
 
+   ! CBH
+   real(dp) :: coeff_ic, ctilde, 
+   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   coeff_ic = 1.0d0                   ! Coefficient for initial conditions
+
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
    ired  (2,1:4)=(/1,4,0,0/)
@@ -410,12 +435,29 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
                       active_mg(cpu_nbor_amr,ilevel)%u(icell_nbor_mg,1)
                end do
             end do
+
+            ! Calculate beta for the initial conditions
+            if (nstep_coarse.eq.-1) then !CBH
+               if (igr.le.3) then 
+                  dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx2
+                  coeff_ic = 2.0d0/aexp**2/ctilde    ! Coefficient for source term
+               else
+                  dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx2
+               end if
+            end if
+
             ! Update the potential, solving for potential on icell_amr
-            active_mg(myid,ilevel)%u(icell_mg,1)=(nb_sum-dx2*active_mg(myid,ilevel)%u(icell_mg,2))/dtwondim
+            active_mg(myid,ilevel)%u(icell_mg,1)=(nb_sum-dx2*active_mg(myid,ilevel)%u(icell_mg,2))/dtwondim ! CBH twondim
          else
             ! Use the finer "solve" Gauss-Seidel near boundaries,
             ! with all necessary checks
 
+            ! Add sanity check with nstep_coarse    ! CBH 
+            if (nstep_coarse.eq.-1) then
+               print'(A)','Using boundary cells during initial conditions preparation. Please check.'
+               call clean_stop
+            end if    
+            
             if(active_mg(myid,ilevel)%u(icell_mg,4)<=0.0) cycle
             if(safe .and. active_mg(myid,ilevel)%u(icell_mg,4)<1.0) cycle
 
@@ -461,7 +503,7 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
             end do
             ! Update the potential, solving for potential on icell_amr
             active_mg(myid,ilevel)%u(icell_mg,1) = (nb_sum - dx2*active_mg(myid,ilevel)%u(icell_mg,2)) &
-                     / (dtwondim - weight)
+                     / (dtwondim - weight)  
          end if
       end do
    end do

@@ -379,6 +379,7 @@ recursive subroutine amr_step(ilevel,icount)
         ! Solve the 10 GR potentials.
         do igr=1,10
            call multigrid_fine_gr(ilevel,icount,igr)
+           if((nstep_coarse.eq.-1).and.(igr.ge.5)) cycle   ! CBH
         end do
         
         ! Use GR fields from smallest to largest for synchro

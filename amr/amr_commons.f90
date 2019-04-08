@@ -6,7 +6,8 @@ module amr_commons
   logical::balance=.false.                      ! Load balance or run
   logical::shrink=.false.                       ! Shrink mesh or run
   integer::nstep=0                              ! Time step
-  integer::nstep_coarse=0                       ! Coarse step
+!  integer::nstep_coarse=0                       ! Coarse step
+  integer::nstep_coarse=-1                      ! CBH
   integer::nstep_coarse_old=0                   ! Old coarse step
   integer::nflag,ncreate,nkill                  ! Refinements
   integer::ncoarse                              ! nx.ny.nz

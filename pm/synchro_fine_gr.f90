@@ -116,6 +116,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   real(dp),dimension(1:nvector), save :: gr_psi  ! Psi potential
   real(dp),dimension(1:nvector), save :: gr_xi   ! Xi  on particles 
   real(dp),dimension(1:nvector), save :: coeff   ! Coefficient for force contributions
+  real(dp),dimension(1:nvector,1:ndim), save :: gr_bet   ! Shift vector on particles 
   real(dp) :: ctilde,ctilde2,a2,ac2
 
   ctilde   = sol/boxlen_ini/100000.0d0           ! Speed of light in code units
@@ -355,11 +356,52 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      vol(j,8)=dd(j,1)*dd(j,2)*dd(j,3)
   end do
 #endif
-  
-  if(igrp<5.or.igrp>9) then
+
+  !
+  if((igrp<5.or.igrp>9).and.nstep_coarse.ge.0) then
      print'(A)','igrp out of range in force coeff computation in synchro. Please check.'
      call clean_stop
   end if
+ 
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!! Initial Conditions !!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  if((nstep_coarse.eq.-1).and.(igr==4)) then
+     ! update velocities from v_i to u_i using gr_pot(:,1:3) ! CBH
+
+     ! Calculate beta on particles. 
+     ! Recall that for IC beta^i=V^i+grad(U), but f(igr==4)=-grad(U)
+     if(igrp==10) then
+        gr_bet(1:np,1:ndim)=0.0D0
+        do ind=1,twotondim
+           do j=1,np
+              do idim=1,ndim
+                 gr_bet(j,idim)=-f(indp(j,ind),idim)*vol(j,ind)
+                 gr_bet(j,idim)=gr_bet(j,idim)+gr_pot(indp(j,ind),idim)*vol(j,ind)
+              end do
+           end do
+        end do
+     end if
+
+     ! Update 3-velocity using beta
+     do idim=1,ndim
+        do j=1,np
+           new_vp(j,idim)=vp(ind_part(j),idim)+gr_bet(j,idim)
+        end do
+     end do
+
+     ! Store 4-velocity in the velocity array for the simulation
+     do idim=1,ndim
+        do j=1,np
+           vp(ind_part(j),idim)=new_vp(j,idim) ! =\delta^{ij}u_j
+        end do
+     end do
+
+     return
+  end if
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!! Initial Conditions !!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   ! Calculate Lorentz factor from the 4-velocity normalisation
   if(igrp==5.or.igrp==6) then
