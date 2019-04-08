@@ -366,7 +366,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!! Initial Conditions !!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  if((nstep_coarse.eq.-1).and.(igr==4)) then
+  if((nstep_coarse.eq.-1).and.(igrp==4)) then
      ! update velocities from v_i to u_i using gr_pot(:,1:3) ! CBH
 
      ! Calculate beta on particles. 
