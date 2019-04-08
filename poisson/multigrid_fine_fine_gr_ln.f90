@@ -23,6 +23,7 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
    use amr_commons
    use poisson_commons
    use gr_commons
+   use gr_parameters
    implicit none
    integer, intent(in) :: ilevel,igr
 
@@ -36,12 +37,14 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
 
    real(dp) :: dtwondim = (twondim)
 
+   ! CBH
+   real(dp) :: coeff_ic, ctilde
+
    ! Set constants
    dx  = 0.5d0**ilevel
    oneoverdx2 = 1.0d0/(dx*dx)
 
    ! CBH
-   real(dp) :: coeff_ic, ctilde, 
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
    coeff_ic = 1.0d0                   ! Coefficient for initial conditions
 
@@ -203,6 +206,7 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
    use pm_commons
    use poisson_commons
    use gr_commons
+   use gr_parameters
    implicit none
    integer, intent(in) :: ilevel,igr
    logical, intent(in) :: redstep
@@ -217,12 +221,13 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
 
    real(dp) :: dtwondim = (twondim)
+   ! CBH
+   real(dp) :: coeff_ic, ctilde
 
    ! Set constants
    dx2  = (0.5d0**ilevel)**2
 
    ! CBH
-   real(dp) :: coeff_ic, ctilde, 
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
    coeff_ic = 1.0d0                   ! Coefficient for initial conditions
 

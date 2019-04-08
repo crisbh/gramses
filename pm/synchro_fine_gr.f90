@@ -116,7 +116,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
   real(dp),dimension(1:nvector), save :: gr_psi  ! Psi potential
   real(dp),dimension(1:nvector), save :: gr_xi   ! Xi  on particles 
   real(dp),dimension(1:nvector), save :: coeff   ! Coefficient for force contributions
-  real(dp),dimension(1:nvector,1:ndim), save :: gr_bet   ! Shift vector on particles 
+  real(dp),dimension(1:nvector,1:ndim), save :: gr_bet   ! Shift vector on particles ! CBH
   real(dp) :: ctilde,ctilde2,a2,ac2
 
   ctilde   = sol/boxlen_ini/100000.0d0           ! Speed of light in code units
@@ -358,7 +358,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
 #endif
 
   !
-  if((igrp<5.or.igrp>9).and.nstep_coarse.ge.0) then
+  if((igrp<5.or.igrp>9).and.nstep_coarse.ge.0) then ! CBH
      print'(A)','igrp out of range in force coeff computation in synchro. Please check.'
      call clean_stop
   end if

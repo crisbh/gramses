@@ -146,6 +146,8 @@ subroutine cmp_residual_mg_coarse(ilevel)
    ! Computes the residual for pure MG levels, and stores it into active_mg(myid,ilevel)%u(:,3)
    use amr_commons
    use poisson_commons
+   use gr_commons       ! CBH
+   use gr_parameters
    implicit none
    integer, intent(in) :: ilevel
 
@@ -159,13 +161,14 @@ subroutine cmp_residual_mg_coarse(ilevel)
    integer  :: igshift, igrid_nbor_amr
 
    real(dp) :: dtwondim = (twondim)
+   ! CBH
+   real(dp) :: coeff_ic, ctilde
 
    ! Set constants
    dx  = 0.5d0**ilevel
    oneoverdx2 = 1.0d0/(dx*dx)
 
    ! CBH
-   real(dp) :: coeff_ic, ctilde, 
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
    coeff_ic = 1.0d0                   ! Coefficient for initial conditions
 
@@ -354,6 +357,8 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
    use amr_commons
    use pm_commons
    use poisson_commons
+   use gr_commons       ! CBH
+   use gr_parameters
    implicit none
    integer, intent(in) :: ilevel
    logical, intent(in) :: safe
@@ -370,11 +375,13 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
    integer  :: igshift, igrid_nbor_amr
    real(dp) :: dtwondim = (twondim)
 
+   ! CBH
+   real(dp) :: coeff_ic, ctilde
+
    ! Set constants
    dx2  = (0.5d0**ilevel)**2
 
    ! CBH
-   real(dp) :: coeff_ic, ctilde, 
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
    coeff_ic = 1.0d0                   ! Coefficient for initial conditions
 
