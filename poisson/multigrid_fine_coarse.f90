@@ -142,14 +142,14 @@ end subroutine restrict_mask_coarse_reverse
 ! Residual computation
 ! ------------------------------------------------------------------------
 
-subroutine cmp_residual_mg_coarse(ilevel)
+subroutine cmp_residual_mg_coarse(ilevel,igr)
    ! Computes the residual for pure MG levels, and stores it into active_mg(myid,ilevel)%u(:,3)
    use amr_commons
    use poisson_commons
    use gr_commons       ! CBH
    use gr_parameters
    implicit none
-   integer, intent(in) :: ilevel
+   integer, intent(in) :: ilevel, igr  !CBH
 
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
@@ -162,7 +162,7 @@ subroutine cmp_residual_mg_coarse(ilevel)
 
    real(dp) :: dtwondim = (twondim)
    ! CBH
-   real(dp) :: coeff_ic, ctilde
+   real(dp) :: ctilde
 
    ! Set constants
    dx  = 0.5d0**ilevel
@@ -170,7 +170,6 @@ subroutine cmp_residual_mg_coarse(ilevel)
 
    ! CBH
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   coeff_ic = 1.0d0                   ! Coefficient for initial conditions
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -218,7 +217,7 @@ subroutine cmp_residual_mg_coarse(ilevel)
          else ! PERFORM SCAN
             ! Add sanity check with nstep_coarse    ! CBH 
             if (nstep_coarse.eq.-1) then
-               print'(A)','Using boundary cells during initial conditions preparation. Please check.'
+               print'(A)','Using boundary cells during initial conditions preparation (coarse level). Please check.'
                call clean_stop
             end if    
            
@@ -269,9 +268,11 @@ subroutine cmp_residual_mg_coarse(ilevel)
          if (nstep_coarse.eq.-1) then !CBH
             if (igr.le.3) then 
                dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx*dx
-               coeff_ic = 2.0d0/aexp**2/ctilde    ! Coefficient for source term
-            else
+            else if(igr==4) then
                dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx*dx
+            else
+               print'(A)','igr out of range during initial conditions (coarse level). Please check.'
+               call clean_stop
             end if
          end if
 
@@ -353,7 +354,7 @@ end subroutine cmp_fvar_norm2_coarse
 ! Gauss-Seidel smoothing
 ! ------------------------------------------------------------------------
 
-subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
+subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep,igr)
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -363,6 +364,7 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
    integer, intent(in) :: ilevel
    logical, intent(in) :: safe
    logical, intent(in) :: redstep
+   integer, intent(in) :: igr  !CBH
 
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
    integer, dimension(1:3,1:4)     :: ired, iblack
@@ -375,15 +377,15 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
    integer  :: igshift, igrid_nbor_amr
    real(dp) :: dtwondim = (twondim)
 
+
    ! CBH
-   real(dp) :: coeff_ic, ctilde
+   real(dp) :: ctilde
 
    ! Set constants
    dx2  = (0.5d0**ilevel)**2
 
    ! CBH
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
-   coeff_ic = 1.0d0                   ! Coefficient for initial conditions
 
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
@@ -447,9 +449,11 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
             if (nstep_coarse.eq.-1) then !CBH
                if (igr.le.3) then 
                   dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx2
-                  coeff_ic = 2.0d0/aexp**2/ctilde    ! Coefficient for source term
+               else if(igr==4) then
+                  dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx2  
                else
-                  dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx2
+                  print'(A)','igr out of range during initial conditions (gauss seidel at coarse level). Please check.'
+                  call clean_stop
                end if
             end if
 
@@ -461,7 +465,7 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep)
 
             ! Add sanity check with nstep_coarse    ! CBH 
             if (nstep_coarse.eq.-1) then
-               print'(A)','Using boundary cells during initial conditions preparation. Please check.'
+               print'(A)','Using boundary cells during initial conditions preparation (gauss seidel at coarse level). Please check.'
                call clean_stop
             end if    
             

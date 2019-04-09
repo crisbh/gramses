@@ -141,13 +141,16 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
             if (igr.le.3) then 
                dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx*dx
                coeff_ic = 2.0d0/aexp**2/ctilde    ! Coefficient for source term
-            else
+            else if(igr==4) then
                dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx*dx
+            else
+               print'(A)','igr out of range during initial conditions. Please check.'
+               call clean_stop
             end if
          end if
 
          ! Store ***MINUS THE RESIDUAL*** in f(:,1), using BC-modified RHS
-         f(icell_amr,1) = -oneoverdx2*( nb_sum - dtwondim*phi_c )+f(icell_amr,2)*coeff_ic    ! CHANGE dtwondim CBH
+         f(icell_amr,1) = -oneoverdx2*(nb_sum-dtwondim*phi_c)+f(icell_amr,2)*coeff_ic    ! CBH
       end do
    end do
 
@@ -296,13 +299,16 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
                if (igr.le.3) then 
                   dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx2
                   coeff_ic = 2.0d0/aexp**2/ctilde    ! Coefficient for source term
-               else
+               else if(igr==4) then
                   dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx2
+               else
+                  print'(A)','igr out of range during initial conditions. Please check.'
+                  call clean_stop
                end if
             end if
 
             ! Update the potential, solving for potential on icell_amr
-            gr_pot(icell_amr,igr) = (nb_sum - dx2*f(icell_amr,2)*coeff_ic) / dtwondim    ! CHANGE dtwondim CBH
+            gr_pot(icell_amr,igr) = (nb_sum - dx2*f(icell_amr,2)*coeff_ic) / dtwondim    ! CBH
          else
             ! Add sanity check with nstep_coarse    ! CBH 
             if (nstep_coarse.eq.-1) then

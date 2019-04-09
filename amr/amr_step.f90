@@ -382,6 +382,16 @@ recursive subroutine amr_step(ilevel,icount)
            if((nstep_coarse.eq.-1).and.(igr.ge.5)) cycle   ! CBH
         end do
         
+        if(nstep_coarse.eq.-1) then ! CBH
+           if(ilevel.gt.levelmin) then
+              print'(A)','ilevel larger than levelmin in the initial conditions. Please check.'
+              call clean_stop
+           end if
+           call force_fine_gr(ilevel,icount,4)
+           call synchro_fine_gr(ilevel,4)
+           return
+        end if
+
         ! Use GR fields from smallest to largest for synchro
         do i=1,5     
            igrp = gr_ord1(i)

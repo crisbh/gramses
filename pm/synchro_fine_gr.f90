@@ -371,7 +371,7 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
 
      ! Calculate beta on particles. 
      ! Recall that for IC beta^i=V^i+grad(U), but f(igr==4)=-grad(U)
-     if(igrp==10) then
+     if(igrp==4) then
         gr_bet(1:np,1:ndim)=0.0D0
         do ind=1,twotondim
            do j=1,np
