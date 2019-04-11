@@ -267,9 +267,9 @@ subroutine cmp_residual_mg_coarse(ilevel,igr)
 
          if (nstep_coarse.eq.-1) then !CBH
             if (igr.le.3) then 
-               dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx*dx
+               dtwondim = 6.0d0    + 6.0d0*omega_m/aexp/ctilde**2*dx*dx
             else if(igr==4) then
-               dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx*dx
+               dtwondim = 6.0d0    + 4.5d0*omega_m/aexp/ctilde**2*dx*dx
             else
                print'(A)','igr out of range during initial conditions (coarse level). Please check.'
                call clean_stop
@@ -448,9 +448,9 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep,igr)
             ! Calculate beta for the initial conditions
             if (nstep_coarse.eq.-1) then !CBH
                if (igr.le.3) then 
-                  dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx2
+                  dtwondim = 6.0d0 + 6.0d0*omega_m/aexp/ctilde**2*dx2
                else if(igr==4) then
-                  dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx2  
+                  dtwondim = 6.0d0 + 4.5d0*omega_m/aexp/ctilde**2*dx2  
                else
                   print'(A)','igr out of range during initial conditions (gauss seidel at coarse level). Please check.'
                   call clean_stop

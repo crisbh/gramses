@@ -139,12 +139,12 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
          ! Calculate beta for initial conditions
          if (nstep_coarse.eq.-1) then !CBH
             if (igr.le.3) then 
-               dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx*dx
+               dtwondim = 6.0d0    + 6.0d0*omega_m/aexp/ctilde**2*dx*dx
                coeff_ic = 2.0d0/aexp**2/ctilde    ! Coefficient for source term
             else if(igr==4) then
-               dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx*dx
+               dtwondim = 6.0d0    + 4.5d0*omega_m/aexp/ctilde**2*dx*dx
             else
-               print'(A)','igr out of range during initial conditions. Please check.'
+               print'(A)','igr out of range during initial conditions (cmp_residual_mg_fine_gr_ln). Please check.'
                call clean_stop
             end if
          end if
@@ -297,18 +297,19 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
             ! Calculate beta for initial conditions
             if (nstep_coarse.eq.-1) then !CBH
                if (igr.le.3) then 
-                  dtwondim = dtwondim + 6.0d0*omega_m/aexp/ctilde**2*dx2
+                  dtwondim = 6.0d0  + 6.0d0*omega_m/aexp/ctilde**2*dx2
                   coeff_ic = 2.0d0/aexp**2/ctilde    ! Coefficient for source term
                else if(igr==4) then
-                  dtwondim = dtwondim + 4.5d0*omega_m/aexp/ctilde**2*dx2
+                  dtwondim = 6.0d0  + 4.5d0*omega_m/aexp/ctilde**2*dx2
                else
-                  print'(A)','igr out of range during initial conditions. Please check.'
+                  print'(A)','igr out of range during initial conditions (gauss_seidel_mg_fine_gr_ln). Please check.'
                   call clean_stop
                end if
             end if
 
             ! Update the potential, solving for potential on icell_amr
             gr_pot(icell_amr,igr) = (nb_sum - dx2*f(icell_amr,2)*coeff_ic) / dtwondim    ! CBH
+!            if(igr==2) write(*,*) gr_pot(icell_amr,igr), nb_sum, dx2*f(icell_amr,2)*coeff_ic,dtwondim,igr
          else
             ! Add sanity check with nstep_coarse    ! CBH 
             if (nstep_coarse.eq.-1) then

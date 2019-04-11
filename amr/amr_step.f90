@@ -378,8 +378,8 @@ recursive subroutine amr_step(ilevel,icount)
      else
         ! Solve the 10 GR potentials.
         do igr=1,10
+           if((nstep_coarse.eq.-1).and.(igr.gt.4)) cycle   ! CBH
            call multigrid_fine_gr(ilevel,icount,igr)
-           if((nstep_coarse.eq.-1).and.(igr.ge.5)) cycle   ! CBH
         end do
         
         if(nstep_coarse.eq.-1) then ! CBH
