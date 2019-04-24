@@ -453,7 +453,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
    if(ifinelevel<=levelmin_mg) then
       ! Solve 'directly' :
       if(gr_lin) then
-         do i=1,ngs_coarse_gr_ln_pst
+         do i=1,2*ngs_coarse_gr_ln_pst
             call gauss_seidel_mg_coarse(ifinelevel,safe,.true. ,igr ) ! Red step ! CBH
             call make_virtual_mg_dp(1,ifinelevel)                     ! Communicate 
             call gauss_seidel_mg_coarse(ifinelevel,safe,.false.,igr ) ! Red step ! CBH
