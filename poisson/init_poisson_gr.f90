@@ -38,10 +38,12 @@ subroutine init_poisson_gr
 
   ! gr variables
   if(gr) then
-     allocate(gr_pot(1:ncell,1:10))
-     allocate(gr_mat(1:ncell,1:4 ))
-     gr_pot=0.0d0
-     gr_mat=0.0d0
+     allocate(gr_pot (1:ncell,1:10))
+     allocate(gr_mat (1:ncell,1:4 ))
+     allocate(gr_mat2(1:ncell,1:4 ))
+     gr_pot =0.0d0
+     gr_mat =0.0d0
+     gr_mat2=0.0d0 ! matter sources array 
   endif
   
   !------------------------------------------------------
@@ -129,11 +131,13 @@ subroutine init_poisson_gr
               ! Loop over cells
               do ind=1,twotondim
                  iskip=ncoarse+(ind-1)*ngridmax
-                 ! Read potential
+
+                 ! Read Newtonian potential
                  read(ilun)xx
                  do i=1,ncache
                     phi(ind_grid(i)+iskip)=xx(i)
                  end do
+
                  ! Read force
                  do ivar=1,ndim
                     read(ilun)xx
@@ -141,6 +145,30 @@ subroutine init_poisson_gr
                        f(ind_grid(i)+iskip,ivar)=xx(i)
                     end do
                  end do
+
+                 ! READ GR-only arrays 17-02-20
+                 ! Notice that this block needs to match the output block in output_poisson.f90
+                 if(gr) then
+                    ! Read GR potentials
+                    do ivar=1,10 
+                       read(ilun)xx
+                    end do
+
+                    ! Read s_0 density 
+                    read(ilun)xx
+
+                    ! Read s_i and s=Tr(s_ij)
+                    do ivar=1,4  
+                       read(ilun)xx
+                    end do
+
+                    ! Read cell centers
+                    do ivar=1,ndim
+                       read(ilun)xx
+                    end do
+
+                 end if
+
               end do
               deallocate(ind_grid,xx)
            end if
