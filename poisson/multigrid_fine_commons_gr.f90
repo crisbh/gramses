@@ -270,7 +270,8 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
 #endif
             srcbar_nl=src_nl/dble((2**levelmin)**3)
             src_mean_nl = srcbar_nl
-!            if(verbose) write(*,*) 'Average NL source (levelmin) = ', src_mean_nl, levelmin
+            if(ilevel.ne.levelmin) src_mean_nl=0.0d0 
+!            if(verbose) write(*,*) 'Average NL source, ilevel, levelmin, ilevel_domain = ', src_mean_nl, ilevel, levelmin, ilevel_domain ! AMR_debug
 
          end do
       end if
@@ -365,7 +366,8 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
 #endif
             srcbar_nl=src_nl/dble((2**levelmin)**3)
             src_mean_nl = srcbar_nl
-!            if(verbose) write(*,*) 'Average NL source (levelmin) = ', src_mean_nl, levelmin
+            if(ilevel.ne.levelmin) src_mean_nl=0.0d0 
+!            if(verbose) write(*,*) 'Average NL source, ilevel, levelmin, ilevel_domain = ', src_mean_nl, ilevel, levelmin, ilevel_domain ! AMR_debug
 
          end do
       end if    
@@ -758,7 +760,8 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
       ! Calculate the actual source mean on fine level
       srcbar=src_ln/dble((2**levelmin)**3)
       src_mean_ln = srcbar
-      ! if(verbose) write(*,*) 'The average source is',test_srcbar
+      if(ilevel.ne.levelmin) src_mean_ln=0.0d0 ! 
+!      if(verbose) write(*,*) 'Average LN source, ilevel, levelmin = ', src_mean_ln, ilevel, levelmin ! AMR_debug
   
    end if
 
