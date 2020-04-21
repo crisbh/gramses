@@ -41,9 +41,10 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    real(dp), parameter :: SAFE_FACTOR = 0.5
 
    integer :: ifine, i, iter, icpu
-   logical :: allmasked, gr_lin
+   logical :: allmasked, gr_lin, ilevel_domain 
    real(kind=8) :: err, last_err
-   real(kind=8) :: res_norm2, i_res_norm2, residual, residual_old
+   real(kind=8) :: res_norm2, i_res_norm2, residual, residual_old 
+   real(kind=8) :: src_nl, src_nl_tot, srcbar_nl 
    real(dp) :: n_cell_f,n_cell_f_tot,n_cell_c,n_cell_c_tot
    real(dp) :: trunc_norm2,trunc_norm2_tot,trunc_err
 
@@ -56,6 +57,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
    if(gravity_type>0)return
    if(numbtot(1,ilevel)==0)return
 
+   ilevel_domain = .false. 
    gr_lin = .true.
    if(igr==5.or.igr==6) gr_lin = .false.
 
@@ -114,18 +116,29 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       do ifine=(ilevel-1),2,-1
           call build_parent_comms_mg(active_mg(myid,ifine),ifine)
       end do
+   end if 
 
-      ! ---------------------------------------------------------------------
-      ! Restrict mask up, then set scan flag
-      ! ---------------------------------------------------------------------
-      ! @ finer level
+   ! ---------------------------------------------------------------------
+   ! Restrict mask up, then set scan flag
+   ! ---------------------------------------------------------------------
+   ! @ finer level
 
-      if(ilevel>1) then
+   if(ilevel>1) then
+      if(igr==1) then 
          ! Restrict and communicate mask
          call restrict_mask_fine_reverse(ilevel)
          call make_reverse_mg_dp(4,ilevel-1)
          call make_virtual_mg_dp(4,ilevel-1)
+      end if
 
+      if(.not.gr_lin) then
+         if(verbose) print '(A,I2)','Entering restrict_coeff_nl at level' ,ilevel
+         call restrict_coeff_fine_reverse_gr_nl(ilevel,igr) 
+         call make_reverse_mg_dp(6,ilevel-1) 
+         call make_virtual_mg_dp(6,ilevel-1) 
+      end if
+
+      if(igr==1) then 
          ! Convert volume fraction to mask value
          do icpu=1,ncpu
             if(active_mg(icpu,ilevel-1)%ngrid==0) cycle
@@ -145,21 +158,38 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
               & MPI_LAND, MPI_COMM_WORLD, info)
          allmasked=allmasked_tot
 #endif
-      else
+      end if 
+   else
+      if(igr==1) then 
          allmasked=.true.
-      endif
+      end if
+   endif
 
-      ! @ coarser levels
-      ! Restrict mask and compute levelmin_mg in the process
-      if (.not. allmasked) then
+
+   ! @ coarser levels
+   ! Restrict mask and compute levelmin_mg in the process
+   if (.not. allmasked) then
+      if(igr==1) then 
          levelmin_mg=1
-         do ifine=(ilevel-1),2,-1
+      end if
 
+      do ifine=(ilevel-1),2,-1
+
+         if(igr==1) then 
             ! Restrict and communicate mask
             call restrict_mask_coarse_reverse(ifine)
             call make_reverse_mg_dp(4,ifine-1)
             call make_virtual_mg_dp(4,ifine-1)
+         end if
+            
+         if(.not.gr_lin) then
+            if(verbose) print '(A,I2)','Entering restrict_coeff_nl at level' ,ilevel
+               call restrict_coeff_coarse_reverse_gr_nl(ifine) 
+               call make_reverse_mg_dp(6,ifine-1) 
+               call make_virtual_mg_dp(6,ifine-1) 
+         end if
 
+         if(igr==1) then 
             ! Convert volume fraction to mask value
             do icpu=1,ncpu
                if(active_mg(icpu,ifine-1)%ngrid==0) cycle
@@ -184,10 +214,15 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
                levelmin_mg=ifine
                exit
             end if
-         end do
-      else
+         end if 
+      end do
+   else
+      if(igr==1) then 
          levelmin_mg=ilevel
       end if
+   end if
+
+   if(igr==1) then 
       if(nboundary>0)levelmin_mg=max(levelmin_mg,2)
 
       ! Update flag with scan flag
@@ -195,7 +230,9 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       do ifine=levelmin_mg,ilevel-1
          call set_scan_flag_coarse(ifine)
       end do
-   end if ! (igr==1)   
+   end if
+
+!   levelmin_mg=max(levelmin_mg,3)   ! OPTIONAL: specify a bound for minimum multigrid level
 
    ! ---------------------------------------------------------------------
    ! Initiate solve at fine level
@@ -209,7 +246,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       if(gr_lin) then
          do i=1,ngs_fine_gr_ln_pre
             if (i.eq.1 .and. iter.eq.1) then
-               src_mean = 0.0d0
+               src_mean_ln = 0.0d0
             end if
             call gauss_seidel_mg_fine_gr_ln(ilevel,.true. ,igr) ! Red step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
@@ -219,13 +256,22 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       else
          do i=1,ngs_fine_gr_nl_pre
             if (i.eq.1 .and. iter.eq.1) then
-               src_mean = 0.0d0
+               src_mean_nl = 0.0d0
             end if
             call gauss_seidel_mg_fine_gr_nl(ilevel,.true. ,igr) ! Red step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igr) ! Black step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field 
-            call cmp_source_mean_gr_nl(ilevel,igr)              ! Mean of rhs for regularisation
+            call cmp_source_mean_gr_nl(ilevel,igr,src_nl)       ! Mean of rhs for regularisation 
+
+#ifndef WITHOUTMPI
+            call MPI_ALLREDUCE(src_nl,src_nl_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+            src_nl=src_nl_tot
+#endif
+            srcbar_nl=src_nl/dble((2**levelmin)**3)
+            src_mean_nl = srcbar_nl
+!            if(verbose) write(*,*) 'Average NL source (levelmin) = ', src_mean_nl, levelmin
+
          end do
       end if
 
@@ -238,7 +284,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
          call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
       end if   
 
-      if(iter==1.and.(gr_lin.or.igr==6)) then
+      if(iter==1.and.(gr_lin.or.igr==6.or.igr==5)) then
          call cmp_residual_norm2_fine(ilevel,i_res_norm2)
 #ifndef WITHOUTMPI
          call MPI_ALLREDUCE(i_res_norm2,i_res_norm2_tot,1, &
@@ -280,11 +326,13 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
          end do
 
          ! Multigrid-solve the upper level
-         if(gr_lin) then
-            call recursive_multigrid_coarse   (ilevel-1, safe_mode(ilevel))
-         else
-            call recursive_multigrid_coarse_gr(ilevel-1, safe_mode(ilevel),igr)
-         end if
+!         if(gr_lin) then
+!            call recursive_multigrid_coarse   (ilevel-1, safe_mode(ilevel))
+!         else
+!            call recursive_multigrid_coarse_gr(ilevel-1, safe_mode(ilevel),igr)
+!         end if
+         if(ilevel==levelmin) ilevel_domain = .true.
+         call recursive_multigrid_coarse_gr(ilevel-1, safe_mode(ilevel),igr,ilevel_domain) ! CBH 10-4-19
 
          ! Interpolate coarse solution and correct fine solution
          if(gr_lin) then
@@ -309,7 +357,16 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
             call gauss_seidel_mg_fine_gr_nl(ilevel,.false.,igr) ! Black step
             call make_virtual_fine_dp(gr_pot(1,igr),ilevel)     ! Communicate GR field
-            call cmp_source_mean_gr_nl(ilevel,igr)              ! Calculate rhs mean for regularisation 
+            call cmp_source_mean_gr_nl(ilevel,igr,src_nl)       ! Mean of rhs for regularisation 
+
+#ifndef WITHOUTMPI
+            call MPI_ALLREDUCE(src_nl,src_nl_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+            src_nl=src_nl_tot
+#endif
+            srcbar_nl=src_nl/dble((2**levelmin)**3)
+            src_mean_nl = srcbar_nl
+!            if(verbose) write(*,*) 'Average NL source (levelmin) = ', src_mean_nl, levelmin
+
          end do
       end if    
 
@@ -321,7 +378,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       end if
       call make_virtual_fine_dp(f(1,1),ilevel) ! Communicate residual
 
-      if(gr_lin) then
+      if(gr_lin.or.igr==6.or.igr==5) then 
          call cmp_residual_norm2_fine(ilevel,res_norm2)
       else
          call cmp_residual_norm2_fine_gr_nl(ilevel,res_norm2,n_cell_f)
@@ -332,13 +389,9 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
               & MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
       res_norm2=res_norm2_tot
 
-      if(.not.gr_lin) then   
-         call MPI_ALLREDUCE(n_cell_f ,n_cell_f_tot ,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
-         n_cell_f  = n_cell_f_tot
-      end if
 #endif
 
-      if(gr_lin.or.(igr==6)) then
+      if(gr_lin.or.(igr==6).or.igr==5) then 
          last_err = err
          err = dsqrt(res_norm2/(i_res_norm2+1d-20))
       else
@@ -355,7 +408,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       trunc_err = dsqrt(trunc_norm2)/n_cell_c
       end if    
       
-      if(gr_lin.or.(igr==6)) then
+      if(gr_lin.or.(igr==6).or.igr==5) then 
          ! Verbosity
          if(verbose) print '(A,I5,A,I5,A,1pE10.3)','   ==> Step=', &
             & iter,'GR_pot:',igr,' Error=',err
@@ -370,7 +423,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
          end if
       else
          ! Verbosity
-         if(verbose) print '(A,I4,A,1e13.6,A,1e13.6,A,1e13.6,A,1e13.6)','   ==> Step=',iter,', Residual =',residual,', Truncation error= ',trunc_err, ', src_mean =', src_mean
+         if(verbose) print '(A,I4,A,1e13.6,A,1e13.6,A,1e13.6,A,1e13.6)','   ==> Step=',iter,', Residual =',residual,', Truncation error= ',trunc_err, ', src_mean_nl =', src_mean_nl
 
          ! Converged? 
          if(residual<1.0d-8 .or. residual<0.001d0*trunc_err .or. dabs(residual-residual_old)<1.0d-10) exit
@@ -386,7 +439,7 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
 
    end do main_iteration_loop
 
-   if(gr_lin) then
+   if(gr_lin.or.igr==5.or.igr==6) then 
       if(myid==1) print '(A,I5,A,I5,A,1pE10.3)','   ==> Level=',ilevel, &
              ' igr=',igr, ' Error=',err
       if(myid==1 .and. iter==MAXITER) print *,'WARN: Fine multigrid GR &
@@ -422,7 +475,7 @@ end subroutine multigrid_fine_gr
 ! ------------------------------------------------------------------------
 ! Recursive multigrid routine for coarse MG levels
 ! ------------------------------------------------------------------------
-recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
+recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr, ilevel_domain)
    use amr_commons
    use poisson_commons
    use gr_commons
@@ -434,7 +487,9 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
 #endif
 
    integer, intent(in) :: ifinelevel, igr
-   logical, intent(in) :: safe
+   logical, intent(in) :: safe, ilevel_domain
+   integer :: info 
+   real(dp) :: src_nl_coarse, src_nl_coarse_tot, srcbar_nl_coarse 
 
    integer :: i, icpu, icycle, ncycle
    logical :: gr_lin
@@ -460,11 +515,26 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
             call make_virtual_mg_dp(1,ifinelevel)                     ! Communicate 
          end do
       else
+         src_nl_coarse    = 0.0d0 
+         src_nl_coarse_tot= 0.0d0
          do i=1,ngs_coarse_gr_nl_pst
             call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igr)  ! Red step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
             call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igr)  ! Black step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
+            if(ilevel_domain) then 
+               call cmp_source_mean_mg_coarse_gr_nl(ifinelevel,igr,src_nl_coarse) 
+
+#ifndef WITHOUTMPI
+               call MPI_ALLREDUCE(src_nl_coarse,src_nl_coarse_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+               src_nl_coarse=src_nl_coarse_tot
+#endif
+!               srcbar_nl_coarse=src_nl_coarse/dble((2**ilevel)**3)
+               srcbar_nl_coarse=src_nl_coarse/dble((2**(ifinelevel))**3)
+               src_mean_nl_coarse = srcbar_nl_coarse
+!               if(verbose) write(*,*) 'Average NL source (ilevel) = ', src_mean_nl_coarse, ifinelevel
+
+            end if
          end do
       end if
       return
@@ -487,11 +557,27 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
             call make_virtual_mg_dp(1,ifinelevel)                     ! Communicate 
          end do
       else
+         src_nl_coarse    = 0.0d0 
+         src_nl_coarse_tot= 0.0d0
          do i=1,ngs_coarse_gr_nl_pre
             call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igr)  ! Red step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
             call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igr)  ! Black step
             call make_virtual_mg_dp(1,ifinelevel)                           ! Communicate
+            if(ilevel_domain) then 
+               call cmp_source_mean_mg_coarse_gr_nl(ifinelevel,igr,src_nl_coarse) 
+!               write(*,*) 'src_nl_coarse = ', src_nl_coarse, ifinelevel
+
+#ifndef WITHOUTMPI
+               call MPI_ALLREDUCE(src_nl_coarse,src_nl_coarse_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+               src_nl_coarse=src_nl_coarse_tot
+#endif
+!               srcbar_nl_coarse=src_nl_coarse/dble((2**ilevel)**3)
+               srcbar_nl_coarse=src_nl_coarse/dble((2**(ifinelevel))**3)
+               src_mean_nl_coarse = srcbar_nl_coarse
+!               if(verbose) write(*,*) 'Average NL source (ilevel) = ', src_mean_nl_coarse, ifinelevel
+
+            end if
          end do
       end if
 
@@ -534,7 +620,7 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
       end do
 
       ! Multigrid-solve the upper level
-      call recursive_multigrid_coarse_gr(ifinelevel-1, safe, igr)
+      call recursive_multigrid_coarse_gr(ifinelevel-1, safe, igr, ilevel_domain)
 
       ! Interpolate coarse solution and correct back into fine solution
       if(gr_lin) then
@@ -553,11 +639,26 @@ recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr)
             call make_virtual_mg_dp(1,ifinelevel)                    ! Communicate 
          end do
       else
+         src_nl_coarse    = 0.0d0 
+         src_nl_coarse_tot= 0.0d0
          do i=1,ngs_coarse_gr_nl_pst
             call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.true. ,igr) ! Red step
             call make_virtual_mg_dp(1,ifinelevel)                          ! Communicate
             call gauss_seidel_mg_coarse_gr_nl(ifinelevel,safe,.false.,igr) ! Black step
             call make_virtual_mg_dp(1,ifinelevel)                          ! Communicate
+            if(ilevel_domain) then 
+               call cmp_source_mean_mg_coarse_gr_nl(ifinelevel,igr,src_nl_coarse) 
+
+#ifndef WITHOUTMPI
+               call MPI_ALLREDUCE(src_nl_coarse,src_nl_coarse_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+               src_nl_coarse=src_nl_coarse_tot
+#endif
+!               srcbar_nl_coarse=src_nl_coarse/dble((2**ilevel)**3)
+               srcbar_nl_coarse=src_nl_coarse/dble((2**(ifinelevel))**3)
+               src_mean_nl_coarse = srcbar_nl_coarse
+!               if(verbose) write(*,*) 'Average NL source (ilevel) = ', src_mean_nl_coarse, ifinelevel
+
+            end if
          end do
       end if
       
@@ -599,6 +700,10 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
    implicit none
    integer, intent(in) :: ilevel,icount,igr
 
+#ifndef WITHOUTMPI
+   include "mpif.h" 
+#endif
+
    integer, dimension(1:3,1:2,1:8) :: iii, jjj
 
    real(dp) :: dx, oneoverdx2, phi_b, nb_mask, nb_phi, w
@@ -613,8 +718,10 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
    integer  :: ifathercell_nbor_amr
 
-   integer  :: nx_loc
+   integer  :: nx_loc, info 
    real(dp) :: scale, fourpi
+
+   real(kind=8) :: src_ln, src_ln_tot, srcbar 
 
    ! Set constants
    nx_loc = icoarse_max-icoarse_min+1
@@ -639,9 +746,20 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
    if(igr<4           ) igrm=igr
    if(igr<10.and.igr>6) igrm=igr-5
    
-   ! Calculate source mean value for regularisation
+   ! Calculate source mean value for regularisation on fine level
    if(ilevel==levelmin.and.(igr.ne.4).and.(igr.ne.10)) then
-      call cmp_source_mean_gr_ln(ilevel,igrm)
+      call cmp_source_mean_gr_ln(ilevel,igrm,src_ln) ! gr_mat *sum* 
+
+#ifndef WITHOUTMPI
+      call MPI_ALLREDUCE(src_ln,src_ln_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+      src_ln=src_ln_tot
+#endif
+      
+      ! Calculate the actual source mean on fine level
+      srcbar=src_ln/dble((2**levelmin)**3)
+      src_mean_ln = srcbar
+      ! if(verbose) write(*,*) 'The average source is',test_srcbar
+  
    end if
 
    ! Loop over cells
@@ -655,7 +773,7 @@ subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
 
          ! Init BC-modified RHS :
          if(igrm>0) then
-            f(icell_amr,2) = gr_mat(icell_amr,igrm) - src_mean
+            f(icell_amr,2) = gr_mat(icell_amr,igrm) - src_mean_ln
          end if
 
          if(f(icell_amr,3)<=0.0) cycle ! Do not process masked cells
