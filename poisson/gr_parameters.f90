@@ -2,7 +2,9 @@ module gr_parameters
    use amr_parameters
 
    ! Source mean value for solver regularisation
-   real(dp) :: src_mean=0.0d0
+   real(dp) :: src_mean_ln =0.0d0
+   real(dp) :: src_mean_nl =0.0d0
+   real(dp) :: src_mean_nl_coarse =0.0d0 
 
    ! convergence criterion
    real(dp) :: epsilon_gr=1.0D-4

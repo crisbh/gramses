@@ -159,7 +159,7 @@ end subroutine cmp_residual_mg_fine_gr_ln
 ! ##################################################################
 ! ##################################################################
 
-subroutine cmp_source_mean_gr_ln(ilevel,igrm)
+subroutine cmp_source_mean_gr_ln(ilevel,igrm,src_ln_sum)
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -167,33 +167,19 @@ subroutine cmp_source_mean_gr_ln(ilevel,igrm)
    use gr_parameters
    implicit none
 
-#ifndef WITHOUTMPI
-   include "mpif.h"
-#endif
+   integer,  intent(in)  :: ilevel, igrm
+   real(dp), intent(out) :: src_ln_sum
 
-   integer, intent(in) :: ilevel, igrm
+   integer  :: ind,iskip,i
 
-   integer  :: ind,iskip,i,info
-   real(dp) :: test_src,test_srcbar
-
-   if(ilevel.ne.levelmin) return
-
-   test_src=0.0D0
+!   if(ilevel.ne.levelmin) return
+   src_ln_sum=0.0D0
    do ind=1,twotondim
       iskip=ncoarse+(ind-1)*ngridmax
       do i=1,active(ilevel)%ngrid
-         test_src=test_src+gr_mat(active(ilevel)%igrid(i)+iskip,igrm)
+         src_ln_sum=src_ln_sum+gr_mat(active(ilevel)%igrid(i)+iskip,igrm)
       end do
    end do
-#ifndef WITHOUTMPI
-   call MPI_ALLREDUCE(test_src,test_srcbar,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
-#endif
-#ifdef WITHOUTMPI
-   test_srcbar=test_src
-#endif
-   test_srcbar=test_srcbar/dble((2**levelmin)**3)
-   ! if(verbose) write(*,*) 'The average source is',test_srcbar
-   src_mean = test_srcbar
 
 end subroutine cmp_source_mean_gr_ln
 

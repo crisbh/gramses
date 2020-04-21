@@ -102,7 +102,7 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
                op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) + &
                     dx2*(aomega*((1.0D0-potc/twoac2)**6-1.0D0)-0.25D0*gr_b/(1.0D0-potc/twoac2)**6)
 !               ! Regularisation with mean source term
-               op = op +dx2*src_mean*(1.0D0-potc/twoac2)
+               op = op +dx2*src_mean_nl*(1.0D0-potc/twoac2)
 !               ! Regularisation with PHYSICAL RHS MEAN (COARSE LEVEL)
 !               op = op +dx2*rhs_mean*(1.0D0-potc/twoac2)
             else
@@ -265,8 +265,8 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
                     -dx2*(6.0D0*aomega*(1.0D0-potc/twoac2)**5/twoac2 + 1.5D0*gr_b/(1.0D0-potc/twoac2)**7/twoac2)
 
                ! Regularisation with mean source term (from fine level)
-               op = op +dx2*src_mean*(1.0D0-potc/twoac2)
-               dop= dop-dx2*src_mean/twoac2
+               op = op +dx2*src_mean_nl*(1.0D0-potc/twoac2)
+               dop= dop-dx2*src_mean_nl/twoac2
                ! Regularisation with PHYSICAL RHS MEAN (COARSE LEVEL)
 !               op = op +dx2*rhs_mean*(1.0D0-potc/twoac2)
 !               dop= dop-dx2*rhs_mean/twoac2
@@ -374,7 +374,7 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
                op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) + &
                     dx2*(aomega*((1.0D0-potc/twoac2)**6-1.0D0)-0.25D0*gr_b/(1.0D0-potc/twoac2)**6)
                ! Regularisation with mean source term
-               op = op +dx2*src_mean*(1.0D0-potc/twoac2)
+               op = op +dx2*src_mean_nl*(1.0D0-potc/twoac2)
             else
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if

@@ -105,11 +105,11 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
             if(igr==5) then 
                op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) - dx2*(gr_a-aomega*(1.0D0-potc/twoac2)**6+gr_b/(1.0D0-potc/twoac2)**6)
                ! Regularisation with mean source term
-               op = op + dx2*src_mean*(1.0D0-potc/twoac2)
+               op = op + dx2*src_mean_nl*(1.0D0-potc/twoac2)
             else
                op = nb_sum-6.0D0*potc - potc*gr_b - gr_a
                ! Regularisation with mean source term
-               op = op + dx2*src_mean
+               op = op + dx2*src_mean_nl 
             end if
             f(icell_amr,1) = -op/dx2
          else                       
@@ -161,7 +161,7 @@ end subroutine cmp_residual_norm2_fine_gr_nl
 ! ##################################################################
 ! ##################################################################
 
-subroutine cmp_source_mean_gr_nl(ilevel,igr)
+subroutine cmp_source_mean_gr_nl(ilevel,igr,src_nl_sum)
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -169,15 +169,11 @@ subroutine cmp_source_mean_gr_nl(ilevel,igr)
    use gr_parameters
    implicit none
 
-#ifndef WITHOUTMPI
-   include "mpif.h"
-#endif
+   integer,  intent(in) :: ilevel, igr
+   real(dp), intent(out):: src_nl_sum
 
-   integer, intent(in) :: ilevel, igr
-
-   integer  :: ind,iskip,i,info
+   integer  :: ind,iskip,i
    integer  :: igrid_amr, icell_amr 
-   real(dp) :: test_src,test_srcbar
 
    real(dp) :: ctilde,twoac2,aomega
    real(dp) :: potc,gr_a,gr_b,rhs
@@ -187,7 +183,7 @@ subroutine cmp_source_mean_gr_nl(ilevel,igr)
    twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
    aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
 
-   if(ilevel.ne.levelmin) return
+!   if(ilevel.ne.levelmin) return
 
   ! Sanity check for non-linear GR cases
    if(igr>6.or.igr<5) then
@@ -195,7 +191,7 @@ subroutine cmp_source_mean_gr_nl(ilevel,igr)
       call clean_stop
    end if
 
-   test_src=0.0D0
+   src_nl_sum=0.0D0
    ! Loop over cells
    do ind=1,twotondim
       iskip=ncoarse+(ind-1)*ngridmax
@@ -223,22 +219,15 @@ subroutine cmp_source_mean_gr_nl(ilevel,igr)
          if(igr==5) then 
             rhs = (gr_a-aomega*(1.0D0-potc/twoac2)**6 + gr_b/(1.0D0-potc/twoac2)**6)/(1.0D0-potc/twoac2) 
          else
+!             gr_b = aomega*6.0d0/twoac2! Q-test 7-5-19
+!            gr_b = 0.0d0 ! Q-test 7-5-19
             rhs = potc*gr_b + gr_a
          end if
 
-         ! Accummulate op
-         test_src=test_src+rhs
+         ! Accummulate source term
+         src_nl_sum=src_nl_sum+rhs
       end do
    end do
-#ifndef WITHOUTMPI
-   call MPI_ALLREDUCE(test_src,test_srcbar,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
-#endif
-#ifdef WITHOUTMPI
-   test_srcbar=test_src
-#endif
-   test_srcbar=test_srcbar/dble((2**levelmin)**3)
-   ! if(verbose) write(*,*) 'The average source is',test_srcbar
-   src_mean = test_srcbar
 
 end subroutine cmp_source_mean_gr_nl
 
@@ -358,13 +347,13 @@ subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
                     -dx2*(6.0D0*aomega*(1.0D0-potc/twoac2)**5/twoac2 + 6.0D0*gr_b/(1.0D0-potc/twoac2)**7/twoac2)
 
                ! Regularisation with mean source term
-               op = op +dx2*src_mean*(1.0D0-potc/twoac2)
-               dop= dop-dx2*src_mean/twoac2
+               op = op +dx2*src_mean_nl*(1.0D0-potc/twoac2)
+               dop= dop-dx2*src_mean_nl/twoac2
             else
                op =  nb_sum - 6.0D0*potc - potc*gr_b - gr_a
                dop= -6.0D0 - gr_b 
                ! Regularisation with mean source term
-               op = op +dx2*src_mean
+               op = op +dx2*src_mean_nl
             end if
 
             ! Update the GR potential, solving for potential on icell_amr
