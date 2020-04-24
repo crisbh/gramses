@@ -65,7 +65,10 @@ endif
 
 # --- MPI, ifort syntax, additional checks -----------
 F90 = mpif90
-FFLAGS = -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds -cpp $(DEFINES) -DNOSYSTEM
+#Default compilation line - for debugging
+#FFLAGS = -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds -cpp $(DEFINES) -DNOSYSTEM
+#Compilation line for simulations
+FFLAGS = -O3 -g -traceback -fpe0 -ftrapuv -cpp $(DEFINES)
 
 # --- MPI, ifort syntax ------------------------------
 #F90 = ftn
