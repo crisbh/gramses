@@ -132,7 +132,8 @@ subroutine adaptive_loop
                  call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)
               end do
               do igrm=1,4
-                 call make_virtual_fine_dp(gr_mat(1,igrm),ilevel)
+                 call make_virtual_fine_dp(gr_mat (1,igrm),ilevel)
+                 call make_virtual_fine_dp(gr_mat2(1,igrm),ilevel)
               end do
            end if
 
@@ -186,7 +187,8 @@ subroutine adaptive_loop
                  call make_virtual_fine_dp(gr_pot(1,igrp),ilevel)
               end do
               do igrm=1,4
-                 call make_virtual_fine_dp(gr_mat(1,igrm),ilevel)
+                 call make_virtual_fine_dp(gr_mat (1,igrm),ilevel)
+                 call make_virtual_fine_dp(gr_mat2(1,igrm),ilevel)
               end do
            end if
         end do

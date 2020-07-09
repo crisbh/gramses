@@ -38,12 +38,12 @@ subroutine init_poisson_gr
 
   ! gr variables
   if(gr) then
-     allocate(gr_pot (1:ncell,1:10))
+     allocate(gr_pot(1:ncell,1:10))
      allocate(gr_mat (1:ncell,1:4 ))
      allocate(gr_mat2(1:ncell,1:4 ))
-     gr_pot =0.0d0
+     gr_pot=0.0d0
      gr_mat =0.0d0
-     gr_mat2=0.0d0 ! matter sources array 
+     gr_mat2=0.0d0
   endif
   
   !------------------------------------------------------
@@ -146,11 +146,10 @@ subroutine init_poisson_gr
                     end do
                  end do
 
-                 ! READ GR-only arrays 17-02-20
-                 ! Notice that this block needs to match the output block in output_poisson.f90
+                 ! BEGIN DEBUG BLOCK 17-02-20
                  if(gr) then
                     ! Read GR potentials
-                    do ivar=1,10 
+                    do ivar=1,6  
                        read(ilun)xx
                     end do
 
@@ -162,12 +161,13 @@ subroutine init_poisson_gr
                        read(ilun)xx
                     end do
 
-                    ! Read cell centers
-                    do ivar=1,ndim
-                       read(ilun)xx
-                    end do
+!                    ! Read cell centers
+!                    do ivar=1,ndim
+!                       read(ilun)xx
+!                    end do
 
                  end if
+                 ! END DEBUG BLOCK 17-02-20
 
               end do
               deallocate(ind_grid,xx)

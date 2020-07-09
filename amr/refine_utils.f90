@@ -566,7 +566,7 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
   use amr_commons
   use hydro_commons
   use poisson_commons, ONLY:f, phi,phi_old
-  use gr_commons, ONLY: gr_pot, gr_mat
+  use gr_commons, ONLY: gr_pot, gr_mat, gr_mat2
 #ifdef RT
   use rt_hydro_commons
 #endif
@@ -888,7 +888,8 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
            end do
            do igrm=1,4
               do i=1,nn
-                 gr_mat(iskip+ind_grid_son(i),igrm)=gr_mat(ind_fathers(i,0),igrm)
+                 gr_mat (iskip+ind_grid_son(i),igrm)=gr_mat (ind_fathers(i,0),igrm)
+                 gr_mat2(iskip+ind_grid_son(i),igrm)=gr_mat2(ind_fathers(i,0),igrm)
               end do
            end do
         end do
@@ -1073,7 +1074,8 @@ subroutine kill_grid(ind_cell,ilevel,nn,ibound,boundary_region)
         end do
         do igrm=1,4 
            do i=1,nn
-              gr_mat(ind_cell_son(i),igrm)=0.0D0
+              gr_mat (ind_cell_son(i),igrm)=0.0D0
+              gr_mat2(ind_cell_son(i),igrm)=0.0D0
            end do
         end do
      end if

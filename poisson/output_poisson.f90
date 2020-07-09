@@ -1,7 +1,7 @@
 subroutine backup_poisson(filename)
   use amr_commons
   use poisson_commons
-  use gr_commons    
+  use gr_commons    ! CBH 11-01-19
 
   implicit none
 #ifndef WITHOUTMPI
@@ -10,9 +10,9 @@ subroutine backup_poisson(filename)
   character(LEN=80)::filename
 
   integer::i,ivar,ncache,ind,ilevel,igrid,iskip,ilun,istart,ibound
-  integer::ix,iy,iz                          ! for the coordinates
-  real(dp)::dx                               ! for the coordinates
-  real(dp),dimension(1:twotondim,1:3)::xc    ! cell coordinates relative to grids
+  integer::ix,iy,iz                                  !yanlong170717: for the coordinates
+  real(dp)::dx                                      !yanlong170717: for the coordinates
+  real(dp),dimension(1:twotondim,1:3)::xc           !yanlong170717: cell coordinates relative to grids
   integer,allocatable,dimension(:)::ind_grid
   real(dp),allocatable,dimension(:)::xdp
   character(LEN=5)::nchar
@@ -91,13 +91,11 @@ subroutine backup_poisson(filename)
                  write(ilun)xdp
               end do
 
-              ! Output GR-only arrays 17-02-20
-              ! Notice that this block needs to match the READ block in init_poisson_gr.f90 in order for GRAMSES to restart from a given snapshot
               if(gr) then
-                 ! Write GR potentials  
-                 do ivar=1,10   
+                 ! Write GR potentials #5-#10
+                 do ivar=1,6    
                     do i=1,ncache
-                       xdp(i)=gr_pot(ind_grid(i)+iskip,ivar)
+                       xdp(i)=gr_pot(ind_grid(i)+iskip,ivar+4)
                     end do
                     write(ilun)xdp
                  end do
@@ -107,7 +105,7 @@ subroutine backup_poisson(filename)
                     xdp(i)=rho(ind_grid(i)+iskip)
                  end do
                  write(ilun)xdp
-     
+ 
                  ! Write s_i and s=Tr(s_ij)  
                  do ivar=1,4    
                     do i=1,ncache
@@ -116,13 +114,13 @@ subroutine backup_poisson(filename)
                     write(ilun)xdp
                  end do
 
-                 ! Write positions
-                 do ivar=1,ndim
-                    do i=1,ncache
-                        xdp(i)=xg(ind_grid(i),ivar)+xc(ind,ivar)
-                    end do
-                    write(ilun)xdp
-                 end do
+                 ! Write positions  ! Pos data in .amr files!
+!                 do ivar=1,ndim
+!                    do i=1,ncache
+!                        xdp(i)=xg(ind_grid(i),ivar)+xc(ind,ivar)
+!                    end do
+!                    write(ilun)xdp
+!                 end do
               end if
 
            end do

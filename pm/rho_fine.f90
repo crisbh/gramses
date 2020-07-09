@@ -69,8 +69,10 @@ subroutine rho_fine(ilevel,icount)
         ! Update boundaries for gr_mat
         if(gr.and.gr2)then
            do igrm=1,4
-              call make_virtual_reverse_dp(gr_mat(1,igrm),i)
-              call make_virtual_fine_dp   (gr_mat(1,igrm),i)
+              call make_virtual_reverse_dp(gr_mat (1,igrm),i)
+              call make_virtual_fine_dp   (gr_mat (1,igrm),i)
+              call make_virtual_reverse_dp(gr_mat2(1,igrm),i)
+              call make_virtual_fine_dp   (gr_mat2(1,igrm),i)
            end do       
         end if
      end do
@@ -140,10 +142,14 @@ subroutine rho_fine(ilevel,icount)
         end do
         if(gr.and.gr2)then
            do i=1,reception(icpu,ilevel)%ngrid
-              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
-              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
-              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
-              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,4)=0.0D0
+              gr_mat (reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
+              gr_mat (reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
+              gr_mat (reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
+              gr_mat (reception(icpu,ilevel)%igrid(i)+iskip,4)=0.0D0
+              gr_mat2(reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
+              gr_mat2(reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
+              gr_mat2(reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
+              gr_mat2(reception(icpu,ilevel)%igrid(i)+iskip,4)=0.0D0
            end do
         end if
         if(ilevel==cic_levelmax)then
@@ -168,8 +174,10 @@ subroutine rho_fine(ilevel,icount)
   ! Update boundaries for gr_mat
   if(gr.and.gr2)then
      do igrm=1,4
-        call make_virtual_reverse_dp(gr_mat(1,igrm),ilevel)
-        call make_virtual_fine_dp   (gr_mat(1,igrm),ilevel)
+        call make_virtual_reverse_dp(gr_mat (1,igrm),ilevel)
+        call make_virtual_fine_dp   (gr_mat (1,igrm),ilevel)
+        call make_virtual_reverse_dp(gr_mat2(1,igrm),ilevel)
+        call make_virtual_fine_dp   (gr_mat2(1,igrm),ilevel)
      end do 
   end if
   
@@ -213,10 +221,14 @@ subroutine rho_fine(ilevel,icount)
         end do
         if(gr.and.gr2)then
            do i=1,boundary(ibound,ilevel)%ngrid
-              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,1)=0.0
-              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,2)=0.0
-              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,3)=0.0
-              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,4)=0.0
+              gr_mat (boundary(ibound,ilevel)%igrid(i)+iskip,1)=0.0
+              gr_mat (boundary(ibound,ilevel)%igrid(i)+iskip,2)=0.0
+              gr_mat (boundary(ibound,ilevel)%igrid(i)+iskip,3)=0.0
+              gr_mat (boundary(ibound,ilevel)%igrid(i)+iskip,4)=0.0
+              gr_mat2(boundary(ibound,ilevel)%igrid(i)+iskip,1)=0.0
+              gr_mat2(boundary(ibound,ilevel)%igrid(i)+iskip,2)=0.0
+              gr_mat2(boundary(ibound,ilevel)%igrid(i)+iskip,3)=0.0
+              gr_mat2(boundary(ibound,ilevel)%igrid(i)+iskip,4)=0.0
            end do
         end if        
      end do
@@ -638,9 +650,11 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
            do j=1,np
               if(ok(j))then
                  do idim=1,ndim
-                    gr_mat(indp(j,ind),idim)=gr_mat(indp(j,ind),idim)+volv(j,idim)
+                    gr_mat (indp(j,ind),idim)=gr_mat (indp(j,ind),idim)+volv(j,idim)
+                    gr_mat2(indp(j,ind),idim)=gr_mat2(indp(j,ind),idim)+volv(j,idim)
                  end do
-                 gr_mat   (indp(j,ind),4   )=gr_mat(indp(j,ind),4   )+vols(j)
+                 gr_mat   (indp(j,ind),4   )=gr_mat (indp(j,ind),4   )+vols(j)
+                 gr_mat2  (indp(j,ind),4   )=gr_mat2(indp(j,ind),4   )+vols(j)
               end if   
            end do
         end if
@@ -654,9 +668,11 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
            do j=1,np
               if(ok(j).and.ttt(j).ne.0d0)then
                  do idim=1,ndim
-                    gr_mat(indp(j,ind),idim)=gr_mat(indp(j,ind),idim)+volv(j,idim)
+                    gr_mat (indp(j,ind),idim)=gr_mat (indp(j,ind),idim)+volv(j,idim)
+                    gr_mat2(indp(j,ind),idim)=gr_mat2(indp(j,ind),idim)+volv(j,idim)
                  end do
-                 gr_mat   (indp(j,ind),4   )=gr_mat(indp(j,ind),4   )+vols(j)
+                 gr_mat   (indp(j,ind),4   )=gr_mat (indp(j,ind),4   )+vols(j)
+                 gr_mat2  (indp(j,ind),4   )=gr_mat2(indp(j,ind),4   )+vols(j)
               end if   
            end do
         end if
@@ -927,10 +943,14 @@ subroutine cic_from_multipole(ilevel)
         end do
         if(gr.and.gr2)then
            do i=1,reception(icpu,ilevel)%ngrid
-              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
-              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
-              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
-              gr_mat(reception(icpu,ilevel)%igrid(i)+iskip,4)=0.0D0
+              gr_mat (reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
+              gr_mat (reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
+              gr_mat (reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
+              gr_mat (reception(icpu,ilevel)%igrid(i)+iskip,4)=0.0D0
+              gr_mat2(reception(icpu,ilevel)%igrid(i)+iskip,1)=0.0D0
+              gr_mat2(reception(icpu,ilevel)%igrid(i)+iskip,2)=0.0D0
+              gr_mat2(reception(icpu,ilevel)%igrid(i)+iskip,3)=0.0D0
+              gr_mat2(reception(icpu,ilevel)%igrid(i)+iskip,4)=0.0D0
            end do
         end if        
      end do
@@ -942,10 +962,14 @@ subroutine cic_from_multipole(ilevel)
      end do
      if(gr.and.gr2)then
         do i=1,active(ilevel)%ngrid
-           gr_mat(active(ilevel)%igrid(i)+iskip,1)=0.0D0
-           gr_mat(active(ilevel)%igrid(i)+iskip,2)=0.0D0
-           gr_mat(active(ilevel)%igrid(i)+iskip,3)=0.0D0
-           gr_mat(active(ilevel)%igrid(i)+iskip,4)=0.0D0
+           gr_mat (active(ilevel)%igrid(i)+iskip,1)=0.0D0
+           gr_mat (active(ilevel)%igrid(i)+iskip,2)=0.0D0
+           gr_mat (active(ilevel)%igrid(i)+iskip,3)=0.0D0
+           gr_mat (active(ilevel)%igrid(i)+iskip,4)=0.0D0
+           gr_mat2(active(ilevel)%igrid(i)+iskip,1)=0.0D0
+           gr_mat2(active(ilevel)%igrid(i)+iskip,2)=0.0D0
+           gr_mat2(active(ilevel)%igrid(i)+iskip,3)=0.0D0
+           gr_mat2(active(ilevel)%igrid(i)+iskip,4)=0.0D0
         end do
      end if 
   end do
@@ -958,10 +982,14 @@ subroutine cic_from_multipole(ilevel)
         end do
         if(gr.and.gr2)then
            do i=1,boundary(ibound,ilevel)%ngrid
-              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,1)=0.0D0
-              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,2)=0.0D0
-              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,3)=0.0D0
-              gr_mat(boundary(ibound,ilevel)%igrid(i)+iskip,4)=0.0D0
+              gr_mat (boundary(ibound,ilevel)%igrid(i)+iskip,1)=0.0D0
+              gr_mat (boundary(ibound,ilevel)%igrid(i)+iskip,2)=0.0D0
+              gr_mat (boundary(ibound,ilevel)%igrid(i)+iskip,3)=0.0D0
+              gr_mat (boundary(ibound,ilevel)%igrid(i)+iskip,4)=0.0D0
+              gr_mat2(boundary(ibound,ilevel)%igrid(i)+iskip,1)=0.0D0
+              gr_mat2(boundary(ibound,ilevel)%igrid(i)+iskip,2)=0.0D0
+              gr_mat2(boundary(ibound,ilevel)%igrid(i)+iskip,3)=0.0D0
+              gr_mat2(boundary(ibound,ilevel)%igrid(i)+iskip,4)=0.0D0
            end do
         end if        
      end do

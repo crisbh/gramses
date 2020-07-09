@@ -7,5 +7,6 @@ module gr_commons
 
    real(dp),allocatable,dimension(:,:) :: gr_pot  ! GR fields 
    real(dp),allocatable,dimension(:,:) :: gr_mat  ! GR source terms
+   real(dp),allocatable,dimension(:,:) :: gr_mat2 !GR source terms for output
 
 end module gr_commons

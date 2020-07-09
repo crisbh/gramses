@@ -433,6 +433,7 @@ subroutine clean_stop
   if(gr)then
      if(allocated(gr_pot)) deallocate(gr_pot)
      if(allocated(gr_mat)) deallocate(gr_mat)
+     if(allocated(gr_mat2)) deallocate(gr_mat2)
   end if
 
   if(allocated(phi_old)) deallocate(phi_old)
