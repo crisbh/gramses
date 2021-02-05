@@ -739,11 +739,26 @@ function coord_distance(zz,Omega0,OmegaL,OmegaR,coverH0)
   !===========================================================================
   use amr_commons
   implicit none
-  real(kind=8) :: z,res,coord_distance,zz
+  !real(kind=8) :: z,res,coord_distance,zz
+  real(kind=8) :: z,res,coord_distance,zz,atmp
   real(kind=8) :: Omega0,OmegaL,OmegaR,coverH0
+  integer::i
+
   z=abs(zz)
-  call qromb(0.d0,z,res,omega0,omegaL,OmegaR)
-  coord_distance=coverH0*res
+  atmp=1./(z+1.)
+
+  i=1
+  do while(aexp_frw(i)>atmp.and.i<n_frw)
+     i=i+1
+  end do
+
+  ! Interpolate proper time
+  res=tprop_frw(i)*(atmp-aexp_frw(i-1))/(aexp_frw(i)-aexp_frw(i-1))+ &
+       & tprop_frw(i-1)*(atmp-aexp_frw(i))/(aexp_frw(i-1)-aexp_frw(i))
+
+!  call qromb(0.d0,z,res,omega0,omegaL,OmegaR)
+!  coord_distance=coverH0*res
+  coord_distance=-coverH0*res
   if (zz.lt.0) coord_distance=-coord_distance
 end function coord_distance
 
