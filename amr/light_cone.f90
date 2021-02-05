@@ -737,6 +737,7 @@ end subroutine init_cosmo_cone
 !===========================================================================
 function coord_distance(zz,Omega0,OmegaL,OmegaR,coverH0)
   !===========================================================================
+  use amr_commons
   implicit none
   real(kind=8) :: z,res,coord_distance,zz
   real(kind=8) :: Omega0,OmegaL,OmegaR,coverH0
