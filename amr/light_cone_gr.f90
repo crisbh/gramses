@@ -18,6 +18,7 @@ subroutine output_conegrav(is_fullsky, filedir, filename, cone_id, observer_x, o
   ! Initialization
   use amr_commons
   use poisson_commons
+  use gr_commons
 #ifndef WITHOUTMPI
   use mpi
 #endif
@@ -884,6 +885,7 @@ subroutine extract_samplegrav(filedir, filename, xmin, xmax, ymin, ymax, zmin, z
   ! Initialization
   use amr_commons
   use poisson_commons
+  use gr_commons
 #ifndef WITHOUTMPI
   use mpi
 #endif

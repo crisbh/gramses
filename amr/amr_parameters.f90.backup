@@ -289,144 +289,15 @@ module amr_parameters
   integer ,dimension(1:MAXBOUND)    ::kbound_max=0
   logical                           ::no_inflow=.false.
 
-  ! CBH_LC
-
-  !Number of processes sharing one token
-  !!Only one process can write at a time in an I/O group
-  !integer::IOGROUPSIZE=0           ! Main snapshot
-  !integer::IOGROUPSIZECONE=0       ! Lightcone
-  !integer::IOGROUPSIZEREP=0        ! Subfolder size
-  !logical::withoutmkdir=.false.    !If true mkdir should be done before the run
-  !logical::print_when_io=.false.   !If true print when IO
-  !logical::synchro_when_io=.false. !If true synchronize when IO
-
-
-  !IO parameters
   !Number of processes sharing one token
   !Only one process can write at a time in an I/O group
-  integer,parameter::IOGROUPSIZE=64
-  integer,parameter::nstride=8192
-  
-  ! Unit for output
-  integer,parameter::ilun_secure=1000000000
-  integer,parameter::ilun_mem1=ilun_secure+1
-  integer,parameter::ilun_mem2=ilun_secure+2
-  integer,parameter::ilun_time1=ilun_secure+3
-  character(LEN=80),parameter::filemem1='memstat_'
-  character(LEN=80),parameter::filemem2='memall_'
-  character(LEN=80),parameter::filetime='timings_'
-  character(LEN=80),parameter::filememtimeext='.txt'
-
-  logical,parameter::conetoken = .true.
-  logical,parameter::sampletoken = .true.
-  logical,parameter::adaptive_iogroupsize = .true.
-  integer::IOGROUPSIZESAMPLE = 1
-  integer::IOGROUPSIZECONE = 8 !initial value if adaptive_iogroupsize
-
-  
-  
-  !Coarse output control
-  logical::withiocoarse = .false. ! force with or without io ncoarse
-  
-  !Sample and map main parameters
-  logical::map_full=.false.
-  logical::map_zoom=.false.
-  logical::sample_full=.false.
-  logical::sample_zoom=.false.  
-  logical::samplegrav_zoom = .false.
-  integer::fmap_full=1,fmap_zoom=1,fsample_full=1,fsample_zoom=1
-  character(LEN=1)::proj_map_full='z',proj_map='z'
-  integer::nx_map_full=512,ny_map_full=512,nx_map=512,ny_map=512
-  real(dp)::xmin_map=0.45,xmax_map=0.55,ymin_map=0.45,ymax_map=0.55,zmin_map=0.45,zmax_map=0.55
-  integer::nsample_sample_full=512,nsample_sample=1
-  real(dp)::xmin_sample=0.45,xmax_sample=0.55,ymin_sample=0.45,ymax_sample=0.55,zmin_sample=0.45,zmax_sample=0.55
-  
-
-  ! Cone activation parameters
-  logical::cone_full=.false.
-  logical::cone_narrow=.false.
-  logical::conegrav_full=.false.
-  logical::conegrav_narrow=.false.
-
-   ! Cone fullsky main parameters
-!!$  integer,parameter::MAXCONEFULL=100
-!!$  integer,parameter::conefull_number=6
-!!$  real(kind=8),parameter::conefull_epsilonreplica=0.1d0
-!!$  logical,dimension(1:conefull_number),parameter::conefull_ok =                     (/.true., .true., .true., .false., .false., .false./)
-!!$  integer,dimension(1:conefull_number),parameter::conefull_id =                     (/ 1, 2, 3, 4, 5, 6 /)
-!!$  real(kind=8),dimension(1:conefull_number),parameter::conefull_observer_x =        (/ 0.5d0, 0.5d0, 0.d0+conefull_epsilonreplica, 1.0d0-conefull_epsilonreplica, 0.5d0, 0.5d0/)
-!!$  real(kind=8),dimension(1:conefull_number),parameter::conefull_observer_y =        (/ 0.5d0, 0.d0+conefull_epsilonreplica, 0.5d0, 1.0d0-conefull_epsilonreplica, 0.5d0, 0.5d0/)
-!!$  real(kind=8),dimension(1:conefull_number),parameter::conefull_observer_z =        (/ 0.5d0, 0.d0+conefull_epsilonreplica, 1.0d0-conefull_epsilonreplica, 0.5d0, 0.5d0, 0.5d0/)
-!!$  real(kind=8),dimension(1:conefull_number),parameter::conefull_observer_redshift = (/ 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.5d0, 1.2d0/)
-!!$  real(kind=8),dimension(1:conefull_number),parameter::conefull_zmax =              (/ 0.05d0, 0.05d0, 0.05d0, 0.05d0, 0.05d0, 0.05d0 /)
-
-  
-  integer::iconefull
-  integer,parameter::MAXCONEFULL=100
-  integer::conefull_number=1
-  logical,dimension(1:MAXCONEFULL)::conefull_ok =                     .true.
-  integer,dimension(1:MAXCONEFULL)::conefull_id =                     (/(iconefull,iconefull=1,MAXCONEFULL) /)
-  real(kind=8),dimension(1:MAXCONEFULL)::conefull_observer_x =        0.5d0
-  real(kind=8),dimension(1:MAXCONEFULL)::conefull_observer_y =        0.5d0
-  real(kind=8),dimension(1:MAXCONEFULL)::conefull_observer_z =        0.5d0
-  real(kind=8),dimension(1:MAXCONEFULL)::conefull_observer_redshift = 0.0d0
-  real(kind=8),dimension(1:MAXCONEFULL)::conefull_zmax =              0.1d0
+  integer::IOGROUPSIZE=0           ! Main snapshot
+  integer::IOGROUPSIZECONE=0       ! Lightcone
+  integer::IOGROUPSIZEREP=0        ! Subfolder size
+  logical::withoutmkdir=.false.    !If true mkdir should be done before the run
+  logical::print_when_io=.false.   !If true print when IO
+  logical::synchro_when_io=.false. !If true synchronize when IO
 
 
-  ! Cone narrow main parameters
-!!$  integer,parameter::MAXCONENARROW=100
-!!$  integer,parameter::conenarrow_number=1  
-!!$  integer,dimension(1:conenarrow_number),parameter::conenarrow_id =                     (/ 1 /)
-!!$  logical,dimension(1:conenarrow_number),parameter::conenarrow_ok =                     (/.true./)
-!!$  real(kind=8),dimension(1:conenarrow_number),parameter::conenarrow_observer_x =        (/ 0.5d0 /)
-!!$  real(kind=8),dimension(1:conenarrow_number),parameter::conenarrow_observer_y =        (/ 0.5d0 /)
-!!$  real(kind=8),dimension(1:conenarrow_number),parameter::conenarrow_observer_z =        (/ 0.5d0 /)
-!!$  real(kind=8),dimension(1:conenarrow_number),parameter::conenarrow_observer_redshift = (/ 0.0d0 /)
-!!$  real(kind=8),dimension(1:conenarrow_number),parameter::conenarrow_zmax =              (/ 0.2d0 /)
-!!$  real(kind=8),dimension(1:conenarrow_number)::conenarrow_thetay = (/10./)
-!!$  real(kind=8),dimension(1:conenarrow_number)::conenarrow_thetaz = (/10./)
-!!$  real(kind=8),dimension(1:conenarrow_number)::conenarrow_theta = (/25./)
-!!$  real(kind=8),dimension(1:conenarrow_number)::conenarrow_phi = (/17./)
-
-  integer::iconenarrow
-  integer,parameter::MAXCONENARROW=100
-  integer::conenarrow_number=1  
-  logical,dimension(1:MAXCONENARROW)::conenarrow_ok =                     .true.
-  integer,dimension(1:MAXCONENARROW)::conenarrow_id =                     (/(iconenarrow,iconenarrow=1,MAXCONENARROW) /)
-  real(kind=8),dimension(1:MAXCONENARROW)::conenarrow_observer_x =        0.5d0
-  real(kind=8),dimension(1:MAXCONENARROW)::conenarrow_observer_y =        0.5d0
-  real(kind=8),dimension(1:MAXCONENARROW)::conenarrow_observer_z =        0.5d0
-  real(kind=8),dimension(1:MAXCONENARROW)::conenarrow_observer_redshift = 0.0d0
-  real(kind=8),dimension(1:MAXCONENARROW)::conenarrow_zmax =              0.5d0
-  real(kind=8),dimension(1:MAXCONENARROW)::conenarrow_thetay = 10.
-  real(kind=8),dimension(1:MAXCONENARROW)::conenarrow_thetaz = 10.
-  real(kind=8),dimension(1:MAXCONENARROW)::conenarrow_theta  = 25.
-  real(kind=8),dimension(1:MAXCONENARROW)::conenarrow_phi    = 17.
-
-
-  !Cone internal parameters
-  logical,parameter::conegrav_formattedhdr=.false.
-  integer::conegrav_mode=0
-  integer::conegrav_levelmin=0
-  integer::conegrav_levelmax=30
-  logical,parameter::conegrav_overlap=.true.
-  logical,parameter::cone_overlap=.true.
-  logical,parameter::write_cone_idp = .true. ! write particles id in cone
-  
-  ! Sample internal parameters
-  logical,parameter::write_sample_idp = .true. ! write particles id in sample
-  
-  ! Particle force
-#ifdef WITHPARTFORCE
-   real(sp),allocatable,dimension(:,:)::fpart !modif FORCE
-   logical,parameter::partforceflag=.true.    !modif FORCE
-   logical::writeforce                        !modif FORCE
-#endif
-
-
-real(dp)::zmax_cone_full=0.1,zmax_cone=1.,thetay_cone=5.,thetaz_cone=5. !!!A JETER
-e
-
-  ! END CBH_LC
 
 end module amr_parameters
