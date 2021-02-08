@@ -52,7 +52,7 @@ module amr_parameters
   integer,parameter::nvector=NVECTOR
 #endif
 
-  integer, parameter :: nstride = 65536
+!  integer, parameter :: nstride = 65536 CBH_LC
 
   ! Run control
   logical::verbose  =.false.   ! Write everything
@@ -295,10 +295,10 @@ module amr_parameters
   !!Only one process can write at a time in an I/O group
   !integer::IOGROUPSIZE=0           ! Main snapshot
   !integer::IOGROUPSIZECONE=0       ! Lightcone
-  !integer::IOGROUPSIZEREP=0        ! Subfolder size
-  !logical::withoutmkdir=.false.    !If true mkdir should be done before the run
-  !logical::print_when_io=.false.   !If true print when IO
-  !logical::synchro_when_io=.false. !If true synchronize when IO
+  integer::IOGROUPSIZEREP=0        ! Subfolder size
+  logical::withoutmkdir=.false.    !If true mkdir should be done before the run
+  logical::print_when_io=.false.   !If true print when IO
+  logical::synchro_when_io=.false. !If true synchronize when IO
 
 
   !IO parameters
@@ -417,15 +417,14 @@ module amr_parameters
   logical,parameter::write_sample_idp = .true. ! write particles id in sample
   
   ! Particle force
-#ifdef WITHPARTFORCE
-   real(sp),allocatable,dimension(:,:)::fpart !modif FORCE
-   logical,parameter::partforceflag=.true.    !modif FORCE
-   logical::writeforce                        !modif FORCE
-#endif
+!#ifdef WITHPARTFORCE
+!   real(sp),allocatable,dimension(:,:)::fpart !modif FORCE
+!   logical,parameter::partforceflag=.true.    !modif FORCE
+!   logical::writeforce                        !modif FORCE
+!#endif
 
 
-real(dp)::zmax_cone_full=0.1,zmax_cone=1.,thetay_cone=5.,thetaz_cone=5. !!!A JETER
-e
+!real(dp)::zmax_cone_full=0.1,zmax_cone=1.,thetay_cone=5.,thetaz_cone=5. !!!A JETER
 
   ! END CBH_LC
 
