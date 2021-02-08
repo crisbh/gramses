@@ -92,7 +92,9 @@ subroutine output_conegrav(is_fullsky, filedir, filename, cone_id, observer_x, o
   
   ! Variables : common for arrays
   !integer::nvar = 3 ! fx, fy, fz
-  integer,parameter::nvar=5 ! fx, fy, fz, phi, rho
+  !integer,parameter::nvar=5 ! fx, fy, fz, phi, rho
+                             !  1       3       1       3        3          9 
+  integer,parameter::nvar=20 ! Phi, grad(Phi), Psi, grad(Psi), beta^i, grad(beta^i) ! CBH_LC
   integer,parameter::nbool=1 ! son
   integer,parameter::nvectorgrid = floor(nvector/(2.**ndim))  ! nvector/8
   integer,dimension(1:nvectorgrid)::ind_grid  ! indices of grids
@@ -322,11 +324,37 @@ subroutine output_conegrav(is_fullsky, filedir, filename, cone_id, observer_x, o
           end do
           
           ! Compute var :
-          var_in(ivector,1)=f(ind_cell(ivector),1)
-          var_in(ivector,2)=f(ind_cell(ivector),2)
-          var_in(ivector,3)=f(ind_cell(ivector),3)
-          var_in(ivector,4)=phi(ind_cell(ivector))
-          var_in(ivector,5)=rho(ind_cell(ivector))
+          !var_in(ivector,1)=f(ind_cell(ivector),1)
+          !var_in(ivector,2)=f(ind_cell(ivector),2)
+          !var_in(ivector,3)=f(ind_cell(ivector),3)
+          !var_in(ivector,4)=phi(ind_cell(ivector))
+          !var_in(ivector,5)=rho(ind_cell(ivector))
+
+          ! CBH_LC
+          ! Notice that gradients need to be copied from f() at the correct igrp sequence in move or synchro
+          ! At igrp = 10, f() = grad_i grad_j
+          var_in(ivector,1 )=gr_pot(5,ind_cell(ivector)) ! Phi
+          var_in(ivector,2 )=gr_pot(6,ind_cell(ivector)) ! Xi 
+          var_in(ivector,3 )=gr_pot(7,ind_cell(ivector)) + f(ind_cell(ivector),1)  ! \beta^i = B^i + grad_i(b)
+          var_in(ivector,4 )=gr_pot(8,ind_cell(ivector)) + f(ind_cell(ivector),2)
+          var_in(ivector,5 )=gr_pot(9,ind_cell(ivector)) + f(ind_cell(ivector),3)
+          var_in(ivector,6 )=gr_pot_grad(1 ,ind_cell(ivector))    ! grad_i Phi
+          var_in(ivector,7 )=gr_pot_grad(2 ,ind_cell(ivector))
+          var_in(ivector,8 )=gr_pot_grad(3 ,ind_cell(ivector))
+          var_in(ivector,9 )=gr_pot_grad(4 ,ind_cell(ivector))    ! grad_i Xi
+          var_in(ivector,10)=gr_pot_grad(5 ,ind_cell(ivector))
+          var_in(ivector,11)=gr_pot_grad(6 ,ind_cell(ivector))
+          var_in(ivector,12)=gr_pot_grad(7 ,ind_cell(ivector))    ! grad_i \beta^j
+          var_in(ivector,13)=gr_pot_grad(8 ,ind_cell(ivector))
+          var_in(ivector,14)=gr_pot_grad(9 ,ind_cell(ivector))
+          var_in(ivector,15)=gr_pot_grad(10,ind_cell(ivector))
+          var_in(ivector,16)=gr_pot_grad(11,ind_cell(ivector))
+          var_in(ivector,17)=gr_pot_grad(12,ind_cell(ivector))
+          var_in(ivector,18)=gr_pot_grad(13,ind_cell(ivector))
+          var_in(ivector,19)=gr_pot_grad(14,ind_cell(ivector))
+          var_in(ivector,20)=gr_pot_grad(15,ind_cell(ivector))
+          
+          ! END CBH_LC
           
           ! Compute bool
           bool_in(ivector,1) = son(ind_cell(ivector))
@@ -915,7 +943,9 @@ subroutine extract_samplegrav(filedir, filename, xmin, xmax, ymin, ymax, zmin, z
   
   ! Variables : common for arrays
   !integer::nvar = 3 ! fx, fy, fz
-  integer,parameter::nvar=5 ! fx, fy, fz, phi, rho
+  !integer,parameter::nvar=5 ! fx, fy, fz, phi, rho
+                             !  1       3       1       3        3          9 
+  integer,parameter::nvar=20 ! Phi, grad(Phi), Psi, grad(Psi), beta^i, grad(beta^i) ! CBH_LC
   integer,parameter::nbool=1 ! son
   integer,parameter::nvectorgrid = floor(nvector/(2.**ndim))  ! nvector/8
   integer,dimension(1:nvectorgrid)::ind_grid  ! indices of grids
@@ -1084,12 +1114,38 @@ subroutine extract_samplegrav(filedir, filename, xmin, xmax, ymin, ymax, zmin, z
           end do
           
           ! Compute var :
-          var_in(ivector,1)=f(ind_cell(ivector),1)
-          var_in(ivector,2)=f(ind_cell(ivector),2)
-          var_in(ivector,3)=f(ind_cell(ivector),3)
-          var_in(ivector,4)=phi(ind_cell(ivector))
-          var_in(ivector,5)=rho(ind_cell(ivector))
+          !var_in(ivector,1)=f(ind_cell(ivector),1)
+          !var_in(ivector,2)=f(ind_cell(ivector),2)
+          !var_in(ivector,3)=f(ind_cell(ivector),3)
+          !var_in(ivector,4)=phi(ind_cell(ivector))
+          !var_in(ivector,5)=rho(ind_cell(ivector))
+
+          ! CBH_LC
+          ! Notice that gradients need to be copied from f() at the correct igrp sequence in move or synchro
+          ! At igrp = 10, f() = grad_i grad_j
+          var_in(ivector,1 )=gr_pot(5,ind_cell(ivector)) ! Phi
+          var_in(ivector,2 )=gr_pot(6,ind_cell(ivector)) ! Xi 
+          var_in(ivector,3 )=gr_pot(7,ind_cell(ivector)) + f(ind_cell(ivector),1)  ! \beta^i = B^i + grad_i(b)
+          var_in(ivector,4 )=gr_pot(8,ind_cell(ivector)) + f(ind_cell(ivector),2)
+          var_in(ivector,5 )=gr_pot(9,ind_cell(ivector)) + f(ind_cell(ivector),3)
+          var_in(ivector,6 )=gr_pot_grad(1 ,ind_cell(ivector))    ! grad_i Phi
+          var_in(ivector,7 )=gr_pot_grad(2 ,ind_cell(ivector))
+          var_in(ivector,8 )=gr_pot_grad(3 ,ind_cell(ivector))
+          var_in(ivector,9 )=gr_pot_grad(4 ,ind_cell(ivector))    ! grad_i Xi
+          var_in(ivector,10)=gr_pot_grad(5 ,ind_cell(ivector))
+          var_in(ivector,11)=gr_pot_grad(6 ,ind_cell(ivector))
+          var_in(ivector,12)=gr_pot_grad(7 ,ind_cell(ivector))    ! grad_i \beta^j
+          var_in(ivector,13)=gr_pot_grad(8 ,ind_cell(ivector))
+          var_in(ivector,14)=gr_pot_grad(9 ,ind_cell(ivector))
+          var_in(ivector,15)=gr_pot_grad(10,ind_cell(ivector))
+          var_in(ivector,16)=gr_pot_grad(11,ind_cell(ivector))
+          var_in(ivector,17)=gr_pot_grad(12,ind_cell(ivector))
+          var_in(ivector,18)=gr_pot_grad(13,ind_cell(ivector))
+          var_in(ivector,19)=gr_pot_grad(14,ind_cell(ivector))
+          var_in(ivector,20)=gr_pot_grad(15,ind_cell(ivector))
           
+          ! END CBH_LC
+  
           ! Compute bool
           bool_in(ivector,1) = son(ind_cell(ivector))
           
