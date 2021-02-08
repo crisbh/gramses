@@ -73,7 +73,7 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
          igrid_amr = active_mg(myid,ilevel)%igrid(igrid_mg)
          icell_mg = igrid_mg + iskip_mg
         
-         gr_b = active_mg(myid,ilevel)%u(icell_mg,6) ! Restricted coeff in coarse cell
+         gr_b = active_mg(myid,ilevel)%u(icell_mg,6) ! Restricted coeff in coarse cell ! 
          potc = active_mg(myid,ilevel)%u(icell_mg,1) ! Value of GR field on center cell
          nb_sum=0.0d0                                ! Sum of GR field on neighbors
 
@@ -101,12 +101,14 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
             if(igr==5) then 
                op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) + &
                     dx2*(aomega*((1.0D0-potc/twoac2)**6-1.0D0)-0.25D0*gr_b/(1.0D0-potc/twoac2)**6)
-!               ! Regularisation with mean source term
+!               ! Regularisation with mean source term (fine level)
                op = op +dx2*src_mean_nl*(1.0D0-potc/twoac2)
-!               ! Regularisation with PHYSICAL RHS MEAN (COARSE LEVEL)
-!               op = op +dx2*rhs_mean*(1.0D0-potc/twoac2)
             else
+!               gr_b = 0.0d0        ! Q-test 7-5-19
+!               src_mean_nl = 0.0d0 ! Q-test 7-5-19
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
+!               ! Regularisation with PHYSICAL RHS MEAN (COARSE LEVEL)
+!               op = op + dx2*src_mean_nl_coarse ! DEBUG 8-5-19
             end if
          else
             op = 0.0d0 
@@ -151,6 +153,81 @@ subroutine cmp_uvar_norm2_coarse_gr_nl(ivar,ilevel,norm2,n_cell_c)
    end do
 !  norm2 = dx2*norm2
 end subroutine cmp_uvar_norm2_coarse_gr_nl   
+
+subroutine cmp_source_mean_mg_coarse_gr_nl(ilevel,igr,src_sum_coarse)
+   use amr_commons
+   use poisson_commons
+   use gr_commons
+   use gr_parameters
+
+   implicit none
+
+#ifndef WITHOUTMPI
+   include "mpif.h"
+#endif
+
+   integer, intent(in) :: ilevel,igr
+   real(dp),intent(out):: src_sum_coarse
+   real(dp) :: dx, dx2
+   integer  :: ngrid
+   integer  :: ind, igrid_mg
+   integer  :: icell_mg, iskip_mg
+
+   real(dp) :: ctilde,twoac2,aomega
+   real(dp) :: potc,gr_b, rhs, prhs
+
+   if(igr.ne.6) return ! DEBUG 3-5-19
+
+   dx  = 0.5d0**ilevel
+
+   ! Set constants
+   dx2    = dx**2                     ! Cell size squared
+   ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   twoac2 = 2.0D0*(aexp*ctilde)**2    ! 2a^2c^2 factor 
+   aomega = 1.5D0*aexp*omega_m        ! Numerical coeff for S_0 in psi Eq.
+
+   ngrid=active_mg(myid,ilevel)%ngrid
+   
+   ! Sanity check for non-linear GR cases
+   if(igr>6.or.igr<5) then
+      print '(A)','igr out of range in cmp_source_mean_mg_coarse_gr_nl. Please check.'
+      call clean_stop
+   end if
+
+   src_sum_coarse = 0.0d0
+   ! Loop over cells myid
+   do ind=1,twotondim
+      iskip_mg  = (ind-1)*ngrid
+
+      ! Loop over active grids myid
+      do igrid_mg=1,ngrid
+         icell_mg = igrid_mg + iskip_mg
+        
+         gr_b = active_mg(myid,ilevel)%u(icell_mg,6) ! Restricted coeff in coarse cell
+         potc = active_mg(myid,ilevel)%u(icell_mg,1) ! Value of GR field on center cell
+         prhs = active_mg(myid,ilevel)%u(icell_mg,2) ! Physical rhs
+
+         ! SCAN FLAG TEST
+         if(.not. btest(active_mg(myid,ilevel)%f(icell_mg,1),0)) then ! NO SCAN
+            if(igr==5) then 
+               rhs = (prhs - aomega*((1.0D0-potc/twoac2)**6-1.0D0)+0.25D0*gr_b/(1.0D0-potc/twoac2)**6)/(1.0D0-potc/twoac2)
+!               write(*,*) 'phrs, gr_b, potc =  ', prhs, gr_b, potc, ilevel ! DEBUG 7-5-19
+            else
+!               gr_b = 0.0d0 ! Q-test 7-5-19
+               rhs = prhs + potc*gr_b
+!               if(verbose) write(*,*) 'phrs, potc, gr_b, ilevel =  ', prhs, potc, gr_b, ilevel ! DEBUG 7-5-19
+            end if
+         else
+            print '(A)','src_mean_coarse calculation not needed. Please check.'
+            call clean_stop
+         end if ! END SCAN TEST
+
+         ! Accummulate the source term
+         src_sum_coarse = src_sum_coarse + rhs
+      end do
+   end do
+
+end subroutine cmp_source_mean_mg_coarse_gr_nl
 
 ! ##################################################################
 ! ##################################################################
@@ -271,8 +348,12 @@ subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
 !               op = op +dx2*rhs_mean*(1.0D0-potc/twoac2)
 !               dop= dop-dx2*rhs_mean/twoac2
             else
+!               gr_b = 0.0d0        ! Q-test 7-5-19
+!               src_mean_nl = 0.0d0 ! Q-test 7-5-19
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
-               dop= -6.0D0 - dx2*gr_b 
+!               ! Regularisation with PHYSICAL RHS MEAN (COARSE LEVEL)
+!               op = op + dx2*src_mean_nl_coarse ! DEBUG 8-5-19
+               dop= -6.0D0 - dx2*gr_b
             end if
             
             ! Include phys_rhs into the equation
@@ -373,9 +454,10 @@ subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
             if(igr==5) then 
                op = (nb_sum-6.0D0*potc)*(1.0D0-potc/twoac2) + &
                     dx2*(aomega*((1.0D0-potc/twoac2)**6-1.0D0)-0.25D0*gr_b/(1.0D0-potc/twoac2)**6)
-               ! Regularisation with mean source term
+               ! Regularisation with mean source term (from fine level)
                op = op +dx2*src_mean_nl*(1.0D0-potc/twoac2)
             else
+!               gr_b = 0.0d0 ! Q-test 7-5-19
                op = nb_sum - 6.0D0*potc - dx2*potc*gr_b
             end if
          else
@@ -472,7 +554,7 @@ subroutine restrict_gr_pot_coarse_reverse_gr_nl(ifinelevel)
 
 end subroutine restrict_gr_pot_coarse_reverse_gr_nl
 
-subroutine restrict_coeff_coarse_reverse_gr_nl(ifinelevel)
+subroutine restrict_coeff_coarse_reverse_gr_nl(ifinelevel) ! DEBUG 8-5-19
    use amr_commons
    use poisson_commons
    use gr_commons
