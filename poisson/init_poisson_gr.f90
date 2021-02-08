@@ -174,6 +174,9 @@ subroutine init_poisson_gr
            end if
         end do
      end do
+
+     if(conegrav_overlap)read(ilun)aendconem2,aendconem1,aendcone !be careful modification to include cone grav buffer range ! CBH_LC
+
      close(ilun)
 
      ! Send the token
