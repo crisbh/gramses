@@ -37,7 +37,7 @@ module amr_commons
 
   ! Friedman model variables
   integer::n_frw
-  real(dp),allocatable,dimension(:)::aexp_frw,hexp_frw,tau_frw,t_frw
+  real(dp),allocatable,dimension(:)::aexp_frw,hexp_frw,tau_frw,t_frw,tprop_frw
 
   ! Initial conditions parameters from grafic
   integer                  ::nlevelmax_part
@@ -136,6 +136,32 @@ module amr_commons
   real(dp)::units_density=1.0  ! [g/cm^3]
   real(dp)::units_time=1.0     ! [seconds]
   real(dp)::units_length=1.0   ! [cm]
+
+  ! CBH_LC
+
+!------------------ MODIF V. REVERDY 2011 ------------------!  
+  !Cone common variables
+  real(kind=8)::aendcone=1e-30,aendconem1=1e-30,aendconem2=1e-30 !aexp: end of cone, previous end of cone, previous previous end of cone
+  real(dp)::aexp_restart_light_cone=1.0D0       ! aexp to correct the light cone problem
+  integer::nstep_coarse_after_restart=0         ! number of coarse steps after restart
+  logical::use_aexp_restart=.false.             ! use aexp restart when nstep_coarse_after_restart=2 if there is a restart
+
+  !Coarse common variable
+  logical::writencoarse = .true. ! internal var 
+
+  !Diagnostic parameters
+  integer::displaymem=1                         ! in order to display memory or not
+  logical::dotiming=.false.                      ! in order to measure WTIME()
+  logical::flushtiming=.false.                   ! flush timing file
+  logical::debugreadparams=.false.              ! print bcast result
+  logical::okmemstat=.false.
+  logical::okmemall=.false.
+
+!------------------ MODIF V. REVERDY 2011 ------------------!
+
+
+
+  ! END CBH_LC
 
 end module amr_commons
 
