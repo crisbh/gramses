@@ -499,6 +499,76 @@ end subroutine output_info
 !#########################################################################
 !#########################################################################
 !#########################################################################
+
+
+subroutine output_info_ncoarse(filename) ! CBH_LC
+  use amr_commons
+  use hydro_commons
+  use pm_commons
+  implicit none
+  character(LEN=80)::filename
+
+  integer::nx_loc,ny_loc,nz_loc,ilun,icpu,idom
+  real(dp)::scale
+  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+  character(LEN=80)::fileloc
+  character(LEN=5)::nchar
+
+  if(verbose)write(*,*)'Entering output_info_ncoarse'
+
+  ilun=myid+10
+
+  ! Conversion factor from user units to cgs units
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+
+  ! Local constants
+  nx_loc=nx; ny_loc=ny; nz_loc=nz
+  if(ndim>0)nx_loc=(icoarse_max-icoarse_min+1)
+  if(ndim>1)ny_loc=(jcoarse_max-jcoarse_min+1)
+  if(ndim>2)nz_loc=(kcoarse_max-kcoarse_min+1)
+  scale=boxlen/dble(nx_loc)
+
+  ! Open file
+  fileloc=TRIM(filename)
+  open(unit=ilun,file=fileloc,form='formatted')
+  
+  ! Write run parameters
+  write(ilun,'("ncpu        =",I11)')ncpu
+  write(ilun,'("ndim        =",I11)')ndim
+  write(ilun,'("levelmin    =",I11)')levelmin
+  write(ilun,'("levelmax    =",I11)')nlevelmax
+  write(ilun,'("ngridmax    =",I11)')ngridmax
+  write(ilun,'("nstep_coarse=",I11)')nstep_coarse
+  write(ilun,*)
+
+  ! Write physical parameters
+  write(ilun,'("boxlen      =",E23.15)')scale
+  write(ilun,'("time        =",E23.15)')t
+  write(ilun,'("aexp        =",E23.15)')aexp
+  write(ilun,'("H0          =",E23.15)')h0
+  write(ilun,'("omega_m     =",E23.15)')omega_m
+  write(ilun,'("omega_l     =",E23.15)')omega_l
+  write(ilun,'("omega_k     =",E23.15)')omega_k
+  write(ilun,'("omega_b     =",E23.15)')omega_b
+  write(ilun,'("unit_l      =",E23.15)')scale_l
+  write(ilun,'("unit_d      =",E23.15)')scale_d
+  write(ilun,'("unit_t      =",E23.15)')scale_t
+  write(ilun,*)
+
+  !Write specific parameters
+  write(ilun,'("nstride     =",I11)')nstride !specific parameter for output_ncoarse
+  write(ilun,*)
+  
+  !Remove next
+  close(ilun)
+
+end subroutine output_info_ncoarse
+
+!#########################################################################
+!#########################################################################
+!#########################################################################
+!#########################################################################
+
 subroutine output_header(filename)
   use amr_commons
   use hydro_commons
