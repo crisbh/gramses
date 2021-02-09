@@ -224,7 +224,7 @@ subroutine adaptive_loop
      endif
 
      ! New coarse time-step
-     nstep_coarse=nstep_coarse+1
+!     nstep_coarse=nstep_coarse+1 CBH_LC
 
 #ifndef WITHOUTMPI
      tt2=MPI_WTIME()

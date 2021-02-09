@@ -41,6 +41,7 @@ recursive subroutine amr_step(ilevel,icount)
   if(verbose)write(*,999)icount,ilevel
 
     !----------------------------31-01-19----------------------------!
+    !--------------------- Interpol scale factor --------------------!
   if(cosmo.and.dabs(t_next).lt.1.0D-8)then
      ! Find neighbouring scale factors
      ii=1
@@ -53,6 +54,28 @@ recursive subroutine amr_step(ilevel,icount)
 
   end if
     !----------------------------31-01-19----------------------------!
+
+
+    !--------------  Lightcone outputs ! CBH_LC --------------!
+    !------------------------09-02-21-------------------------!
+
+  if((ilevel==levelmin).and.writencoarse.and.withiocoarse.and.nstep_coarse==0)then
+     call title(nstep_coarse,nchar)
+     filedir='output_ncoarse_'//TRIM(nchar)//'/'
+     filecmd='mkdir -p '//TRIM(filedir)
+#ifndef WITHOUTMKDIR
+#ifdef NOSYSTEM
+     call PXFMKDIR(TRIM(filedir),LEN(TRIM(filedir)),O'755',info)
+#else
+     call system(filecmd)
+#endif
+#endif
+     call MPI_BARRIER(MPI_COMM_WORLD,info)
+  endif
+ 
+    !--------------  Lightcone outputs ! CBH_LC --------------!
+    !------------------------09-02-21-------------------------!
+
 
   !-------------------------------------------
   ! Make new refinements and update boundaries
@@ -190,16 +213,13 @@ recursive subroutine amr_step(ilevel,icount)
                   & tau_frw(ii-1)*(aout(iout)-aexp_frw(ii  ))/(aexp_frw(ii-1)-aexp_frw(ii  ))
         end if
 
-!        if(gas_analytics) call gas_ana ! from ecosmog
-
         ! Run the clumpfinder
 #if NDIM==3
         if(clumpfind .and. ndim==3) call clump_finder(.true.,.false.)
 #endif
-!        if(clumpfind .and. ndim==3) call clump_finder(.true.)  ! from ecosmog
 
         ! Dump lightcone
-        if(lightcone .and. ndim==3) call output_cone()
+!        if(lightcone .and. ndim==3) call output_cone() ! CBH_LC
 
      endif
 
@@ -210,10 +230,11 @@ recursive subroutine amr_step(ilevel,icount)
     !----------------------------31-01-19----------------------------!
 
 
-    !-------------- Gravity Lightcone outputs ! CBH_LC --------------!
+
+    !-------------- PARTICLE Lightcone outputs ! CBH_LC --------------!
     !----------------------------09-02-21----------------------------!
 
-     !!!!!!!!!!!!!!!!!!!!!!!!!!!!! BEGIN YANN MODIF 09/2008!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ! CBH_LC
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!! BEGIN YANN MODIF 09/2008!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  
         !------------------
         !NCOARSE REPOSITORY
@@ -258,9 +279,9 @@ recursive subroutine amr_step(ilevel,icount)
 
         endif
    
-        !----------!
-        !LIGHT CONE!
-        !----------!
+        !-------------------!
+        !PARTICLE LIGHT CONE!
+        !-------------------!
         !------------------ MODIF V. REVERDY 2011 ------------------!
         if(cone_full)then
           do icone = 1, conefull_number
@@ -337,9 +358,8 @@ recursive subroutine amr_step(ilevel,icount)
      endif
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!! END YANN MODIF 09/2008!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    !-----------END Gravity Lightcone outputs ! CBH_LC --------------!
+    !-----------END PARTICLE Lightcone outputs ! CBH_LC -------------!
     !----------------------------09-02-21----------------------------!
-
 
 
   endif
@@ -848,6 +868,11 @@ recursive subroutine amr_step(ilevel,icount)
     !-------------- Gravity Lightcone outputs ! CBH_LC --------------!
     !----------------------------09-02-21----------------------------!
 
+  ! New coarse time-step
+  if(ilevel==levelmin) then
+     nstep_coarse=nstep_coarse+1 ! This is normally done in adaptive_loop !
+  endif
+
   if(.NOT.writencoarse.and.ilevel==levelmin.and.withiocoarse) then
     writencoarse = .true.
   endif
@@ -936,8 +961,6 @@ recursive subroutine amr_step(ilevel,icount)
 
     !-----------END Gravity Lightcone outputs ! CBH_LC --------------!
     !----------------------------09-02-21----------------------------!
-
-
 
 
 
