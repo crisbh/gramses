@@ -167,6 +167,7 @@ recursive subroutine amr_step(ilevel,icount)
   !------------------------
 
     !----------------------------31-01-19----------------------------!
+    !------------------ Output at exact scale factor-----------------!
 
   ok_output=.false.
   if(ilevel==levelmin)then
@@ -199,19 +200,152 @@ recursive subroutine amr_step(ilevel,icount)
 
         ! Dump lightcone
         if(lightcone .and. ndim==3) call output_cone()
-!        if(lightcone) call output_cone()   ! from ecosmog
 
      endif
 
 !     ! Important can't be done in sink routines because it must be done after dump all
 !     if(sink)acc_rate=0.   ! from ecosmog
-
-  endif
-
+    
+    !-------------- END Output at exact scale factor-----------------!
     !----------------------------31-01-19----------------------------!
 
 
-    !-------------------Default output block (31-01-19)-------------------!
+    !-------------- Gravity Lightcone outputs ! CBH_LC --------------!
+    !----------------------------09-02-21----------------------------!
+
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!! BEGIN YANN MODIF 09/2008!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ! CBH_LC
+ 
+        !------------------
+        !NCOARSE REPOSITORY
+        !-----------------
+      if((cone_full.or.cone_narrow.or.map_zoom.or.map_full.or.sample_zoom.or.sample_full.or.conegrav_full.or.conegrav_narrow).and.writencoarse.and.withiocoarse) then
+        if (myid==1) then
+           if(verbose) write(*,*)'Entering Output Ncoarse'
+        endif
+        !Create repository
+        call title(nstep_coarse,nchar)
+        filedir='output_ncoarse_'//TRIM(nchar)//'/'
+        filecmd='mkdir -p '//TRIM(filedir)
+#ifndef WITHOUTMKDIR
+#ifdef NOSYSTEM
+        call PXFMKDIR(TRIM(filedir),LEN(TRIM(filedir)),O'755',info)
+#else
+        call system(filecmd)
+#endif
+#endif
+#ifndef WITHOUTMPI
+        call MPI_BARRIER(MPI_COMM_WORLD,info)
+#endif
+        tbeginoutput=MPI_WTIME()
+        
+        !Write essential information for ncoarse repository in info_ncoarse file
+        if(myid==1) then
+           !!!OLD
+           !ilun=4*ncpu+myid+10
+           !filename=TRIM(filedir)//'info_ncoarse_'//TRIM(nchar)//'.txt'
+           !open(ilun,file=TRIM(filename),form='formatted')
+           !write(ilun,'("ncpu        =",I11)')ncpu
+           !write(ilun,'("nstride     =",I11)')nstride
+           !write(ilun,'("nstep_coarse=",I11)')nstep_coarse
+           !write(ilun,'("aexp        =",E23.15)')aexp
+           !close(ilun)
+           !!!OlD
+           !!!NEW
+           filename=TRIM(filedir)//'info_ncoarse_'//TRIM(nchar)//'.txt'
+           call output_info_ncoarse(filename)
+
+           !!!NEW
+
+        endif
+   
+        !----------!
+        !LIGHT CONE!
+        !----------!
+        !------------------ MODIF V. REVERDY 2011 ------------------!
+        if(cone_full)then
+          do icone = 1, conefull_number
+            if (conefull_ok(icone)) then
+              write(nchar_cone,'(I5.5)') conefull_id(icone)
+              !past
+              future=-1
+              filename=TRIM(filedir)//'cone_part_fullsky_past_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+              call output_cone_fullsky(filename, conefull_id(icone), conefull_observer_x(icone), conefull_observer_y(icone), conefull_observer_z(icone), conefull_observer_redshift(icone), conefull_zmax(icone),future)
+              if(cone_overlap)then
+                 !future
+                 future=1
+                 filename=TRIM(filedir)//'cone_part_fullsky_future_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+                 call output_cone_fullsky(filename, conefull_id(icone), conefull_observer_x(icone), conefull_observer_y(icone), conefull_observer_z(icone), conefull_observer_redshift(icone), conefull_zmax(icone),future)
+              endif
+#ifndef WITHOUTMPI
+              call MPI_BARRIER(MPI_COMM_WORLD,info)
+#endif
+            endif
+          enddo
+        endif
+        if(cone_narrow) then
+           do icone = 1, conenarrow_number
+              if (conenarrow_ok(icone)) then
+                 write(nchar_cone,'(I5.5)') conenarrow_id(icone)
+                 !past
+                 future=-1
+                 filename=TRIM(filedir)//'cone_part_narrow_past_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+                 call output_cone(filename,conenarrow_id(icone),future)
+                 if(cone_overlap)then
+                    !future
+                    future=1
+                    filename=TRIM(filedir)//'cone_part_narrow_future_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+                    call output_cone(filename,conenarrow_id(icone),future)
+                 endif
+#ifndef WITHOUTMPI
+                 call MPI_BARRIER(MPI_COMM_WORLD,info)
+#endif
+              endif
+           end do
+        endif
+        !------------------ MODIF V. REVERDY 2011 ------------------!
+        
+        
+        !---!
+        !MAP!
+        !---!
+        if(map_full.and.(mod(nstep_coarse,fmap_full)==0)) then
+           filename=TRIM(filedir)//'map_full_ncoarse_'//TRIM(nchar)//'.dat'
+           call part2map_ramses(TRIM(proj_map_full),nx_map_full,ny_map_full,0.d0,1.d0,0.d0,1.d0,0.d0,1.d0,.false.,filename)
+        endif
+        if(map_zoom.and.(mod(nstep_coarse,fmap_zoom)==0)) then
+           filename=TRIM(filedir)//'map_zoom_ncoarse_'//TRIM(nchar)//'.dat'
+           call part2map_ramses(TRIM(proj_map),nx_map,ny_map,xmin_map,xmax_map,ymin_map,ymax_map,zmin_map,zmax_map,.false.,filename)
+        endif
+     
+        !------!
+        !SAMPLE!
+        !------!
+        if(sample_full.and.(mod(nstep_coarse,fsample_full)==0))then
+           filename=TRIM(filedir)//'sample_part_full_ncoarse_'//TRIM(nchar)//'_proc_'
+           call extract_sample(0.d0,1.d0,0.d0,1.d0,0.d0,1.d0,nsample_sample_full,filename)
+        endif
+        if(sample_zoom.and.(mod(nstep_coarse,fsample_zoom)==0)) then
+           filename=TRIM(filedir)//'sample_part_zoom_ncoarse_'//TRIM(nchar)//'_proc_'
+           call extract_sample(xmin_sample,xmax_sample,ymin_sample,ymax_sample,zmin_sample,zmax_sample,nsample_sample,filename)
+        endif
+#ifndef WITHOUTMPI
+        call MPI_BARRIER(MPI_COMM_WORLD,info)
+#endif
+        tendoutput=MPI_WTIME()
+        if(myid==1) write(*,*)'Time for coarse output=',tendoutput-tbeginoutput,'s'
+        
+     endif
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!! END YANN MODIF 09/2008!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    !-----------END Gravity Lightcone outputs ! CBH_LC --------------!
+    !----------------------------09-02-21----------------------------!
+
+
+
+  endif
+
+
+    !-------------------Default RAMSES output block (31-01-19)-------------------!
 
 !  if(ilevel==levelmin)then
 !
@@ -248,7 +382,7 @@ recursive subroutine amr_step(ilevel,icount)
 !
 !  endif
 
-    !----------------End Default output block (31-01-19)------------------!
+    !----------------End Default RAMSES output block (31-01-19)------------------!
 
 
   !----------------------------
@@ -710,6 +844,102 @@ recursive subroutine amr_step(ilevel,icount)
      if(nsubcycle(ilevel-1)==1)dtnew(ilevel-1)=dtnew(ilevel)
      if(icount==2)dtnew(ilevel-1)=dtold(ilevel)+dtnew(ilevel)
   end if
+
+    !-------------- Gravity Lightcone outputs ! CBH_LC --------------!
+    !----------------------------09-02-21----------------------------!
+
+  if(.NOT.writencoarse.and.ilevel==levelmin.and.withiocoarse) then
+    writencoarse = .true.
+  endif
+  
+  !------------------ MODIF V. REVERDY 2011 ------------------!
+  if(use_aexp_restart.and.ilevel==levelmin) nstep_coarse_after_restart=nstep_coarse_after_restart+1
+  if(myid==1.and.ilevel==levelmin) then
+    if(verbose)write(*,*)' '
+    if(verbose)write(*,*)' '
+    if(verbose)write(*,*)' '
+    if(verbose)write(*,*)' '
+    if(verbose)write(*,*)' '
+    if(verbose)write(*,*)'====================== BEGIN TIME STEP ======================'
+  end if
+  if(nstep_coarse_after_restart==1.and.ilevel==levelmin) aexp_restart_light_cone=aexp
+!-----------------------------------------------------------!    
+
+
+  if((ilevel==levelmin).and.writencoarse.and.withiocoarse)then
+     call title(nstep_coarse,nchar)
+     filedir='output_ncoarse_'//TRIM(nchar)//'/'
+     filecmd='mkdir -p '//TRIM(filedir)
+#ifndef WITHOUTMKDIR
+#ifdef NOSYSTEM
+     call PXFMKDIR(TRIM(filedir),LEN(TRIM(filedir)),O'755',info)
+#else
+     call system(filecmd)
+#endif
+#endif
+     call MPI_BARRIER(MPI_COMM_WORLD,info)
+  endif
+  
+  
+  if((ilevel==levelmin).and.writencoarse.and.withiocoarse)then
+    call MPI_BARRIER(MPI_COMM_WORLD,info)
+
+    !Lighcone shell limits ry modif 27/01/15
+    if((conegrav_overlap.or.cone_overlap).and.(nstep_coarse.gt.1))then
+       if(myid==1)print*,nstep_coarse,aendconem2,aendconem1,aendcone,aexp,aexp_old
+       aendconem2=aendconem1
+       aendconem1=aendcone
+       aendcone=aexp+(aexp-aexp_old)
+       if(aendcone<aendconem1)aendcone=aendconem1 !to avoid inversion of shells
+    endif
+    
+   if(verbose) write(*,*) 'Begin write ncoarse grav'  
+    tbeginoutput=MPI_WTIME()
+    if(conegrav_full) then
+      do icone = 1, conefull_number
+        if (conefull_ok(icone)) then
+           future=0
+          if(verbose) write(*,*) 'Begin conegrav', icone
+          write(nchar_cone,'(I5.5)') conefull_id(icone)
+          filename='cone_grav_fullsky_pastnfut_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+          call output_conegrav(.true., filedir, filename, conefull_id(icone), conefull_observer_x(icone), conefull_observer_y(icone), conefull_observer_z(icone), conefull_observer_redshift(icone), conefull_zmax(icone), conegrav_mode, conegrav_levelmin, conegrav_levelmax, 0.D0, 0.D0, 0.D0, 0.D0,future)
+          call MPI_BARRIER(MPI_COMM_WORLD,info)
+        endif
+      enddo
+    endif
+    if(conegrav_narrow) then
+       do icone = 1, conenarrow_number
+          if (conenarrow_ok(icone)) then
+             future=0
+             if(verbose) write(*,*) 'Begin conegravnarrow', icone
+             write(nchar_cone,'(I5.5)') conenarrow_id(icone)
+             filename='cone_grav_narrow_pastnfut_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+             call output_conegrav(.false., filedir, filename, conenarrow_id(icone), conenarrow_observer_x(icone), conenarrow_observer_y(icone), conenarrow_observer_z(icone), conenarrow_observer_redshift(icone), conenarrow_zmax(icone), conegrav_mode, conegrav_levelmin, conegrav_levelmax, conenarrow_thetay(icone), conenarrow_thetaz(icone), conenarrow_theta(icone), conenarrow_phi(icone),future)
+             call MPI_BARRIER(MPI_COMM_WORLD,info)
+          endif
+       enddo
+    endif
+    if(verbose) write(*,*) 'Begin samplegrav'  
+    if(samplegrav_zoom.and.(mod(nstep_coarse,fsample_full)==0))then
+      filename='sample_grav_zoom_ncoarse_'//TRIM(nchar)//'_proc_'
+      call extract_samplegrav(filedir, filename, xmin_sample, xmax_sample, ymin_sample, ymax_sample, zmin_sample, zmax_sample, nsample_sample, 0, 0)
+    endif  
+    call MPI_BARRIER(MPI_COMM_WORLD,info)
+    tendoutput=MPI_WTIME()
+    if(verbose) write(*,*) 'End write ncoarse grav'
+    if(myid.EQ.1) write(*,*) 'Time for coarsegrav output=',tendoutput-tbeginoutput,'s'
+  endif
+
+  !if(dotiming) tend=MPI_WTIME()
+  !if(dotiming.and.myid==1) write(ilun_time1,*)ilevel, 'Time for amr_step->outputgrav',tend-tbegin
+  
+
+    !-----------END Gravity Lightcone outputs ! CBH_LC --------------!
+    !----------------------------09-02-21----------------------------!
+
+
+
+
 
 999 format(' Entering amr_step',i1,' for level',i2)
 

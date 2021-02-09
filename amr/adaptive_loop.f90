@@ -28,6 +28,13 @@ subroutine adaptive_loop
      tstart = MPI_WTIME(info)
   end if
 #endif
+  ! CBH_LC 09-02-2021
+  if(nrestart.EQ.0) then
+    writencoarse = .true.
+  else
+    writencoarse = .false.
+  endif
+  ! END CBH_LC 09-02-2021
 
   call init_amr                      ! Initialize AMR variables
   call init_time                     ! Initialize time variables
@@ -72,6 +79,22 @@ subroutine adaptive_loop
   nstep_coarse_old=nstep_coarse
 
   if(myid==1)write(*,*)'Starting time integration'
+
+  ! CBH_LC 09-02-2021
+  !------------------ MODIF V. REVERDY 2011 ------------------!
+  if(use_aexp_restart) nstep_coarse_after_restart=nstep_coarse_after_restart+1
+  if(myid==1) then
+    if(verbose)write(*,*)' '
+    if(verbose)write(*,*)' '
+    if(verbose)write(*,*)' '
+    if(verbose)write(*,*)' '
+    if(verbose)write(*,*)' '
+    if(verbose)write(*,*)'====================== BEGIN TIME STEP ======================'
+  end if
+  if(nstep_coarse_after_restart==1) aexp_restart_light_cone=aexp
+  !-----------------------------------------------------------!    
+  ! END CBH_LC 09-02-2021
+
 
   do ! Main time loop
                                call timer('coarse levels','start')
