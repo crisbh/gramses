@@ -32,6 +32,19 @@ recursive subroutine amr_step(ilevel,icount)
   integer,dimension(1:5) :: gr_ord1
   integer,dimension(1:6) :: gr_ord2
 
+  ! CBH_LC
+  character(LEN=200)::filename,filedir,filecmd
+  character(LEN=5)::nchar,ncharcpu
+  character(LEN=5)::nchar_cone
+  integer::ilun
+  integer::icone
+  real(dp)::tbeginoutput,tendoutput
+  !real(dp)::tbegin,tend
+  !character(LEN=5)::ncharlvl
+  !integer::tmpncell
+  integer:: future=-1
+  ! END CBH_LC 
+
   ! Specific ordering of gr_pots for synchro and move steps
   gr_ord1(1:5)=(/9,8,7,5,6   /) ! Smallest to largest (sync)
   gr_ord2(1:6)=(/6,5,7,8,9,10/) ! Largest to smallest (move). igrp==10 does the position update.
