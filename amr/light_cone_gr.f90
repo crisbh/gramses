@@ -325,35 +325,35 @@ subroutine output_conegrav(is_fullsky, filedir, filename, cone_id, observer_x, o
           end do
           
           ! Compute var :
-          !var_in(ivector,1)=f(ind_cell(ivector),1)
-          !var_in(ivector,2)=f(ind_cell(ivector),2)
-          !var_in(ivector,3)=f(ind_cell(ivector),3)
-          !var_in(ivector,4)=phi(ind_cell(ivector))
-          !var_in(ivector,5)=rho(ind_cell(ivector))
+          var_in(ivector,1)=f(ind_cell(ivector),1)
+          var_in(ivector,2)=f(ind_cell(ivector),2)
+          var_in(ivector,3)=f(ind_cell(ivector),3)
+          var_in(ivector,4)=phi(ind_cell(ivector))
+          var_in(ivector,5)=rho(ind_cell(ivector))
 
           ! CBH_LC
           ! Notice that gradients need to be copied from f() at the correct igrp sequence in move or synchro
           ! At igrp = 10, f() = - grad_i(b)
-          var_in(ivector,1 )=gr_pot(ind_cell(ivector),5) ! Phi
-          var_in(ivector,2 )=gr_pot(ind_cell(ivector),6) ! Xi 
-          var_in(ivector,3 )=gr_pot(ind_cell(ivector),7) - f(ind_cell(ivector),1)  ! \beta^i = B^i + grad_i(b)
-          var_in(ivector,4 )=gr_pot(ind_cell(ivector),8) - f(ind_cell(ivector),2)
-          var_in(ivector,5 )=gr_pot(ind_cell(ivector),9) - f(ind_cell(ivector),3)
-          var_in(ivector,6 )=gr_pot_grad(ind_cell(ivector),1 )    ! grad_i Phi
-          var_in(ivector,7 )=gr_pot_grad(ind_cell(ivector),2 )
-          var_in(ivector,8 )=gr_pot_grad(ind_cell(ivector),3 )
-          var_in(ivector,9 )=gr_pot_grad(ind_cell(ivector),4 )    ! grad_i Xi
-          var_in(ivector,10)=gr_pot_grad(ind_cell(ivector),5 )
-          var_in(ivector,11)=gr_pot_grad(ind_cell(ivector),6 )
-          var_in(ivector,12)=gr_pot_grad(ind_cell(ivector),7 )    ! grad_i \beta^j
-          var_in(ivector,13)=gr_pot_grad(ind_cell(ivector),8 )
-          var_in(ivector,14)=gr_pot_grad(ind_cell(ivector),9 )
-          var_in(ivector,15)=gr_pot_grad(ind_cell(ivector),10)
-          var_in(ivector,16)=gr_pot_grad(ind_cell(ivector),11)
-          var_in(ivector,17)=gr_pot_grad(ind_cell(ivector),12)
-          var_in(ivector,18)=gr_pot_grad(ind_cell(ivector),13)
-          var_in(ivector,19)=gr_pot_grad(ind_cell(ivector),14)
-          var_in(ivector,20)=gr_pot_grad(ind_cell(ivector),15)
+          !var_in(ivector,1 )=gr_pot(ind_cell(ivector),5) ! Phi
+          !var_in(ivector,2 )=gr_pot(ind_cell(ivector),6) ! Xi 
+          !var_in(ivector,3 )=gr_pot(ind_cell(ivector),7) - f(ind_cell(ivector),1)  ! \beta^i = B^i + grad_i(b)
+          !var_in(ivector,4 )=gr_pot(ind_cell(ivector),8) - f(ind_cell(ivector),2)
+          !var_in(ivector,5 )=gr_pot(ind_cell(ivector),9) - f(ind_cell(ivector),3)
+          !var_in(ivector,6 )=gr_pot_grad(ind_cell(ivector),1 )    ! grad_i Phi
+          !var_in(ivector,7 )=gr_pot_grad(ind_cell(ivector),2 )
+          !var_in(ivector,8 )=gr_pot_grad(ind_cell(ivector),3 )
+          !var_in(ivector,9 )=gr_pot_grad(ind_cell(ivector),4 )    ! grad_i Xi
+          !var_in(ivector,10)=gr_pot_grad(ind_cell(ivector),5 )
+          !var_in(ivector,11)=gr_pot_grad(ind_cell(ivector),6 )
+          !var_in(ivector,12)=gr_pot_grad(ind_cell(ivector),7 )    ! grad_i \beta^j
+          !var_in(ivector,13)=gr_pot_grad(ind_cell(ivector),8 )
+          !var_in(ivector,14)=gr_pot_grad(ind_cell(ivector),9 )
+          !var_in(ivector,15)=gr_pot_grad(ind_cell(ivector),10)
+          !var_in(ivector,16)=gr_pot_grad(ind_cell(ivector),11)
+          !var_in(ivector,17)=gr_pot_grad(ind_cell(ivector),12)
+          !var_in(ivector,18)=gr_pot_grad(ind_cell(ivector),13)
+          !var_in(ivector,19)=gr_pot_grad(ind_cell(ivector),14)
+          !var_in(ivector,20)=gr_pot_grad(ind_cell(ivector),15)
           
           ! END CBH_LC
           
