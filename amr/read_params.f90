@@ -186,8 +186,7 @@ subroutine read_params
   if(debugreadparams) then
      if(myid==5) then
         write(42,*) cosmo,pic,sink,poisson,hydro,verbose,debug &
-             & ,nrestart,ncontrol,nstepmax,nsubcycle,nremap,ordering,bisec_tol,static,geom,overload,
-         noutput,foutput,fbackup,aout,tout,!output_mode,
+             & ,nrestart,ncontrol,nstepmax,nsubcycle,nremap,ordering,bisec_tol,static,geom,overload,noutput,foutput,fbackup,aout,tout,&!output_mode,
              & levelmin,levelmax,ngridmax,ngridtot &
              & ,npartmax,nparttot, & !nsinkmax,nsinktot,
              & nexpand,boxlen, epsilon,gravity_type,gravity_params,cg_levelmin,cic_levelmax, & !quint,file_quint,exact_aend,& vfact_grafic,&
