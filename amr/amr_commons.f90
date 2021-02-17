@@ -36,7 +36,7 @@ module amr_commons
   integer::ncpu,ndomain,myid,overload=1
 
   ! CBH_LC 17-02-2021
-  character,dimension(:),allocatable::header    ! buffer for pack/unpack  VB
+  character,dimension(:),allocatable::VBheader  ! buffer for pack/unpack  VB
   integer(kind=4)::h_length,h_pos               ! buffer length and position in the buffer  VB  
 
   ! Friedman model variables
