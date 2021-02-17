@@ -557,8 +557,12 @@ subroutine read_params
   !5*MAXCONEFULL*kind(vfact_grafic)
   !9*MAXCONENARROW*kind(vfact_grafic)
 
-  h_length = (20+MAXCONEFULL+MAXCONENARROW)*4 + 258 + 3*bit_size(ngridtot)/8 + 31*bit_size(nrestart)/8 + size(nsubcycle)*bit_size(nrestart)/8+MAXCONEFULL*bit_size(nrestart)/8 +MAXCONENARROW*bit_size(nrestart)/8&
-       & + 26*kind(vfact_grafic) + (size(aout)+size(tout))*kind(aout)+(5*MAXCONEFULL+9*MAXCONENARROW)*kind(vfact_grafic)
+!  h_length = (20+MAXCONEFULL+MAXCONENARROW)*4 + 258 + 3*bit_size(ngridtot)/8 + 31*bit_size(nrestart)/8 + size(nsubcycle)*bit_size(nrestart)/8+MAXCONEFULL*bit_size(nrestart)/8 +MAXCONENARROW*bit_size(nrestart)/8&
+!       & + 26*kind(vfact_grafic) + (size(aout)+size(tout))*kind(aout)+(5*MAXCONEFULL+9*MAXCONENARROW)*kind(vfact_grafic)
+  
+  ! CBH_LC 17-02-2021
+  ! CBH: Removed vfact_grafic terms as not under use. Not sure what should replace them.
+  h_length = (20+MAXCONEFULL+MAXCONENARROW)*4 + 258 + 3*bit_size(ngridtot)/8 + 31*bit_size(nrestart)/8 + size(nsubcycle)*bit_size(nrestart)/8+MAXCONEFULL*bit_size(nrestart)/8 +MAXCONENARROW*bit_size(nrestart)/8 + (size(aout)+size(tout))*kind(aout)
 
   allocate (header(0:h_length-1))
   h_pos = 0
