@@ -599,12 +599,12 @@ subroutine read_params
      !-------------------------------------------------
      ! Default passive scalar map
      !-------------------------------------------------
-#i   f NVAR>NDIM+2
+#if NVAR>NDIM+2
      allocate(remap_pscalar(1:nvar-(ndim+2)))
      do i=1,nvar-(ndim+2)
         remap_pscalar(i) = i+ndim+2
      enddo
-#e   ndif
+#endif
 
      open(1,file=infile)
      rewind(1)

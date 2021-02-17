@@ -7,7 +7,7 @@ module amr_commons
   logical::shrink=.false.                       ! Shrink mesh or run
   integer::nstep=0                              ! Time step
 !  integer::nstep_coarse=0                       ! Coarse step
-  integer::nstep_coarse=-1                      ! CBH
+  integer::nstep_coarse=-1                      ! IC corrections step
   integer::nstep_coarse_old=0                   ! Old coarse step
   integer::nflag,ncreate,nkill                  ! Refinements
   integer::ncoarse                              ! nx.ny.nz
@@ -34,6 +34,10 @@ module amr_commons
 
   ! MPI variables
   integer::ncpu,ndomain,myid,overload=1
+
+  ! CBH_LC 17-02-2021
+  character,dimension(:),allocatable::header    ! buffer for pack/unpack  VB
+  integer(kind=4)::h_length,h_pos               ! buffer length and position in the buffer  VB  
 
   ! Friedman model variables
   integer::n_frw
