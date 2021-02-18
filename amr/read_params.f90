@@ -396,7 +396,7 @@ subroutine read_params
 end subroutine read_params
 
 ! CBH_LC 17-02-2021
-! BCAST VERSION
+! BCAST VERSION - might require some checks
 #else
 subroutine read_params
   use amr_commons

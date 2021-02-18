@@ -232,7 +232,7 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
 
         ! Dump lightcone
-!        if(lightcone .and. ndim==3) call output_cone() ! CBH_LC
+!        if(lightcone .and. ndim==3) call output_cone() ! CBH_LC - lightcone used by the default RAMSES
 
      endif
 
@@ -454,7 +454,7 @@ recursive subroutine amr_step(ilevel,icount)
      if(gr.and.gr_newtonian) gr2=.false.                          
      call rho_fine(ilevel,icount)
  
-     ! Newtonian synchro approximation
+     ! Newtonian synchro approximation - not normally used
      if(gr.and.gr_newtonian)then
         ! Compute gravitational potential
         if(ilevel>levelmin)then

@@ -325,11 +325,13 @@ subroutine update_time(ilevel)
   t=t+dt
   nstep=nstep+1
   if(cosmo)then
+
      ! Find neighboring times
      i=1
      do while(tau_frw(i)>t.and.i<n_frw)
         i=i+1
      end do
+     t=max(t,tau_frw(n_frw)) ! CBH_LC
      ! Interpolate expansion factor
      aexp = aexp_frw(i  )*(t-tau_frw(i-1))/(tau_frw(i  )-tau_frw(i-1))+ &
           & aexp_frw(i-1)*(t-tau_frw(i  ))/(tau_frw(i-1)-tau_frw(i  ))
@@ -462,6 +464,480 @@ subroutine clean_stop
 
   stop
 end subroutine clean_stop
+
+!-------------------------------------------------!
+!------------------- CBH_LC ----------------------!
+!-------------------------------------------------!
+
+!------------------ MODIF V. REVERDY 2011 ------------------!
+subroutine writememdir(memnstep, memformat, openmode, comment, writecomment, writetitles, writememstat, writememmap)
+
+  ! Options
+  use amr_commons
+  use pm_commons
+  use hydro_commons
+  use cooling_module
+#ifndef WITHOUTMPI
+  use mpi
+#endif 
+  implicit none
+
+  ! Input variables
+  integer::memnstep                ! ncoarse step
+  integer::memformat               ! -1 = auto, 0 = o, 1 = Ko, 2 = Mo, 3 = Go
+  integer::openmode                ! 0 = append, 1 = old, 2 = new
+  character(LEN=*)::comment        ! title of the current written part
+  integer::writecomment            ! 1 = write the comment, 0 = dont write the comment
+  integer::writetitles             ! 1 = write min, mean, max, tot, 0 = dont write
+  integer::writememstat            ! 1 = write mem stat, 0 = dont write
+  integer::writememmap             ! 1 = write mem map, 0 = dont write
+
+  ! Other variables
+  real::real_mem = 0.                               ! used memory for the current cpu
+  real(KIND=4)::real_mem_4 = 0.                     ! used memory for the current cpu in kind = 4
+  real::real_mem_min = 0.                           ! min of mem
+  real::real_mem_mean = 0.                          ! mean of mem
+  real::real_mem_max = 0.                           ! max of mem
+  real::real_mem_tot = 0.                           ! total of memory
+  real::formattedmem                                ! function call
+  integer(KIND=4),allocatable::real_mem_table_cpu(:)! table for cpu indexes
+  real(KIND=4),allocatable::real_mem_table_mem(:)   ! table for mem
+  integer::info                                     ! info MPI
+  integer::i                                        ! loop variable
+
+  ! Strings
+  integer::out_unit_stat = ilun_mem1                ! unit for min, mean, max
+  integer::out_unit_map = ilun_mem2                 ! unit for map
+  character(LEN=128)::filename_dir                  ! directory
+  character(LEN=128)::filename_stat                 ! stat files
+  character(LEN=128)::filename_map                  ! map file 
+  character(LEN=5)::filename_nchar                  ! title nchar
+
+#ifndef WITHOUTMPI
+
+  ! Initialize
+  allocate(real_mem_table_cpu(1:ncpu))
+  allocate(real_mem_table_mem(1:ncpu))
+
+  ! Get memory of current cpu
+  call getmem(real_mem)
+  real_mem_4 = real(real_mem, KIND=4)
+
+  ! Compute min, mean, max and map
+  call MPI_ALLREDUCE(real_mem,real_mem_max ,1,MPI_REAL,MPI_MAX,MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(real_mem,real_mem_tot,1,MPI_REAL,MPI_SUM,MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(real_mem,real_mem_min ,1,MPI_REAL,MPI_MIN,MPI_COMM_WORLD,info)
+  call MPI_ALLGATHER(myid,1,MPI_REAL,real_mem_table_cpu,1,MPI_INTEGER,MPI_COMM_WORLD,info)
+  call MPI_ALLGATHER(real_mem_4,1,MPI_REAL,real_mem_table_mem,1,MPI_REAL,MPI_COMM_WORLD,info)
+  real_mem_mean=real_mem_tot/ncpu
+
+  ! Write to files
+  if (myid.EQ.1) then
+
+     ! File names
+     call title(memnstep, filename_nchar)
+     filename_dir = TRIM('')
+     filename_stat = TRIM(filename_dir)//TRIM('memstat_')//filename_nchar
+     filename_map = TRIM(filename_dir)//TRIM('memmap_')//filename_nchar
+     filename_stat = TRIM(filename_stat)
+     filename_map = TRIM (filename_map)
+
+     ! Mem stats
+     if (writememstat .NE. 0) then
+      !write(*,*) 'TEST_STAT = ', filename_stat
+        open(unit=out_unit_stat, file=filename_stat, action="write", status="unknown", access="append")
+           if(writecomment .NE. 0) write(out_unit_stat,*)'# ',trim(comment)
+           if(writetitles .NE. 0) then
+              write(out_unit_stat,*)'Min = ', formattedmem(real_mem_min, memformat)
+              write(out_unit_stat,*)'Mean = ', formattedmem(real_mem_mean, memformat)
+              write(out_unit_stat,*)'Max = ', formattedmem(real_mem_max, memformat)
+              write(out_unit_stat,*)'Tot = ', formattedmem(real_mem_tot, memformat)
+           else
+              write(out_unit_stat,*)formattedmem(real_mem_min, memformat)
+              write(out_unit_stat,*)formattedmem(real_mem_mean, memformat)
+              write(out_unit_stat,*)formattedmem(real_mem_max, memformat)
+              write(out_unit_stat,*)formattedmem(real_mem_tot, memformat)
+           endif
+           write(out_unit_stat,*)' '
+        close(out_unit_stat)
+     endif
+
+     ! Mem map
+     if (writememmap .NE. 0) then
+        !write(*,*) 'TEST_MAP = ', filename_map
+        open(unit=out_unit_map, file=filename_map, action="write", status="unknown", access="append")
+           if(writecomment .NE. 0) write(out_unit_map,*)'# ',trim(comment)
+           if(writetitles .NE. 0) then
+              write(out_unit_map,*)'Mem map for ncpu = ', ncpu
+           else
+              write(out_unit_map,*)ncpu
+           endif
+           i = 0
+           do while(i<=ncpu)
+              write(out_unit_map,*)real_mem_table_cpu(i),' ',formattedmem(real_mem_table_mem(i),memformat)
+              i = i+1
+           end do
+           write(out_unit_map,*)' '
+        close(out_unit_map)
+     endif
+
+  ! End of writing
+  endif
+  
+  ! Dealloc
+  deallocate(real_mem_table_cpu)
+  deallocate(real_mem_table_mem)
+ 
+#endif
+end subroutine writememdir
+
+subroutine writememfilestep(writememmode, linuxmode, memformat, mem_nstep, comment, filename, fileunit, tt1, tt2)
+
+  ! Options
+  use amr_commons
+  use pm_commons
+  use hydro_commons
+  use cooling_module
+#ifndef WITHOUTMPI
+  use mpi
+#endif 
+  implicit none
+
+  ! Input variables
+  integer::writememmode            ! 0 = do nothing, 1 = print min, mean, max, 2 = print stat for each cpu, 3 = print all
+  integer::linuxmode               ! 0 = first method (should work on most linux system), 1 = second method for titane
+  integer::memformat               ! -1 = auto, 0 = o, 1 = Ko, 2 = Mo, 3 = Go
+  character(LEN=*)::filename       ! filename
+  integer::fileunit                ! unit
+  character(LEN=*)::comment        ! title of the current written part
+  real::tt1                        ! previous time
+  real::tt2                        ! current time (if tt2 < 0 and tt1 < 0 no time is written in the file)
+  integer::mem_nstep               ! simulation step
+
+  ! Other variables
+  real::real_mem = 0.                               ! used memory for the current cpu
+  real(KIND=4)::real_mem_4 = 0.                     ! used memory for the current cpu in kind = 4
+  real::real_mem_min = 0.                           ! min of mem
+  real::real_mem_mean = 0.                          ! mean of mem
+  real::real_mem_max = 0.                           ! max of mem
+  real::real_mem_tot = 0.                           ! total of memory
+  real::formattedmem                                ! function call
+  integer::int_mem_tmp = 0                          ! used memory for linuxmode
+  integer::out_unit = 891                           ! unit
+  integer(KIND=4),allocatable::real_mem_table_cpu(:)! table for cpu indexes
+  real(KIND=4),allocatable::real_mem_table_mem(:)   ! table for mem
+  integer::info                                     ! info MPI
+  integer::i                                        ! loop variable
+  character(LEN=5)::mem_nchar                       ! step characters
+  integer::mem_icpumax                              ! icpu of maximum mem
+  integer::mem_icpumin                              ! icup of minimum mem
+  integer::reduce_mem_icpumax                       ! icpu of maximum mem
+  integer::reduce_mem_icpumin                       ! icup of minimum mem
+  mem_icpumax = -1
+  mem_icpumin = -1
+#ifndef WITHOUTMPI
+  ! First method (should work on most linux system)
+  if (((linuxmode .EQ. 0).OR.(linuxmode .EQ. 1)).AND.((writememmode.EQ.1).OR.(writememmode.EQ.2).OR.(writememmode.EQ.3))) then
+
+     ! Initialization
+     out_unit = fileunit
+     allocate(real_mem_table_cpu(1:ncpu))
+     allocate(real_mem_table_mem(1:ncpu))
+
+     ! Get mem
+     if (linuxmode .EQ. 0) then
+        call getmem(real_mem)         ! general case
+     else if (linuxmode .EQ. 1) then
+        !call cccmcur(int_mem_tmp)    ! uncomment for Titane
+        real_mem=1024.*dble(int_mem_tmp)
+     endif
+
+     real_mem_4 = real(real_mem, KIND=4)
+
+     ! Nothing
+     if (writememmode .EQ. 0) then
+        real_mem_min = real_mem
+        real_mem_mean = real_mem
+        real_mem_max = real_mem
+        real_mem_tot = real_mem
+
+        ! Min/Mean/Max
+     else if (writememmode .EQ. 1) then
+        call MPI_ALLREDUCE(real_mem,real_mem_max ,1,MPI_REAL,MPI_MAX,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(real_mem,real_mem_tot,1,MPI_REAL,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(real_mem,real_mem_min ,1,MPI_REAL,MPI_MIN,MPI_COMM_WORLD,info)
+        real_mem_mean=real_mem_tot/ncpu
+        if (real_mem.GE.real_mem_max) mem_icpumax = myid-1
+        if (real_mem.LE.real_mem_min) mem_icpumin = myid-1
+        call MPI_REDUCE(mem_icpumax,reduce_mem_icpumax,1,MPI_INTEGER,MPI_MAX,0,MPI_COMM_WORLD,info)
+        call MPI_REDUCE(mem_icpumin,reduce_mem_icpumin,1,MPI_INTEGER,MPI_MAX,0,MPI_COMM_WORLD,info)
+
+        if (myid==1) then
+           call title(mem_nstep, mem_nchar)
+           open(unit=out_unit,file=filename,action="write",status="unknown",access="append")
+           write(out_unit,*)'# ',mem_nchar,' : ',trim(comment)
+           if ((tt1.GT.0).OR.(tt2.GT.0)) write(out_unit,*)'Coarse delta_t =', tt2-tt1
+           write(out_unit,*)'Min = ', formattedmem(real_mem_min, memformat), reduce_mem_icpumin
+           write(out_unit,*)'Mean = ', formattedmem(real_mem_mean, memformat)
+           write(out_unit,*)'Max = ', formattedmem(real_mem_max, memformat), reduce_mem_icpumax
+           write(out_unit,*)'Tot = ', formattedmem(real_mem_tot, memformat)
+           write(out_unit,*)' '
+           close(out_unit)
+        endif
+
+        ! Stats for each CPU
+     else if (writememmode .EQ. 2) then
+        call MPI_ALLGATHER(myid,1,MPI_REAL,real_mem_table_cpu,1,MPI_INTEGER,MPI_COMM_WORLD,info)
+        call MPI_ALLGATHER(real_mem_4,1,MPI_REAL,real_mem_table_mem,1,MPI_REAL,MPI_COMM_WORLD,info)
+
+        if (myid .EQ. 1) then
+           call title(mem_nstep, mem_nchar)
+           open(unit=out_unit,file=filename,action="write",status="unknown",access="append")
+           write(out_unit,*)'# ',mem_nchar,' : ',trim(comment)
+           if ((tt1.GT.0).OR.(tt2.GT.0)) write(out_unit,*)'Coarse delta_t =', tt2-tt1
+           write(out_unit,*)'Mem map for ncpu = ',ncpu
+           i = 1
+           do while(i<=ncpu)
+              write(out_unit,*)real_mem_table_cpu(i),' ',formattedmem(real_mem_table_mem(i),memformat)
+              i = i+1
+           end do
+           write(out_unit,*)' '
+           close(out_unit)
+        endif
+
+        ! Min/Mean/Max + Stats for each CPU
+     else if (writememmode .EQ. 3) then
+        call MPI_ALLREDUCE(real_mem,real_mem_max ,1,MPI_REAL,MPI_MAX,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(real_mem,real_mem_tot,1,MPI_REAL,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(real_mem,real_mem_min ,1,MPI_REAL,MPI_MIN,MPI_COMM_WORLD,info)
+        call MPI_ALLGATHER(myid,1,MPI_REAL,real_mem_table_cpu,1,MPI_INTEGER,MPI_COMM_WORLD,info)
+        call MPI_ALLGATHER(real_mem_4,1,MPI_REAL,real_mem_table_mem,1,MPI_REAL,MPI_COMM_WORLD,info)
+        real_mem_mean=real_mem_tot/ncpu
+        if (real_mem.GE.real_mem_max) mem_icpumax = myid-1
+        if (real_mem.LE.real_mem_min) mem_icpumin = myid-1
+        call MPI_REDUCE(mem_icpumax,reduce_mem_icpumax,1,MPI_INTEGER,MPI_MAX,0,MPI_COMM_WORLD,info)
+        call MPI_REDUCE(mem_icpumin,reduce_mem_icpumin,1,MPI_INTEGER,MPI_MAX,0,MPI_COMM_WORLD,info)
+
+        if (myid==1) then
+           call title(mem_nstep, mem_nchar)
+           open(unit=out_unit,file=filename,action="write",status="unknown",access="append")
+           write(out_unit,*)'# ',mem_nchar,' : ',trim(comment)
+           if ((tt1.GT.0).OR.(tt2.GT.0)) write(out_unit,*)'Coarse delta_t =', tt2-tt1
+           write(out_unit,*)'Min = ', formattedmem(real_mem_min, memformat), reduce_mem_icpumin
+           write(out_unit,*)'Mean = ', formattedmem(real_mem_mean, memformat)
+           write(out_unit,*)'Max = ', formattedmem(real_mem_max, memformat), reduce_mem_icpumax
+           write(out_unit,*)'Tot = ', formattedmem(real_mem_tot, memformat)
+           write(out_unit,*)'Mem map for ncpu = ',ncpu
+           i = 1
+           do while(i<=ncpu)
+              write(out_unit,*)real_mem_table_cpu(i),' ',formattedmem(real_mem_table_mem(i),memformat)
+              i = i+1
+           end do
+           write(out_unit,*)' '
+           close(out_unit)
+        endif
+
+     endif
+
+  ! Dealloc
+  deallocate(real_mem_table_cpu)
+  deallocate(real_mem_table_mem)
+
+  endif
+
+#endif
+end subroutine writememfilestep
+
+subroutine writememfile(writememmode, linuxmode, memformat, comment, filename, fileunit, tt1, tt2)
+
+  ! Options
+  use amr_commons
+  use pm_commons
+  use hydro_commons
+  use cooling_module
+#ifndef WITHOUTMPI
+  use mpi
+#endif 
+  implicit none
+
+  ! Input variables
+  integer::writememmode            ! 0 = do nothing, 1 = print min, mean, max, 2 = print stat for each cpu, 3 = print all
+  integer::linuxmode               ! 0 = first method (should work on most linux system), 1 = second method for titane
+  integer::memformat               ! -1 = auto, 0 = o, 1 = Ko, 2 = Mo, 3 = Go
+  character(LEN=*)::filename       ! filename
+  integer::fileunit                ! unit
+  character(LEN=*)::comment        ! title of the current written part
+  real::tt1                        ! previous time
+  real::tt2                        ! current time (if tt2 < 0 and tt1 < 0 no time is written in the file)
+
+  ! Other variables
+  real::real_mem = 0.                               ! used memory for the current cpu
+  real(KIND=4)::real_mem_4 = 0.                     ! used memory for the current cpu in kind = 4
+  real::real_mem_min = 0.                           ! min of mem
+  real::real_mem_mean = 0.                          ! mean of mem
+  real::real_mem_max = 0.                           ! max of mem
+  real::real_mem_tot = 0.                           ! total of memory
+  real::formattedmem                                ! function call
+  integer::int_mem_tmp = 0                          ! used memory for linuxmode
+  integer::out_unit = 891                           ! unit
+  integer(KIND=4),allocatable::real_mem_table_cpu(:)! table for cpu indexes
+  real(KIND=4),allocatable::real_mem_table_mem(:)   ! table for mem
+  integer::info                                     ! info MPI
+  integer::i                                        ! loop variable
+
+#ifndef WITHOUTMPI
+  ! First method (should work on most linux system)
+  if (((linuxmode .EQ. 0).OR.(linuxmode .EQ. 1)).AND.((writememmode.EQ.1).OR.(writememmode.EQ.2).OR.(writememmode.EQ.3))) then
+
+     ! Initialization
+     out_unit = fileunit
+     allocate(real_mem_table_cpu(1:ncpu))
+     allocate(real_mem_table_mem(1:ncpu))
+
+     ! Get mem
+     if (linuxmode .EQ. 0) then
+        call getmem(real_mem)         ! general case
+     else if (linuxmode .EQ. 1) then
+        !call cccmcur(int_mem_tmp)    ! uncomment for Titane
+        real_mem=1024.*dble(int_mem_tmp)
+     endif
+
+     real_mem_4 = real(real_mem, KIND=4)
+
+     ! Nothing
+     if (writememmode .EQ. 0) then
+        real_mem_min = real_mem
+        real_mem_mean = real_mem
+        real_mem_max = real_mem
+        real_mem_tot = real_mem
+
+        ! Min/Mean/Max
+     else if (writememmode .EQ. 1) then
+        call MPI_ALLREDUCE(real_mem,real_mem_max ,1,MPI_REAL,MPI_MAX,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(real_mem,real_mem_tot,1,MPI_REAL,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(real_mem,real_mem_min ,1,MPI_REAL,MPI_MIN,MPI_COMM_WORLD,info)
+        real_mem_mean=real_mem_tot/ncpu
+
+        if (myid==1) then
+           open(unit=out_unit,file=filename,action="write",status="unknown",access="append")
+           write(out_unit,*)'#',trim(comment)
+           if ((tt1.GT.0).OR.(tt2.GT.0)) write(out_unit,*)'Coarse delta_t =', tt2-tt1
+           write(out_unit,*)'Min = ', formattedmem(real_mem_min, memformat)
+           write(out_unit,*)'Mean = ', formattedmem(real_mem_mean, memformat)
+           write(out_unit,*)'Max = ', formattedmem(real_mem_max, memformat)
+           write(out_unit,*)'Tot = ', formattedmem(real_mem_tot, memformat)
+           write(out_unit,*)' '
+           close(out_unit)
+        endif
+
+        ! Stats for each CPU
+     else if (writememmode .EQ. 2) then
+        call MPI_ALLGATHER(myid,1,MPI_REAL,real_mem_table_cpu,1,MPI_INTEGER,MPI_COMM_WORLD,info)
+        call MPI_ALLGATHER(real_mem_4,1,MPI_REAL,real_mem_table_mem,1,MPI_REAL,MPI_COMM_WORLD,info)
+
+        if (myid .EQ. 1) then
+           open(unit=out_unit,file=filename,action="write",status="unknown",access="append")
+           write(out_unit,*)'#',trim(comment)
+           if ((tt1.GT.0).OR.(tt2.GT.0)) write(out_unit,*)'Coarse delta_t =', tt2-tt1
+           write(out_unit,*)'Mem map for ncpu = ',ncpu
+           i = 1
+           do while(i<=ncpu)
+              write(out_unit,*)real_mem_table_cpu(i),' ',formattedmem(real_mem_table_mem(i),memformat)
+              i = i+1
+           end do
+           write(out_unit,*)' '
+           close(out_unit)
+        endif
+
+        ! Min/Mean/Max + Stats for each CPU
+     else if (writememmode .EQ. 3) then
+        call MPI_ALLREDUCE(real_mem,real_mem_max ,1,MPI_REAL,MPI_MAX,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(real_mem,real_mem_tot,1,MPI_REAL,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(real_mem,real_mem_min ,1,MPI_REAL,MPI_MIN,MPI_COMM_WORLD,info)
+        call MPI_ALLGATHER(myid,1,MPI_REAL,real_mem_table_cpu,1,MPI_INTEGER,MPI_COMM_WORLD,info)
+        call MPI_ALLGATHER(real_mem_4,1,MPI_REAL,real_mem_table_mem,1,MPI_REAL,MPI_COMM_WORLD,info)
+        real_mem_mean=real_mem_tot/ncpu
+
+        if (myid==1) then
+           open(unit=out_unit,file=filename,action="write",status="unknown",access="append")
+           write(out_unit,*)'# ',trim(comment)
+           if ((tt1.GT.0).OR.(tt2.GT.0)) write(out_unit,*)'Coarse delta_t =', tt2-tt1
+           write(out_unit,*)'Min = ', formattedmem(real_mem_min, memformat)
+           write(out_unit,*)'Mean = ', formattedmem(real_mem_mean, memformat)
+           write(out_unit,*)'Max = ', formattedmem(real_mem_max, memformat)
+           write(out_unit,*)'Tot = ', formattedmem(real_mem_tot, memformat)
+           write(out_unit,*)'Mem map for ncpu = ',ncpu
+           i = 1
+           do while(i<=ncpu)
+              write(out_unit,*)real_mem_table_cpu(i),' ',formattedmem(real_mem_table_mem(i),memformat)
+              i = i+1
+           end do
+           write(out_unit,*)' '
+           close(out_unit)
+        endif
+
+     endif
+
+  ! Dealloc
+  deallocate(real_mem_table_cpu)
+  deallocate(real_mem_table_mem)
+
+  endif
+
+#endif
+end subroutine writememfile
+
+
+! Returns the used memory in a given format (octet, Ko, Mo, Go)
+real function formattedmem(usedmem, memformat)
+  implicit none
+  ! Input variables
+  real::usedmem
+  integer::memformat
+
+  ! Local variables
+  integer::getpagesize  = 0
+  integer::ipagesize = 0
+  !real::formattedmem
+
+  ! Page size and octet memory
+#ifdef NOSYSTEM
+  !  call PXFSYSCONF(_SC_PAGESIZE,ipagesize,ierror)
+  ipagesize=4096
+#else
+  !  ipagesize = getpagesize()
+  ipagesize=4096
+#endif 
+
+  usedmem=dble(usedmem)*dble(ipagesize)
+
+  ! Compute result
+  if (memformat .EQ. 0) then
+     formattedmem = usedmem
+  else if (memformat .EQ. 1) then
+     formattedmem = usedmem/1024
+  else if (memformat .EQ. 2) then
+     formattedmem = usedmem/1024.**2.
+  else if (memformat .EQ. 3) then
+     formattedmem = usedmem/1024.**3.
+  else
+     if(usedmem>1024.**3.)then
+        formattedmem = usedmem/1024.**3.
+     else if (usedmem>1024.**2.) then
+        formattedmem = usedmem/1024.**2
+     else if (usedmem>1024.) then
+        formattedmem = usedmem/1024.
+     endif
+  endif
+
+  return
+end function formattedmem
+!------------------ MODIF V. REVERDY 2011 ------------------!
+
+!-------------------------------------------------!
+!------------------ END CBH_LC  ------------------!
+!-------------------------------------------------!
+
 
 subroutine writemem(usedmem)
   real(kind=4)::usedmem

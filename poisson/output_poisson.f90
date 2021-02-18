@@ -46,7 +46,7 @@ subroutine backup_poisson(filename)
   write(ilun)nlevelmax
   write(ilun)nboundary
   do ilevel=1,nlevelmax ! CBH 17-02-20 Default RAMSES line
-!  do ilevel=levelmin,nlevelmax  ! CBH 11-01-19
+!  do ilevel=levelmin,nlevelmax  ! Modified output line (yanlong)
      do ibound=1,nboundary+ncpu
         if(ibound<=ncpu)then
            ncache=numbl(ibound,ilevel)
@@ -114,7 +114,7 @@ subroutine backup_poisson(filename)
                     write(ilun)xdp
                  end do
 
-                 ! Write positions  ! Pos data in .amr files!
+                 ! Write positions  ! Pos data already in .amr files
 !                 do ivar=1,ndim
 !                    do i=1,ncache
 !                        xdp(i)=xg(ind_grid(i),ivar)+xc(ind,ivar)
