@@ -1,7 +1,7 @@
 !-----------------------------------------------------------! 
 !--------------------- CBH_LC 09-02-2021 -------------------!
 !-----------------------------------------------------------! 
-subroutine output_cone_fullsky(filename, cone_id, observer_x, observer_y, observer_z, observer_redshift, cone_zmax,future)
+subroutine output_cone_fullsky(filename,cone_id,observer_x,observer_y,observer_z,observer_redshift,cone_zmax,future)
   use amr_commons
   use pm_commons
   use mpi
@@ -25,20 +25,16 @@ subroutine output_cone_fullsky(filename, cone_id, observer_x, observer_y, observ
   real(sp),dimension(1:ndim,1:27*nvector)::fpartout
   real(sp),dimension(1:ndim,1:nstride+27*nvector)::fpart_out
 
-
   real(kind=8),dimension(1:ndim,1:27*nvector)::posout,velout
   integer(kind=8),dimension(1:27*nvector)::idout
   real(kind=8),dimension(1:27*nvector)::zout
   
-
   real(sp),dimension(1:nstride+27*nvector,1:ndim)::xp_out,vp_out
   real(sp),dimension(1:nstride+27*nvector)::zp_out
   integer(kind=8),dimension(1:nstride+27*nvector)::id_out
 
-
-
-  real(kind=8) :: z1,z2,om0in,omLin,hubin,Lbox
-  real(kind=8) :: observer(3)
+  real(kind=8)::z1,z2,om0in,omLin,hubin,Lbox
+  real(kind=8)::observer(3)
   integer::igrid,jgrid,ipart,jpart,idim,icpu,ilevel
   integer::i,ig,ip,npart1
   integer,dimension(1:nvector)::ind_part
@@ -65,7 +61,8 @@ subroutine output_cone_fullsky(filename, cone_id, observer_x, observer_y, observ
   real(kind=8)::input_thetaz
   real(kind=8)::input_theta
   real(kind=8)::input_phi
-   ! aexp for info file
+
+  ! aexp for info file
   real(kind=8)::aendconem2_info,aendconem1_info,aendcone_info,aexpold_info,aexp_info
   !aendconem* -> expansion factor for end of the shell
   !the end of previous shell and the end of previous previous shell (which is the begining of the current shell)
@@ -75,7 +72,11 @@ subroutine output_cone_fullsky(filename, cone_id, observer_x, observer_y, observ
 
   real(kind=8)::Omega0,OmegaL,OmegaR,coverH0
   real(kind=8)::coord_distance
-
+  !
+  !
+  !
+  !
+  !
   reduce_infolocal = 0
   reduce_infoglobal = 0
   iovolume = 1.D0
@@ -94,437 +95,434 @@ subroutine output_cone_fullsky(filename, cone_id, observer_x, observer_y, observ
 
   opened=.false.
 
-  if(nstep_coarse.lt.4)return
-  if(verbose)write(*,*)'Entering output_part'
+  if(nstep_coarse.lt.4) return
+  if(verbose) write(*,*)'Entering output_part_lightcone_fullsky'
   
-  z2=1./aexp_old-1.
-  z1=1./aexp-1.
+  z2=1.D0/aexp_old-1.D0                                                 ! redshift of farther side of shell
+  z1=1.D0/aexp    -1.D0                                                 ! redshift of closer  side of shell
+
 !------------------ MODIF V. REVERDY 2011 ------------------!
-  if((use_aexp_restart).AND.(nstep_coarse_after_restart==2)) z2=1./aexp_restart_light_cone-1.
-  if(myid==1) then
-    if(verbose)write(*,*)'*************************************************************'
-    if(verbose)write(*,*)'use_aexp_restart=',use_aexp_restart
-    if(verbose)write(*,*)'nstep_coarse_after_restart=',nstep_coarse_after_restart
-    if(verbose)write(*,*)'filename=',filename
-    if((use_aexp_restart).AND.(nstep_coarse_after_restart==2)) then
-      if(verbose)write(*,*)'aexp_restart_light_cone=',aexp_restart_light_cone,'    aexp=',aexp
-    else
-      if(verbose)write(*,*)'aexp_old=',aexp_old,'    aexp=',aexp
-    end if
-    if(verbose)write(*,*)'z2=',z2,'    z1=',z1
-    if(verbose)write(*,*)'-------------------------------------------------------------'
+  if(use_aexp_restart.AND.(nstep_coarse_after_restart.eq.2)) then
+     z2=1.0D0/aexp_restart_light_cone-1.0D0
+  end if
+
+  if(myid.eq.1) then
+     if(verbose) write(*,*) '*************************************************************'
+     if(verbose) write(*,*) 'use_aexp_restart=',use_aexp_restart
+     if(verbose) write(*,*) 'nstep_coarse_after_restart=',nstep_coarse_after_restart
+     if(verbose) write(*,*) 'filename=',filename
+     if(use_aexp_restart.AND.(nstep_coarse_after_restart.eq.2)) then
+        if(verbose) write(*,*) 'aexp_restart_light_cone=',aexp_restart_light_cone,'    aexp=',aexp
+     else
+        if(verbose) write(*,*) 'aexp_old=',aexp_old,'    aexp=',aexp
+     end if
+     if(verbose) write(*,*) 'z2=',z2,'    z1=',z1
+     if(verbose) write(*,*) '-------------------------------------------------------------'
   end if
 !-----------------------------------------------------------!
-  
-
 
   if(cone_overlap) then
-     if((aendconem1.lt.aendconem2).or.(aendcone.lt.aendconem1))print*,'WARNING CONE SHELL RANGE NOT WELL ORDERED, AEXP ',aendconem2,aendconem1,aendcone 
+     if((aendconem1.lt.aendconem2).or.(aendcone.lt.aendconem1)) print*,'WARNING CONE SHELL RANGE NOT WELL ORDERED, AEXP ',aendconem2,aendconem1,aendcone 
 
-     if(future==1) then
-        z2=1./aendconem1-1.
-        z1=1./aendcone-1.
-     else if (future==-1)then
-        z2=1./aendconem2-1.
-        z1=1./aendconem1-1.
+     if(future.eq.1) then
+        z2=1.0D0/aendconem1-1.0D0
+        z1=1.0D0/aendcone-1.0D0
+     else if(future.eq.-1) then
+        z2=1.0D0/aendconem2-1.0D0
+        z1=1.0D0/aendconem1-1.0D0
      else
         print*,'not implemented cone part future=',future
         stop
      endif
 
-     if (myid==1) then
-        print*,''
-        print*,'TEST CONE PART LIMIT'
-        print*,'nstepcoarse,z2,z1',nstep_coarse,z2,z1
-        print*,'aendconem2,aendconem1,aendcone',aendconem2,aendconem1,aendcone
-        print*,''
+     if(myid.eq.1) then
+        print*, ''
+        print*, 'TEST CONE PART LIMIT'
+        print*, 'nstepcoarse,z2,z1',nstep_coarse,z2,z1
+        print*, 'aendconem2,aendconem1,aendcone',aendconem2,aendconem1,aendcone
+        print*, ''
      endif
   endif
-  
-
-
-
-
 
   !zmax_cone_full=0.25
   !if(z2.gt.zmax_cone_full)return
-  if(z2.gt.cone_zmax)return
-  if(abs(z2-z1)<1d-6)return
-  if((z1.LT.observer_redshift).AND.(z2.LT.observer_redshift))return ! V. REVERDY
+  if(z2.gt.cone_zmax) return                                            ! shell outside intended redshift range
+  if(dabs(z2-z1)<1d-6) return                                           ! shell too thin
+  if((z1.lt.observer_redshift).and.(z2.lt.observer_redshift)) return    ! shell completely in the future of observer (VR)
   
-  om0in=omega_m
-  omLin=omega_l
-  hubin=h0/100.
-  Lbox=boxlen_ini/hubin
-  observer(1) = Lbox*observer_x ! V. REVERDY
-  observer(2) = Lbox*observer_y ! V. REVERDY
-  observer(3) = Lbox*observer_z ! V. REVERDY
-  !observer=(/Lbox/2.0,Lbox/2.0,Lbox/2.0/) ! V. REVERDY
+  om0in=omega_m                                                         ! Omega_m
+  omLin=omega_l                                                         ! Omega_Lambda
+  hubin=h0/100.D0                                                       ! h
+  Lbox=boxlen_ini/hubin                                                 ! box size in Mpc (not Mpc/h)
+  observer(1) = Lbox*observer_x                                         ! observer x coordinate in Mpc (VR)
+  observer(2) = Lbox*observer_y                                         ! observer y coordinate in Mpc (VR)
+  observer(3) = Lbox*observer_z                                         ! observer z coordinate in Mpc (VR)
 
   ! Compute iogroupsize
-  call perform_my_selection_simple(.true.,.false.,z1,z2, &
-       &                           om0in,omLin,hubin,Lbox, &
-       &                           observer,observer_redshift, &
-       &                           pos,vel,idtab,pottab,fparttab,ip, &
+  call perform_my_selection_simple(.true.,.false.,z1,z2,                                   &
+       &                           om0in,omLin,hubin,Lbox,                                 &
+       &                           observer,observer_redshift,                             &
+       &                           pos,vel,idtab,pottab,fparttab,ip,                       &
        &                           posout,velout,idout,zout,potout,fpartout,npout,.false., &
-       &                           dist1cone, dist2cone, disttolcone)
-  iovolume = ((2.0D0*dist2cone)**3.0D0)-(((2.D0*dist1cone)/SQRT(real(ndim,kind=8)))**3.0D0)
-  if (adaptive_iogroupsize) IOGROUPSIZECONE = nint(iovolume*real(IOGROUPSIZE, kind=8))
-  if (IOGROUPSIZECONE .LE. 1) IOGROUPSIZECONE = 1
-  if (IOGROUPSIZECONE .GE. IOGROUPSIZE) IOGROUPSIZECONE = IOGROUPSIZE
-  if (verbose) write(*,*) cone_id, 'IOGROUPSIZECONE = ',IOGROUPSIZECONE, 'iovolume = ', iovolume
+       &                           dist1cone,dist2cone,disttolcone)
+  !
+  iovolume = ((2.0D0*dist2cone)**3)-(((2.D0*dist1cone)/dsqrt(real(ndim,kind=8)))**3)
+  if(adaptive_iogroupsize) IOGROUPSIZECONE = nint(iovolume*real(IOGROUPSIZE,kind=8))
+  if(IOGROUPSIZECONE.le.1) IOGROUPSIZECONE = 1
+  if(IOGROUPSIZECONE.ge.IOGROUPSIZE) IOGROUPSIZECONE = IOGROUPSIZE
+  if(verbose) write(*,*) cone_id,'IOGROUPSIZECONE = ',IOGROUPSIZECONE,'iovolume = ',iovolume
 
   ! Wait for the token
-  if (conetoken) then
-    if (mod(myid-1,IOGROUPSIZECONE)/=0) then
-      call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
-                  & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info)
-    end if
+  if(conetoken) then
+     if(mod(myid-1,IOGROUPSIZECONE).ne.0) then
+        call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE,info)
+     end if
   endif
   
-  ilun=3*ncpu+myid+10
-  call title(myid,nchar)
-  fileloc=TRIM(filename)//TRIM(nchar)//'.dat'
+  ilun=3*ncpu+myid+10                                                   ! file handler
+  call title(myid,nchar)                                                ! create file name
+  fileloc=TRIM(filename)//TRIM(nchar)//'.dat'                           ! create file name
     
-!!!! Open only if npart selectionnees gt 0
-!  open(ilun,file=TRIM(fileloc),form='unformatted')
-!  rewind(ilun)  
-!  write(ilun)ncpu
-!  write(ilun)nstride
-!  write(ilun)npart
-
-  npart_out=0
-  ipout=0
-  npout=0
+  npart_out=0                                                           ! total number of selected particles
+  npout=0                                                               ! number of selected particles from a batch of size nvector
+  ipout=0 
   ilevel=levelmin
+  !
   ! Loop over cpus
   do icpu=1,ncpu
      ! Loop over grids
-     igrid=headl(icpu,ilevel)
-     ip=0   
+     igrid=headl(icpu,ilevel)                                           ! first grid on given CPU
+     ip=0                                                               ! initialise particle counter
      do jgrid=1,numbl(icpu,ilevel)
-        npart1=numbp(igrid)  ! Number of particles in the grid
+        npart1=numbp(igrid)                                             ! number of particles in the grid
         if(npart1>0)then        
-           ipart=headp(igrid)
-           
+           ipart=headp(igrid)                                           ! firt particle on grid
            ! Loop over particles
            do jpart=1,npart1
-              ip=ip+1
-              ind_part(ip)=ipart
-              if(ip==nvector)then
+              ip=ip+1                                                   ! increment particle counter
+              ind_part(ip)=ipart                                        ! find global particle ID and store in ind_part
+              if(ip.eq.nvector)then                                     ! collect data in batches of size nvector
                  ! Lower left corner of 3x3x3 grid-cube
                  do idim=1,ndim
                     do i=1,ip
-                       pos(idim,i)=xp(ind_part(i),idim)*Lbox
-                       vel(idim,i)=vp(ind_part(i),idim)
+                       pos(idim,i)=xp(ind_part(i),idim)*Lbox            ! particle coordinates
+                       vel(idim,i)=vp(ind_part(i),idim)                 ! particle velocities
 #ifdef WITHPARTFORCE
-                       fparttab(idim,i)=fpart(ind_part(i),idim)
+                       fparttab(idim,i)=fpart(ind_part(i),idim)         ! particle force components
 #endif
                     end do
                  end do
                  do i=1,ip
-                    idtab(i)=idp(ind_part(i))
+                    idtab(i)=idp(ind_part(i))                           ! particle ID
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-                    pottab(i)=ptcl_phi(ind_part(i))
+                    pottab(i)=ptcl_phi(ind_part(i))                     ! particle potential value
 #endif                    
                  end do
+                 !
                  !===========================================================================
-                 call perform_my_selection_simple(.false.,.false.,z1,z2, &
-                      &                           om0in,omLin,hubin,Lbox, &
-                      &                           observer,observer_redshift, &
-                      &                           pos,vel,idtab,pottab,fparttab,ip, &
+                 call perform_my_selection_simple(.false.,.false.,z1,z2,                                  &
+                      &                           om0in,omLin,hubin,Lbox,                                 &
+                      &                           observer,observer_redshift,                             &
+                      &                           pos,vel,idtab,pottab,fparttab,ip,                       &
                       &                           posout,velout,idout,zout,potout,fpartout,npout,.false., &
-                      &                           dist1cone, dist2cone, disttolcone)
+                      &                           dist1cone,dist2cone,disttolcone)
                  !===========================================================================
-                 if(npout>0)then
+                 ! 
+                 if(npout>0)then                                        ! if some particles get selected
                     do idim=1,ndim
                        do i=1,npout
-                          xp_out(ipout+i,idim)=posout(idim,i)/Lbox
-                          vp_out(ipout+i,idim)=velout(idim,i)
+                          xp_out(ipout+i,idim)=posout(idim,i)/Lbox      ! collect coordinate of selected particles
+                          vp_out(ipout+i,idim)=velout(idim,i)           ! collect velocities of selected particles
 #ifdef WITHPARTFORCE
-                          fpart_out(ipout+i,idim)=fpartout(idim,i)
+                          fpart_out(ipout+i,idim)=fpartout(idim,i)      ! collect the forces on selected particles
 #endif
 
                        end do
                     end do
                     do i=1,npout
-                       id_out(ipout+i)=idout(i)
+                       id_out(ipout+i)=idout(i)                         ! collect IDs of selected particles
                     end do
                     do i=1,npout
-                       zp_out(ipout+i)=zout(i)
+                       zp_out(ipout+i)=zout(i)                          ! collect redshifts of selected particles
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-                       pot_out(ipout+i)=potout(i)
+                       pot_out(ipout+i)=potout(i)                       ! collect potentials on selected particles
 #endif                    
-                   end do
+                    end do
                     ipout=ipout+npout
-                    npart_out=npart_out+npout
-                 endif
-                 ip=0
-              end if
-              if(ipout>=nstride)then
-                 if(.not.opened) then
+                    npart_out=npart_out+npout                           ! increment total number of selected particles
+                 endif                                                  ! if(npout>0)
+                 ip=0                                                   ! reset particle counter
+              end if                                                    ! if(ip.eq.nvector)
+              !
+              if(ipout.ge.nstride)then                                  ! reached size for writing into file (nstride)
+                 if(.not.opened) then                                   ! open file for writing if not already done so
                     open(ilun,file=TRIM(fileloc),form='unformatted')
                     rewind(ilun)  
-                    write(ilun)ncpu
-                    write(ilun)nstride
-                    write(ilun)npart
+                    write(ilun) ncpu
+                    write(ilun) nstride
+                    write(ilun) npart
                     opened=.true.
                  endif
+                 !
                  do idim=1,ndim
-                    write(ilun)xp_out(1:nstride,idim)
-                    write(ilun)vp_out(1:nstride,idim)
+                    write(ilun)xp_out(1:nstride,idim)                   ! write particle coordinates
+                    write(ilun)vp_out(1:nstride,idim)                   ! write particle velocities
                  end do
-                 write(ilun)zp_out(1:nstride)
-                 if (write_cone_idp) write(ilun)id_out(1:nstride)
+                 write(ilun)zp_out(1:nstride)                           ! write particle redshifts
+                 if(write_cone_idp) write(ilun) id_out(1:nstride)       ! write particle IDs
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-                 write(ilun)pot_out(1:nstride)
+                 write(ilun)pot_out(1:nstride)                          ! write particle potentials
 #endif                    
 #ifdef WITHPARTFORCE
                  do idim=1,ndim
-                    write(ilun)fpart_out(1:nstride,idim)
+                    write(ilun)fpart_out(1:nstride,idim)                ! write particle forces
                  end do
 #endif
-                 
-                 do idim=1,ndim
+                 ! there can be more particles than nstride; these are
+                 ! not wirtten right now and will be written later
+                 do idim=1,ndim                                         ! move unwritten particles forward in arrays
                     do i=1,ipout-nstride
-                       xp_out(i,idim)=xp_out(i+nstride,idim)
-                       vp_out(i,idim)=vp_out(i+nstride,idim)
+                       xp_out(i,idim)=xp_out(i+nstride,idim)            ! coordinates
+                       vp_out(i,idim)=vp_out(i+nstride,idim)            ! velocities
 #ifdef WITHPARTFORCE
-                       fpart_out(i,idim)=fpart_out(i+nstride,idim)
+                       fpart_out(i,idim)=fpart_out(i+nstride,idim)      ! forces
 #endif
                     end do
                  end do
                  do i=1,ipout-nstride
-                    id_out(i)=id_out(i+nstride)
+                    id_out(i)=id_out(i+nstride)                         ! particle IDs
                  end do
                  do i=1,ipout-nstride
-                    zp_out(i) =zp_out(i+nstride)
+                    zp_out(i) =zp_out(i+nstride)                        ! particle redshifts
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-                    pot_out(i)=pot_out(i+nstride)
+                    pot_out(i)=pot_out(i+nstride)                       ! particle potentials
 #endif                    
                  end do
-                 ipout=ipout-nstride
-              endif
+                 !
+                 ipout=ipout-nstride                                    ! reset quantity used to count particles
+              endif                                                     ! if(ipout.ge.nstride)
               ipart=nextp(ipart)  ! Go to next particle
            end do
            ! End loop over particles           
         end if
-        igrid=next(igrid)   ! Go to next grid
+        igrid=next(igrid)                                               ! go to next grid
      end do
      ! End loop over grids
 
-     if(ip>0)then
+     if(ip>0)then                                                       ! remaining particles on grids
         ! Lower left corner of 3x3x3 grid-cube
         do idim=1,ndim
            do i=1,ip
-              pos(idim,i)=xp(ind_part(i),idim)*Lbox
-              vel(idim,i)=vp(ind_part(i),idim)
+              pos(idim,i)=xp(ind_part(i),idim)*Lbox                     ! particle coordinates
+              vel(idim,i)=vp(ind_part(i),idim)                          ! particle velocities
 #ifdef WITHPARTFORCE
-              fparttab(idim,i)=fpart(ind_part(i),idim)
+              fparttab(idim,i)=fpart(ind_part(i),idim)                  ! particle force components
 #endif
               
            end do
         end do
         do i=1,ip
-           idtab(i) =idp(ind_part(i))
+           idtab(i) =idp(ind_part(i))                                   ! particle IDs
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-           pottab(i)=ptcl_phi(ind_part(i))
+           pottab(i)=ptcl_phi(ind_part(i))                              ! particle potential values
 #endif                    
         end do
         !===========================================================================
-        call perform_my_selection_simple(.false.,.false.,z1,z2, &
-             &                           om0in,omLin,hubin,Lbox, &
-             &                           observer,observer_redshift, &
-             &                           pos,vel,idtab,pottab,fparttab,ip, &
+        call perform_my_selection_simple(.false.,.false.,z1,z2,                                  &
+             &                           om0in,omLin,hubin,Lbox,                                 &
+             &                           observer,observer_redshift,                             &
+             &                           pos,vel,idtab,pottab,fparttab,ip,                       &
              &                           posout,velout,idout,zout,potout,fpartout,npout,.false., &
              &                           dist1cone, dist2cone, disttolcone)
         !===========================================================================
-        if(npout>0)then
+        if(npout>0)then                                                 ! some of these particle get selected
            do idim=1,ndim
               do i=1,npout
-                 xp_out(ipout+i,idim)=posout(idim,i)/Lbox
-                 vp_out(ipout+i,idim)=velout(idim,i)
+                 xp_out(ipout+i,idim)=posout(idim,i)/Lbox               ! collect coordinate of selected particles
+                 vp_out(ipout+i,idim)=velout(idim,i)                    ! collect velocities of selected particles
 #ifdef WITHPARTFORCE
-                 fpart_out(ipout+i,idim)=fpartout(idim,i)
+                 fpart_out(ipout+i,idim)=fpartout(idim,i)               ! collect the forces on selected particles
 #endif
               end do
            end do
            do i=1,npout
-              id_out(ipout+i)=idout(i)
+              id_out(ipout+i)=idout(i)                                  ! collect IDs of selected particles
            end do
            do i=1,npout
-              zp_out(ipout+i)=zout(i)
+              zp_out(ipout+i)=zout(i)                                   ! collect redshifts of selected particles
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-              pot_out(ipout+i)=potout(i)
+              pot_out(ipout+i)=potout(i)                                ! collect potentials on selected particles
 #endif                    
            end do
            ipout=ipout+npout
-           npart_out=npart_out+npout
-        endif
-     endif
-     if(ipout>=nstride)then
-        if(.not.opened) then
+           npart_out=npart_out+npout                                    ! increment total number of selected particles 
+        endif                                                           ! if(npout>0)
+     endif                                                              ! if(ip>0)
+     !
+     if(ipout>=nstride)then                                             ! reached size for writing into file (nstride)
+        if(.not.opened) then                                            ! open file for writing if not already done so
            open(ilun,file=TRIM(fileloc),form='unformatted')
            rewind(ilun)  
-           write(ilun)ncpu
-           write(ilun)nstride
-           write(ilun)npart
+           write(ilun) ncpu
+           write(ilun) nstride
+           write(ilun) npart
            opened=.true.
         endif
         do idim=1,ndim
-           write(ilun)xp_out(1:nstride,idim)
-           write(ilun)vp_out(1:nstride,idim)
+           write(ilun)xp_out(1:nstride,idim)                            ! write particle coordinates
+           write(ilun)vp_out(1:nstride,idim)                            ! write particle velocities
         end do        
-        write(ilun)zp_out(1:nstride)
-        if (write_cone_idp) write(ilun)id_out(1:nstride)
+        write(ilun)zp_out(1:nstride)                                    ! write particle redshifts
+        if (write_cone_idp) write(ilun)id_out(1:nstride)                ! write particle IDs
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-        write(ilun)pot_out(1:nstride)
+        write(ilun)pot_out(1:nstride)                                   ! write particle potentials
 #endif 
 #ifdef WITHPARTFORCE
         do idim=1,ndim
-           write(ilun)fpart_out(1:nstride,idim)
+           write(ilun)fpart_out(1:nstride,idim)                         ! write particle forces
         end do
 #endif
-        do idim=1,ndim
+        !
+        do idim=1,ndim                                                  ! move unwritten particles forward in arrays
            do i=1,ipout-nstride
-              xp_out(i,idim)=xp_out(i+nstride,idim)
-              vp_out(i,idim)=vp_out(i+nstride,idim)
-#ifdef WITHPARTFORCE
-              fpart_out(i,idim)=fpart_out(i+nstride,idim)
+              xp_out(i,idim)=xp_out(i+nstride,idim)                     ! coordinates
+              vp_out(i,idim)=vp_out(i+nstride,idim)                     ! velocities
+#ifdef WITHPARTFORCE 
+              fpart_out(i,idim)=fpart_out(i+nstride,idim)               ! forces
 #endif
            end do
         end do
         do i=1,ipout-nstride
-           id_out(i)=id_out(i+nstride)
+           id_out(i)=id_out(i+nstride)                                  ! IDs
         end do
         do i=1,ipout-nstride
-           zp_out(i) =zp_out(i+nstride)
+           zp_out(i) =zp_out(i+nstride)                                 ! redshifts
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-           pot_out(i)=pot_out(i+nstride)
+           pot_out(i)=pot_out(i+nstride)                                ! potential
 #endif                    
 
         end do
-        ipout=ipout-nstride
-     endif
+        ipout=ipout-nstride                                             ! reset quantity used to count particles
+     endif                                                              ! if(ipout>=nstride)
   end do
   ! End loop over cpus
 
-  if(ipout>0)then
+  if(ipout>0)then                                                       ! write additional particles which are not yet written
      if(.not.opened) then
         open(ilun,file=TRIM(fileloc),form='unformatted')
         rewind(ilun)  
-        write(ilun)ncpu
-        write(ilun)nstride
-        write(ilun)npart
+        write(ilun) ncpu
+        write(ilun) nstride
+        write(ilun) npart
         opened=.true.
      endif
      do idim=1,ndim
-        write(ilun)xp_out(1:ipout,idim)
-        write(ilun)vp_out(1:ipout,idim)
+        write(ilun)xp_out(1:ipout,idim)                                 ! coordinates
+        write(ilun)vp_out(1:ipout,idim)                                 ! velocities
      end do
-     write(ilun)zp_out(1:ipout)
-     if (write_cone_idp) write(ilun)id_out(1:ipout)
+     write(ilun)zp_out(1:ipout)                                         ! redshifts
+     if(write_cone_idp) write(ilun)id_out(1:ipout)                      ! IDs
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-     write(ilun)pot_out(1:ipout)
+     write(ilun)pot_out(1:ipout)                                        ! potentials
 #endif                    
 #ifdef WITHPARTFORCE
      do idim=1,ndim
-        write(ilun)fpart_out(1:ipout,idim)
+        write(ilun)fpart_out(1:ipout,idim)                              ! forces
      end do
 #endif 
-  endif
+  endif                                                                 ! if(ipout>0)
 
-  if(opened)close(ilun)
-  if (verbose)write(*,*)'cone_fullsky output=',myid,npart_out
+  if(opened) close(ilun)                                                ! close file after writing complete
+  if(verbose) write(*,*)'cone_fullsky output=',myid,npart_out
 
-  if(npart_out>0) then
+  if(npart_out>0) then                                                  ! write header
      fileloc=TRIM(filename)//TRIM(nchar)//'.hdr'
      open(ilun,file=TRIM(fileloc),form='unformatted')
      rewind(ilun)
-     write(ilun)ncpu
-     write(ilun)nstride
-     write(ilun)npart_out
+     write(ilun) ncpu
+     write(ilun) nstride
+     write(ilun) npart_out
      close(ilun)
-     if (reduce_infolocal(1).EQ.0) reduce_infolocal(1) = 1 ! modif V. REVERDY 2012
+     if(reduce_infolocal(1).eq.0) reduce_infolocal(1) = 1               ! VR 2012
   endif
-  if((opened.and.(npart_out==0)).or.((.not.opened).and.(npart_out>0))) then
+  !
+  if((opened.and.(npart_out.eq.0)).or.((.not.opened).and.(npart_out>0))) then
      write(*,*)'Error in output_cone_fullsky'
      write(*,*)'npart_out=',npart_out,'opened=',opened
      stop
   endif
 
   ! Send the token
-  if (conetoken) then
-    if(mod(myid,IOGROUPSIZECONE)/=0 .and.(myid.lt.ncpu))then
-      dummy_io=1
-      call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag, &
-           & MPI_COMM_WORLD,info)
-    end if
+  if(conetoken) then
+     if(mod(myid,IOGROUPSIZECONE).ne.0.and.(myid.lt.ncpu))then
+        dummy_io=1
+        call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag,MPI_COMM_WORLD,info)
+     end if
   endif
 
 !------------------ MODIF V. REVERDY 2011 ------------------!
   ! Reduce
   reduce_infolocal(2) = npart_out
-  call MPI_REDUCE(reduce_infolocal, reduce_infoglobal, 2, MPI_INTEGER8, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(reduce_infolocal,reduce_infoglobal,2,MPI_INTEGER8,MPI_SUM,0,MPI_COMM_WORLD,ierr)
   
   ! Write info file
-  if (myid.EQ.1) then
+  if (myid.eq.1) then
      if(cone_overlap)then
         aendconem2_info=aendconem2
         aendconem1_info=aendconem1
         aendcone_info=aendcone
         aexpold_info=aexp_old
-        if((use_aexp_restart).AND.(nstep_coarse_after_restart==2))aexpold_info=aexp_restart_light_cone !ry 14/02/2017
+        !
+        if((use_aexp_restart).and.(nstep_coarse_after_restart.eq.2)) aexpold_info=aexp_restart_light_cone ! RY 14/02/2017
         aexp_info=aexp
-        
-        zendconem2_info=1./aendconem2_info-1.
-        zendconem1_info=1./aendconem1_info-1.
-        zendcone_info  =1./aendcone_info-1.
-        zexpold_info=1./aexpold_info-1.
-        zexp_info=1./aexp-1.
-        
-
+        !
+        zendconem2_info=1.D0/aendconem2_info-1.D0
+        zendconem1_info=1.D0/aendconem1_info-1.D0
+        zendcone_info  =1.D0/aendcone_info-1.D0
+        zexpold_info=1.D0/aexpold_info-1.D0
+        zexp_info=1.D0/aexp-1.D0
+        !
         call init_cosmo_cone(om0in,omLin,hubin,Omega0,OmegaL,OmegaR,coverH0)
-        if (observer_redshift.GT.0) then
+        !
+        if(observer_redshift.gt.0) then
            dendconem2_info=((coord_distance(zendconem2_info,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0))/Lbox) ! in [0, 1]
            dendconem1_info=((coord_distance(zendconem1_info,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0))/Lbox) ! in [0, 1]
            dendcone_info  =((coord_distance(zendcone_info  ,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0))/Lbox) ! in [0, 1]
            dexpold_info   =((coord_distance(zexpold_info   ,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0))/Lbox) ! in [0, 1]
            dexp_info      =((coord_distance(zexp_info      ,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0))/Lbox) ! in [0, 1]
         else 
-           dendconem2_info=(coord_distance(zendconem2_info ,Omega0,OmegaL,OmegaR,coverH0)/Lbox)! in [0, 1]
+           dendconem2_info=(coord_distance(zendconem2_info ,Omega0,OmegaL,OmegaR,coverH0)/Lbox) ! in [0, 1]
            dendconem1_info=(coord_distance(zendconem1_info ,Omega0,OmegaL,OmegaR,coverH0)/Lbox) ! in [0, 1]
            dendcone_info  =(coord_distance(zendcone_info   ,Omega0,OmegaL,OmegaR,coverH0)/Lbox) ! in [0, 1]
            dexpold_info   =(coord_distance(zexpold_info    ,Omega0,OmegaL,OmegaR,coverH0)/Lbox) ! in [0, 1]
            dexp_info      =(coord_distance(zexp_info       ,Omega0,OmegaL,OmegaR,coverH0)/Lbox) ! in [0, 1]
         end if
      else
-        aendconem2_info=0.
-        aendconem1_info=0.
-        aendcone_info=0.
-        aexpold_info=0.
-        aexp_info=0.
-        zendconem2_info=0.
-        zendconem1_info=0.
-        zendcone_info=0.
-        zexpold_info=0.
-        zexp_info=0.
-        dendconem2_info=0.
-        dendconem1_info=0.
-        dendcone_info=0.
-        dexpold_info=0.
-        dexp_info=0.
+        aendconem2_info=0.D0
+        aendconem1_info=0.D0
+        aendcone_info=0.D0
+        aexpold_info=0.D0
+        aexp_info=0.D0
+        zendconem2_info=0.D0
+        zendconem1_info=0.D0
+        zendcone_info=0.D0
+        zexpold_info=0.D0
+        zexp_info=0.D0
+        dendconem2_info=0.D0
+        dendconem1_info=0.D0
+        dendcone_info=0.D0
+        dexpold_info=0.D0
+        dexp_info=0.D0
      endif
 
-
-  call write_infoconepart(npart_out, cone_id, cone_zmax, observer_x, observer_y, observer_z, observer_redshift, &
-               & 1./(z2+1.), 1./(z1+1.), z2, z1, dist2cone, dist1cone, disttolcone, &
-               & reduce_infoglobal, &
-               & is_fullsky, input_thetay, input_thetaz, input_theta, input_phi,&
-               aendconem2_info,aendconem1_info,aendcone_info,aexpold_info,aexp_info,&
-               zendconem2_info,zendconem1_info,zendcone_info,zexpold_info,zexp_info,&
-               dendconem2_info,dendconem1_info,dendcone_info,dexpold_info,dexp_info,&
-               future)
+     call write_infoconepart(npart_out,cone_id,cone_zmax,observer_x,observer_y,observer_z,observer_redshift, &
+               & 1.D0/(z2+1.D0),1.D0/(z1+1.D0),z2,z1,dist2cone,dist1cone,disttolcone,                        &
+               & reduce_infoglobal,                                                                          &
+               & is_fullsky,input_thetay,input_thetaz,input_theta,input_phi,                                 &
+               & aendconem2_info,aendconem1_info,aendcone_info,aexpold_info,aexp_info,                       &
+               & zendconem2_info,zendconem1_info,zendcone_info,zexpold_info,zexp_info,                       &
+               & dendconem2_info,dendconem1_info,dendcone_info,dexpold_info,dexp_info,                       &
+               & future)
   end if
 !-----------------------------------------------------------!
 
@@ -532,12 +530,12 @@ end subroutine output_cone_fullsky
 
 
 !===========================================================================
-subroutine perform_my_selection_simple(onlydist,justcount,z1,z2, &
-     &                                om0in,omLin,hubin,Lbox, &
-     &                                observer,observer_redshift, &
-     &                                pos,vel,idtab,pottab,fparttab,npart, &
-     &                                posout,velout,idout,zout,potout,fpartout,npartout,verbose, &
-     &                                dist1cone, dist2cone, disttolcone)
+subroutine perform_my_selection_simple(onlydist,justcount,z1,z2,                                  &
+     &                                 om0in,omLin,hubin,Lbox,                                    &
+     &                                 observer,observer_redshift,                                &
+     &                                 pos,vel,idtab,pottab,fparttab,npart,                       &
+     &                                 posout,velout,idout,zout,potout,fpartout,npartout,verbose, &
+     &                                 dist1cone,dist2cone,disttolcone)
   !===========================================================================
   ! All the quantities below are real*8 except
   !      juscount : logical
@@ -607,7 +605,7 @@ subroutine perform_my_selection_simple(onlydist,justcount,z1,z2, &
   real(sp) :: fpartout(3,27*nvector)
   real(kind=8) :: coord_distance  
   real(kind=8) :: dist1,dist2
-  real(kind=8) :: dist1cone, dist2cone, disttolcone ! modif V. REVERDY 2012
+  real(kind=8) :: dist1cone,dist2cone,disttolcone ! modif V. REVERDY 2012
   real(kind=8) :: xcoord,ycoord,zcoord
   real(kind=8) :: dist,dxtest1,dxtest2,facnorm
   integer :: nrepxm,nrepxp,nrepym,nrepyp,nrepzm,nrepzp
@@ -617,86 +615,88 @@ subroutine perform_my_selection_simple(onlydist,justcount,z1,z2, &
   real(kind=8)::observer_redshift ! V. REVERDY
   if (verbose) write(*,*) 'Enter perform_my_selection_simple'
   
-  ! Initialize cosmological parameters
+  ! initialize cosmological parameters
   call init_cosmo_cone(om0in,omLin,hubin,Omega0,OmegaL,OmegaR,coverH0)
   
-  if (verbose) write(*,*) 'After init_cosmo',Omega0,OmegaL,OmegaR,coverH0
-
+  if(verbose) write(*,*) 'After init_cosmo',Omega0,OmegaL,OmegaR,coverH0
   
-  ! Compute comoving distance of the photon planes from the observer
+  ! compute comoving distance of the photon planes from the observer
   ! dist1,dist2=integral of c.dt/a between zero and z1,z2
-  !dist1=coord_distance(z1,Omega0,OmegaL,OmegaR,coverH0) ! V. REVERDY
-  !dist2=coord_distance(z2,Omega0,OmegaL,OmegaR,coverH0) ! V. REVERDY
-  if (observer_redshift.GT.0) then
-    dist1=coord_distance(z1,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0) ! V. REVERDY
-    dist2=coord_distance(z2,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0) ! V. REVERDY
+  ! dist1=coord_distance(z1,Omega0,OmegaL,OmegaR,coverH0) ! VR
+  ! dist2=coord_distance(z2,Omega0,OmegaL,OmegaR,coverH0) ! VR
+  if(observer_redshift.gt.0) then
+     dist1=coord_distance(z1,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0) ! VR
+     dist2=coord_distance(z2,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0) ! VR
   else 
-    dist1=coord_distance(z1,Omega0,OmegaL,OmegaR,coverH0) ! V. REVERDY
-    dist2=coord_distance(z2,Omega0,OmegaL,OmegaR,coverH0) ! V. REVERDY
+     dist1=coord_distance(z1,Omega0,OmegaL,OmegaR,coverH0) ! VR
+     dist2=coord_distance(z2,Omega0,OmegaL,OmegaR,coverH0) ! VR
   end if
-  dist1cone = dist1/Lbox
-  dist2cone = dist2/Lbox
+  !
+  dist1cone=dist1/Lbox                                                  ! convert to code unit (dimensionless)
+  dist2cone=dist2/Lbox                                                  ! convert to code unit (dimensionless)
   
-  if (verbose) write(*,*) 'After coord',dist1,dist2
+  if(verbose) write(*,*) 'After coord',dist1,dist2
 
-  if (.NOT.onlydist) then
-     ! Compute how many replica are needed
-     nrepxm=myint((observer(1)-dist2)/Lbox)
-     nrepxp=myint((observer(1)+dist2)/Lbox)
-     nrepym=myint((observer(2)-dist2)/Lbox)
-     nrepyp=myint((observer(2)+dist2)/Lbox)
-     nrepzm=myint((observer(3)-dist2)/Lbox)
-     nrepzp=myint((observer(3)+dist2)/Lbox)
-  
-     facnorm=1.0d0/(dist2-dist1)
-  
-     npartcount=0   
-     if (verbose) write(*,*) 'before loop',facnorm
+  if(.not.onlydist) then
+     ! compute how many replica are needed by finding a 
+     ! cube containing both the whole shell and oberver
+     nrepxm=myint((observer(1)-dist2)/Lbox)                             ! number of cubes needed from oberver to left
+     nrepxp=myint((observer(1)+dist2)/Lbox)                             ! number of cubes needed from oberver to right
+     nrepym=myint((observer(2)-dist2)/Lbox)                             ! number of cubes needed from oberver to front
+     nrepyp=myint((observer(2)+dist2)/Lbox)                             ! number of cubes needed from oberver to back
+     nrepzm=myint((observer(3)-dist2)/Lbox)                             ! number of cubes needed from oberver to top
+     nrepzp=myint((observer(3)+dist2)/Lbox)                             ! number of cubes needed from oberver to bottom
+     !
+     facnorm=1.0d0/(dist2-dist1)                                        ! inverse thickness of shell
+
+     npartcount=0                                                       ! initialise count of selected particles
+     !   
+     if(verbose) write(*,*) 'before loop',facnorm
      ! loop on all the replica of potential interest
      do k=nrepzm,nrepzp,1
         do j=nrepym,nrepyp,1
            do i=nrepxm,nrepxp,1
               do np=1,npart
-                 xcoord=pos(1,np)+Lbox*dble(i)-observer(1)
-                 ycoord=pos(2,np)+Lbox*dble(j)-observer(2)
-                 zcoord=pos(3,np)+Lbox*dble(k)-observer(3)
-              
-                 dist=sqrt(xcoord**2+ycoord**2+zcoord**2)
-                 if (dist > dist1 .and. dist <= dist2) then
-
-                    ! This particle is good, we can add it to the list
-                    npartcount=npartcount+1
-                                  
-                    posout(1,npartcount)=xcoord
-                    posout(2,npartcount)=ycoord
-                    posout(3,npartcount)=zcoord
-                    velout(1,npartcount)=vel(1,np)
-                    velout(2,npartcount)=vel(2,np)
-                    velout(3,npartcount)=vel(3,np)
-                    idout (npartcount)=idtab(np)
+                 xcoord=pos(1,np)+Lbox*dble(i)-observer(1)              ! x distance between particles and observer in Mpc
+                 ycoord=pos(2,np)+Lbox*dble(j)-observer(2)              ! y distance between particles and observer in Mpc
+                 zcoord=pos(3,np)+Lbox*dble(k)-observer(3)              ! z distance between particles and observer in Mpc
+                 ! 
+                 dist=dsqrt(xcoord**2+ycoord**2+zcoord**2)              ! distance between particles and observer in Mpc
+                 if(dist>dist1.and.dist<=dist2) then                    ! select partice if in shell
+                    ! this particle is good, we can add it to the list
+                    npartcount=npartcount+1                             ! incremennt particle count
+                    !              
+                    posout(1,npartcount)=xcoord                         ! particle x coordinate in Mpc
+                    posout(2,npartcount)=ycoord                         ! particle y coordinate in Mpc
+                    posout(3,npartcount)=zcoord                         ! particle z coordinate in Mpc
+                    velout(1,npartcount)=vel(1,np)                      ! particle x velocity
+                    velout(2,npartcount)=vel(2,np)                      ! particle y velocity
+                    velout(3,npartcount)=vel(3,np)                      ! particle z velocity
+                    idout(npartcount)=idtab(np)                         ! particle ID
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-                    potout(npartcount)=pottab(np)
+                    potout(npartcount)=pottab(np)                       ! particle potential
 #endif        
 #ifdef WITHPARTFORCE
-                    fpartout(1,npartcount)=fparttab(1,np)
-                    fpartout(2,npartcount)=fparttab(2,np)
-                    fpartout(3,npartcount)=fparttab(3,np)     
+                    fpartout(1,npartcount)=fparttab(1,np)               ! particle x force
+                    fpartout(2,npartcount)=fparttab(2,np)               ! particle y force
+                    fpartout(3,npartcount)=fparttab(3,np)               ! particle z force     
 #endif    
-                    
-                    ! Compute the redshift of the particle using linear
-                    ! interpolation
+                    ! compute redshift of particle by linear interpolation
                     dxtest1=dist-dist1
                     dxtest2=dist2-dist
-                    zout(npartcount)=(dxtest1*z2+dxtest2*z1)*facnorm
+                    zout(npartcount)=(dxtest1*z2+dxtest2*z1)*facnorm    ! particle redshift
                     
                  endif
               enddo
-           enddo
+           enddo                                                        ! do np=1,npart
         enddo
      enddo
      npartout=npartcount
+     !
   endif
-  if (verbose) write(*,*) 'End of perform_my_selection_simple',npartout
+  !
+  if(verbose) write(*,*) 'End of perform_my_selection_simple',npartout
+
 end subroutine perform_my_selection_simple
 
 !=======================================================================
@@ -707,7 +707,7 @@ function myint(x)
   real(kind=8) :: x
   integer :: myint
 
-  if (x >= 0.0d0) then
+  if(x.ge.0.0D0) then
      myint=int(x)
   else
      myint=int(x)-1
@@ -879,7 +879,6 @@ subroutine part2map_ramses(proj,nx,ny,xmin,xmax,ymin,ymax,zmin,zmax,periodic,fil
   endif
 #endif   
 
-
   !Gather and write file
   if(periodic)then
      nx_final=nx
@@ -929,9 +928,19 @@ subroutine part2map_ramses(proj,nx,ny,xmin,xmax,ymin,ymax,zmin,zmax,periodic,fil
  
 end subroutine part2map_ramses
 
+!---------------------------------------------------------!
+!---------------------------------------------------------!
+! This subroutine samples particles in a specified  cube by
+! user by providing minimum and maximum x, y, z coordinates
+!
+! It writes a particle into file as soon as it is selected,
+! rather than waiting for reaching some certain batch size.
+!---------------------------------------------------------!
 subroutine extract_sample(xmin,xmax,ymin,ymax,zmin,zmax,nsample,filename)
-  use amr_commons,ONLY:myid,next,headl,numbl,levelmin,ncpu,dp,sp,verbose,nstride,ndim,aexp,i8b,i4b,iogroupsize,sampletoken,IOGROUPSIZESAMPLE,write_sample_idp,adaptive_iogroupsize
-  use pm_commons,ONLY:xp,vp,mp,idp,nextp,headp,numbp,npart
+  use amr_commons,ONLY : myid,next,headl,numbl,levelmin,ncpu,dp,sp,verbose, &
+                       & nstride,ndim,aexp,i8b,i4b,iogroupsize,sampletoken,
+                       & IOGROUPSIZESAMPLE,write_sample_idp,adaptive_iogroupsize
+  use pm_commons, ONLY : xp,vp,mp,idp,nextp,headp,numbp,npart
   use mpi
 
   implicit none
@@ -951,202 +960,191 @@ subroutine extract_sample(xmin,xmax,ymin,ymax,zmin,zmax,nsample,filename)
   integer::icpu,igrid,jgrid,ilevel,ipart,jpart,idim,jdim,ip,i
   integer::ierr
   logical::opened
- !------------------ MODIF V. REVERDY 2012 ------------------! 
+ !------------------------- RV 2012 ------------------------! 
   integer(kind=8),dimension(1:nstride)::idp_out
   integer(kind=8),dimension(1:2)::reduce_infolocal
   integer(kind=8),dimension(1:2)::reduce_infoglobal
   real(kind=8)::iovolume
+  !
   opened=.false.
   reduce_infolocal = 0
   reduce_infoglobal = 0
-!------------------ MODIF V. REVERDY 2012 ------------------! 
+!-------------------------- RV 2012 ------------------------! 
 
 #ifndef WITHOUTMPI
-  if(myid==1) then
+  if(myid.eq.1) then
 #endif 
   if(verbose) then
-     write(*,*)'Entering extract_sample with parameters'
-     write(*,*)'nsample     =',nsample
-     write(*,*)'xrange      =',xmin,xmax
-     write(*,*)'yrange      =',ymin,ymax
-     write(*,*)'zrange      =',zmin,zmax
+     write(*,*) 'Entering extract_sample with parameters'
+     write(*,*) 'nsample     =',nsample
+     write(*,*) 'xrange      =',xmin,xmax
+     write(*,*) 'yrange      =',ymin,ymax
+     write(*,*) 'zrange      =',zmin,zmax
   endif
 #ifndef WITHOUTMPI   
   endif
 #endif   
 
-  iovolume = (ABS(xmax-xmin)*ABS(ymax-ymin)*ABS(zmax-zmin))
-  if (adaptive_iogroupsize) IOGROUPSIZESAMPLE = nint(iovolume*real(IOGROUPSIZE, kind=8))
-  if (IOGROUPSIZESAMPLE .LE. 1) IOGROUPSIZESAMPLE = 1
-  if (IOGROUPSIZESAMPLE .GE. IOGROUPSIZE) IOGROUPSIZESAMPLE = IOGROUPSIZE
-  if (verbose) write(*,*) 'IOGROUPSIZESAMPLE = ',IOGROUPSIZESAMPLE, 'iovolume = ', iovolume
+  iovolume=(dabs(xmax-xmin)*dabs(ymax-ymin)*dabs(zmax-zmin))
+  if(adaptive_iogroupsize) IOGROUPSIZESAMPLE = nint(iovolume*real(IOGROUPSIZE, KIND=8))
+  if(IOGROUPSIZESAMPLE.le.1) IOGROUPSIZESAMPLE=1
+  if(IOGROUPSIZESAMPLE.ge.IOGROUPSIZE) IOGROUPSIZESAMPLE=IOGROUPSIZE
+  if(verbose) write(*,*) 'IOGROUPSIZESAMPLE = ',IOGROUPSIZESAMPLE,'iovolume = ',iovolume
 
-   ! Wait for the token
-  if (sampletoken) then
-    if (mod(myid-1,IOGROUPSIZESAMPLE)/=0) then
-      call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
-                  & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info)
+  ! Wait for the token
+  if(sampletoken) then
+    if(mod(myid-1,IOGROUPSIZESAMPLE).ne.0) then
+      call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE,info)
     end if
   endif
-
    
-  !!!!Note: Do I have to declare ipart as a integer(8) for big run??? 
+  !!!!NOTE: Do I have to declare ipart as a integer(8) for big run??? 
 
-  !Select particles and write them in file
-  ilun=3*ncpu+myid+10
-  call title(myid,nchar)
-  fileloc=TRIM(filename)//TRIM(nchar)//'.dat'
+  ! select particles and write them in file
+  ilun=3*ncpu+myid+10                                                   ! file handler
+  call title(myid,nchar)                                                ! create file name
+  fileloc=TRIM(filename)//TRIM(nchar)//'.dat'                           ! create file name
   
-  !!!Open only if npart selected gt 0
-  !open(ilun,file=TRIM(fileloc),form='unformatted')
-  !rewind(ilun)
-  !write(ilun)ncpu
-  !write(ilun)nstride
-  !write(ilun)npart
- 
-  npart_out=0
+  npart_out=0                                                           ! total number of selected particles
   ilevel=levelmin
   ip=0
   ! Loop over cpus
   do icpu=1,ncpu
      ! Loop over grids
-     igrid=headl(icpu,ilevel)   
+     igrid=headl(icpu,ilevel)                                           ! first grid on CPU  
      do jgrid=1,numbl(icpu,ilevel)
-        npart1=numbp(igrid)  ! Number of particles in the grid
+        npart1=numbp(igrid)                                             ! number of particles in the grid
         if(npart1>0)then
-           ipart=headp(igrid)
+           ipart=headp(igrid)                                           ! first particle in the grid
            do jpart=1,npart1
               !Selection particle ipart
-              ok_part=(xp(ipart,1)>=xmin.and.xp(ipart,1)<=xmax.and. &
-                   &   xp(ipart,2)>=ymin.and.xp(ipart,2)<=ymax.and. &
-                   &   xp(ipart,3)>=zmin.and.xp(ipart,3)<=zmax.and. &
-                   &   mod(idp(ipart),int(nsample,kind=i8b))==0) !Note: A better sampling method would be with a random generator
-              if(ok_part)then
-                 ip=ip+1
-                 ind_part(ip)=ipart
-                 if(ip==nstride)then
+              ok_part = &
+                  &(xp(ipart,1).ge.xmin.and.xp(ipart,1).le.xmax.and. &  ! particle in desired x range
+                  & xp(ipart,2).ge.ymin.and.xp(ipart,2).le.ymax.and. &  ! particle in desired y range
+                  & xp(ipart,3).ge.zmin.and.xp(ipart,3).le.zmax.and. &  ! particle in desired z range
+                  &  mod(idp(ipart),int(nsample,kind=i8b))==0)          ! downsample particles      
+                                                                        ! NOTE: a better sampling method would be with a random generator
+              if(ok_part) then
+                 ip=ip+1                                                ! increment number of selected particles 
+                 ind_part(ip)=ipart                                     ! gather global particle ID and store in ind_part
+                 if(ip.eq.nstride)then
                     do idim=1,ndim
                        do i=1,ip
-                          xp_out(i,idim)=real(xp(ind_part(i),idim),kind=sp)
-                          vp_out(i,idim)=real(vp(ind_part(i),idim),kind=sp)
+                          xp_out(i,idim)=real(xp(ind_part(i),idim),kind=sp) ! particle coordinates
+                          vp_out(i,idim)=real(vp(ind_part(i),idim),kind=sp) ! particle velocities
                        end do
                     end do
                     do i=1,ip
-                       idp_out(i)=idp(ind_part(i))
+                       idp_out(i)=idp(ind_part(i))                      ! particle ID
                     end do
-                    if(.not.opened) then
+                    if(.not.opened) then                                ! open file for writing if not already
                        open(ilun,file=TRIM(fileloc),form='unformatted')
                        rewind(ilun)  
-                       write(ilun)ncpu
-                       write(ilun)nstride
-                       write(ilun)npart
+                       write(ilun) ncpu
+                       write(ilun) nstride
+                       write(ilun) npart
                        opened=.true.
                     endif
                     do idim=1,ndim
-                       write(ilun)xp_out(1:nstride,idim)
-                       write(ilun)vp_out(1:nstride,idim)
+                       write(ilun) xp_out(1:nstride,idim)               ! write particle coordinates
+                       write(ilun) vp_out(1:nstride,idim)               ! write particle velocities
                     end do
-                    if (write_sample_idp) write(ilun)idp_out(1:nstride)
+                    if (write_sample_idp) write(ilun)idp_out(1:nstride) ! write particle IDs
                     ip=0
                  endif
-                 
-                 npart_out=npart_out+1
-              endif
-              !End selection particle ipart
-              
-              ipart=nextp(ipart) ! Go to next particle
-           end do
-           ! End loop over particles    
+                 !
+                 npart_out=npart_out+1                                  ! increment total number of selected particles
+              endif                                                     ! if(ok_part)
+              !
+              ipart=nextp(ipart)                                        ! go to next particle
+           end do                                                       ! end loop over particles    
+           !
         end if
-        igrid=next(igrid)   ! Go to next grid
-     end do
-     ! End loop over grids
-  end do
-  ! End loop over cpus
-  
-
-  if(ip>0) then
+        !
+        igrid=next(igrid)                                               ! go to next grid
+     end do                                                             ! end loop over grids
+     !
+  end do                                                                ! end loop over cpus
+  !
+  if(ip>0) then                                                         ! gather and write additional particles
      do idim=1,ndim
         do i=1,ip
-           xp_out(i,idim)=real(xp(ind_part(i),idim),kind=sp)
-           vp_out(i,idim)=real(vp(ind_part(i),idim),kind=sp)
+           xp_out(i,idim)=real(xp(ind_part(i),idim),kind=sp)            ! particle coordinates
+           vp_out(i,idim)=real(vp(ind_part(i),idim),kind=sp)            ! particle velocities
         end do
      end do
      do i=1,ip
-        idp_out(i)=idp(ind_part(i))
+        idp_out(i)=idp(ind_part(i))                                     ! particle IDs
      end do
-     if(.not.opened) then
+     if(.not.opened) then                                               ! open file for writing if not yet
         open(ilun,file=TRIM(fileloc),form='unformatted')
         rewind(ilun)  
-        write(ilun)ncpu
-        write(ilun)nstride
-        write(ilun)npart
+        write(ilun) ncpu
+        write(ilun) nstride
+        write(ilun) npart
         opened=.true.
      endif
      do idim=1,ndim
-        write(ilun)xp_out(1:ip,idim)
-        write(ilun)vp_out(1:ip,idim)
-     end do
-     if(write_sample_idp) write(ilun)idp_out(1:ip)
-  endif
+        write(ilun) xp_out(1:ip,idim)                                   ! write particle coorindates
+        write(ilun) vp_out(1:ip,idim)                                   ! write particle velocities
+     end do 
+     if(write_sample_idp) write(ilun)idp_out(1:ip)                      ! write particle IDs
+  endif                                                                 ! if(ip>0)
   
-  if(opened)close(ilun)
-
- 
-  !if (verbose)then
-  !   write(*,*)'Proc',myid
-  !   write(*,*)'Selected',npart_out,' particles'
-  !endif
- 
+  if(opened) close(ilun)                                                ! close file after writing
+  !
   if(npart_out>0) then
      fileloc=TRIM(filename)//TRIM(nchar)//'.hdr'
      open(ilun,file=TRIM(fileloc),form='unformatted')
      rewind(ilun)
-     write(ilun)ncpu
-     write(ilun)nstride
-     write(ilun)npart_out
-     write(ilun)aexp
+     write(ilun) ncpu
+     write(ilun) nstride
+     write(ilun) npart_out
+     write(ilun) aexp
      close(ilun)
-     if (reduce_infolocal(1).EQ.0) reduce_infolocal(1) = 1 ! modif V. REVERDY 2012
+     if(reduce_infolocal(1).eq.0) reduce_infolocal(1)=1                 ! VR 2012
   endif
   
 #ifndef WITHOUTMPI
-  if(myid==1) then
+  if(myid.eq.1) then
 #endif 
-     if(verbose)write(*,*)'Extract_sample completed'
+     if(verbose) write(*,*)'Extract_sample completed'
 #ifndef WITHOUTMPI   
   endif
 #endif   
 
-  if((opened.and.(npart_out==0)).or.((.not.opened).and.(npart_out>0))) then
-     write(*,*)'Error in extract_sample'
-     write(*,*)'npart_out=',npart_out,'opened=',opened
+  if((opened.and.(npart_out.eq.0)).or.((.not.opened).and.(npart_out>0))) then
+     write(*,*) 'Error in extract_sample'
+     write(*,*) 'npart_out=',npart_out,'opened=',opened
      stop
   endif
 
-  ! Send the token
-  if (sampletoken) then
-    if(mod(myid,IOGROUPSIZESAMPLE)/=0 .and.(myid.lt.ncpu))then
-       dummy_io=1
-       call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag, &
-            & MPI_COMM_WORLD,info)
-    end if
+  ! send the token
+  if(sampletoken) then
+     if(mod(myid,IOGROUPSIZESAMPLE)/=0 .and.(myid.lt.ncpu))then
+        dummy_io=1
+        call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag,MPI_COMM_WORLD,info)
+     end if
   endif
 
-!------------------ MODIF V. REVERDY 2012 ------------------! 
-  ! Write info file
-  reduce_infolocal(2) = npart_out
-  call MPI_REDUCE(reduce_infolocal, reduce_infoglobal, 2, MPI_INTEGER8, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  ! Write info file
-  if (myid.EQ.1) then
-    call write_infosamplepart(npart_out, aexp, &
-                            & xmin, xmax, ymin, ymax, zmin, zmax, &
+!------------------------- RV 2012 -------------------------! 
+  ! write info file
+  reduce_infolocal(2)=npart_out
+  call MPI_REDUCE(reduce_infolocal,reduce_infoglobal,2,MPI_INTEGER8,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+  ! write info file
+  if (myid.eq.1) then
+    call write_infosamplepart(npart_out,aexp,                &
+                            & xmin,xmax,ymin,ymax,zmin,zmax, &
                             & reduce_infoglobal)
   end if
-!------------------ MODIF V. REVERDY 2012 ------------------! 
+!------------------------- RV 2012 -------------------------! 
   
 end subroutine extract_sample
 
+!---------------------------------------------------------!
+!---------------------------------------------------------!
+!
+!---------------------------------------------------------!
 subroutine output_cone(filename,cone_id,future) ! NOT DEFAULT RAMSES' LC!
   use amr_commons
   use pm_commons
@@ -1189,7 +1187,7 @@ subroutine output_cone(filename,cone_id,future) ! NOT DEFAULT RAMSES' LC!
   integer:: future
   real(kind=8)::dist1cone, dist2cone,disttolcone
   integer::ierr
-   ! aexp for info file
+  ! aexp for info file
   real(kind=8)::aendconem2_info,aendconem1_info,aendcone_info,aexpold_info,aexp_info
   !aendconem* -> expansion factor for end of the shell
   !the end of previous shell and the end of previous previous shell (which is the begining of the current shell)
@@ -1204,36 +1202,35 @@ subroutine output_cone(filename,cone_id,future) ! NOT DEFAULT RAMSES' LC!
   integer::cone_id
   real(kind=8)::iovolume
   
-  
   iovolume = 1.D0
 
   opened=.false.
-  reduce_infolocal = 0
-  reduce_infoglobal = 0
-  dist1cone = 0.D0
-  dist2cone = 0.D0
+  reduce_infolocal=0
+  reduce_infoglobal=0
+  dist1cone=0.D0
+  dist2cone=0.D0
   ierr=0
   
   if(nstep_coarse.lt.4)return
   if(verbose)write(*,*)'Entering output_part'
   
-  z2=1./aexp_old-1.
-  z1=1./aexp-1.
-  if((use_aexp_restart).AND.(nstep_coarse_after_restart==2)) z2=1./aexp_restart_light_cone-1. !ry put it at this position 14/02/2017 (previously it was after)
+  z2=1.0D0/aexp_old-1.0D0
+  z1=1.0D0/aexp    -1.0D0
+  if(use_aexp_restart.and.(nstep_coarse_after_restart.eq.2)) z2=1.D0/aexp_restart_light_cone-1.D0 ! RY put it at this position 14/02/2017 (previously it was after)
 
   if(cone_overlap) then
-     if((aendconem1.lt.aendconem2).or.(aendcone.lt.aendconem1))print*,'WARNING CONE SHELL RANGE NOT WELL ORDERED, AEXP ',aendconem2,aendconem1,aendcone 
-     if(future==1) then
-        z2=1./aendconem1-1.
-        z1=1./aendcone-1.
-     else if (future==-1) then
-        z2=1./aendconem2-1.
-        z1=1./aendconem1-1.
+     if((aendconem1.lt.aendconem2).or.(aendcone.lt.aendconem1)) print*,'WARNING CONE SHELL RANGE NOT WELL ORDERED, AEXP ',aendconem2,aendconem1,aendcone 
+     if(future.eq.1) then
+        z2=1.0D0/aendconem1-1.0D0
+        z1=1.0D0/aendcone  -1.0D0
+     else if(future.eq.-1) then
+        z2=1.0D0/aendconem2-1.0D0
+        z1=1.0D0/aendconem1-1.0D0
      else
         print*,'not implemented cone part future=',future
         stop
      endif
-     if (myid==1) then
+     if(myid.eq.1) then
         print*,''
         print*,'TEST CONE PART LIMIT'
         print*,'nstepcoarse,z2,z1',nstep_coarse,z2,z1
@@ -1241,69 +1238,47 @@ subroutine output_cone(filename,cone_id,future) ! NOT DEFAULT RAMSES' LC!
         print*,''
      endif
   endif
-  
-
-
-
 
   !zmax_cone=7.
-  if(z2.gt.conenarrow_zmax(cone_id))return
-  if(abs(z2-z1)<1d-6)return
+  if(z2.gt.conenarrow_zmax(cone_id)) return
+  if(dabs(z2-z1)<1d-6) return
 
+  theta =conenarrow_theta (cone_id)                                     ! angular coordinate of cone centre
+  phi   =conenarrow_phi   (cone_id)                                     ! angular coordinate of cone cnetre
+  thetay=conenarrow_thetay(cone_id)                                     ! opening angle of cone
+  thetaz=conenarrow_thetaz(cone_id)                                     ! opening angle
 
+  om0in=omega_m                                                         ! Omega_m
+  omLin=omega_l                                                         ! Omega_Lambda
+  hubin=h0/100.0D0                                                      ! h
+  Lbox=boxlen_ini/hubin                                                 ! box size in Mpc
+  !
+  observer(1) = Lbox*conenarrow_observer_x(cone_id)                     ! observer x coordinate (VR)
+  observer(2) = Lbox*conenarrow_observer_y(cone_id)                     ! observer y coordinate (VR)
+  observer(3) = Lbox*conenarrow_observer_z(cone_id)                     ! observer z coordinate (VR)
 
-  theta=conenarrow_theta(cone_id)
-  phi=conenarrow_phi(cone_id)
-  !theta=25.
-  !phi=17.
-  !thetay=12.5
-  !thetaz=12.5
-  thetay=conenarrow_thetay(cone_id)
-  thetaz=conenarrow_thetaz(cone_id)
-  om0in=omega_m
-  omLin=omega_l
-  hubin=h0/100.
-  Lbox=boxlen_ini/hubin
-  !observer=(/Lbox/2.0,Lbox/2.0,Lbox/2.0/)
-  observer(1) = Lbox*conenarrow_observer_x(cone_id) ! V. REVERDY
-  observer(2) = Lbox*conenarrow_observer_y(cone_id) ! V. REVERDY
-  observer(3) = Lbox*conenarrow_observer_z(cone_id) ! V. REVERDY
-
-
-
-  ! Compute iogroupsize
-  call perform_my_selection_simple(.true.,.false.,z1,z2, &
-       &                           om0in,omLin,hubin,Lbox, &
-       &                           observer,conenarrow_observer_redshift(cone_id), &
-       &                           pos,vel,idtab,pottab,fparttab,ip, &
+  ! compute iogroupsize
+  call perform_my_selection_simple(.true.,.false.,z1,z2,                                   &
+       &                           om0in,omLin,hubin,Lbox,                                 &
+       &                           observer,conenarrow_observer_redshift(cone_id),         &
+       &                           pos,vel,idtab,pottab,fparttab,ip,                       &
        &                           posout,velout,idout,zout,potout,fpartout,npout,.false., &
-       &                           dist1cone, dist2cone, disttolcone)
-  iovolume = ((2.0D0*dist2cone)**3.0D0)-(((2.D0*dist1cone)/SQRT(real(ndim,kind=8)))**3.0D0)
+       &                           dist1cone,dist2cone,disttolcone)
+  iovolume = ((2.0D0*dist2cone)**3)-(((2.D0*dist1cone)/dsqrt(real(ndim,kind=8)))**3)
   iovolume = iovolume*(conenarrow_thetay(cone_id)*conenarrow_thetaz(cone_id))/(41263.D0)
-  if (adaptive_iogroupsize) IOGROUPSIZECONE = nint(iovolume*real(IOGROUPSIZE, kind=8))
-  if (IOGROUPSIZECONE .LE. 1) IOGROUPSIZECONE = 1
-  if (IOGROUPSIZECONE .GE. IOGROUPSIZE) IOGROUPSIZECONE = IOGROUPSIZE
-  if (verbose) write(*,*) cone_id, 'IOGROUPSIZECONE = ',IOGROUPSIZECONE, 'iovolume = ', iovolume
+  if(adaptive_iogroupsize) IOGROUPSIZECONE=nint(iovolume*real(IOGROUPSIZE,kind=8))
+  if(IOGROUPSIZECONE.le.1) IOGROUPSIZECONE=1
+  if(IOGROUPSIZECONE.ge.IOGROUPSIZE) IOGROUPSIZECONE=IOGROUPSIZE
+  if(verbose) write(*,*) cone_id, 'IOGROUPSIZECONE = ',IOGROUPSIZECONE, 'iovolume = ', iovolume
   
-
-
-   ! Wait for the token
-  if (mod(myid-1,IOGROUPSIZE)/=0) then
-    call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
-                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info)
+  ! wait for the token
+  if(mod(myid-1,IOGROUPSIZE).ne.0) then
+     call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE,info)
   end if
 
-  ilun=3*ncpu+myid+10
-  
-  call title(myid,nchar)
-  fileloc=TRIM(filename)//TRIM(nchar)//'.dat'
-
-!Open only if npart selected gt 0
-!  open(ilun,file=TRIM(fileloc),form='unformatted')
-!  rewind(ilun)
-!  write(ilun)ncpu
-!  write(ilun)nstride
-!  write(ilun)npart
+  ilun=3*ncpu+myid+10                                                   ! file handler
+  call title(myid,nchar)                                                ! create file name
+  fileloc=TRIM(filename)//TRIM(nchar)//'.dat'                           ! create file name
 
   npart_out=0
   ipout=0
@@ -1312,274 +1287,282 @@ subroutine output_cone(filename,cone_id,future) ! NOT DEFAULT RAMSES' LC!
   ! Loop over cpus
   do icpu=1,ncpu
      ! Loop over grids
-     igrid=headl(icpu,ilevel)
-     ip=0   
+     igrid=headl(icpu,ilevel)                                           ! first grid on CPU
+     ip=0                                                               ! initialise particle counter
      do jgrid=1,numbl(icpu,ilevel)
-        npart1=numbp(igrid)  ! Number of particles in the grid
-        if(npart1>0)then        
-           ipart=headp(igrid)
-           
+        npart1=numbp(igrid)                                             ! number of particles in the grid
+        if(npart1>0) then        
+           ipart=headp(igrid)                                           ! first particle in the grid
            ! Loop over particles
            do jpart=1,npart1
-              ip=ip+1
-              ind_part(ip)=ipart
-              if(ip==nvector)then
+              ip=ip+1                                                   ! increment particle counter
+              ind_part(ip)=ipart                                        ! gather particle global ID and store in ind_part
+              !
+              if(ip.eq.nvector) then                                    ! number of particles reaches nvector
                  ! Lower left corner of 3x3x3 grid-cube
                  do idim=1,ndim
                     do i=1,ip
-                       pos(idim,i)=xp(ind_part(i),idim)*Lbox
-                       vel(idim,i)=vp(ind_part(i),idim)
+                       pos(idim,i)=xp(ind_part(i),idim)*Lbox            ! gather particle coordinates in Mpc
+                       vel(idim,i)=vp(ind_part(i),idim)                 ! gather particle velocities
 #ifdef WITHPARTFORCE
-                       fparttab(idim,i)=fpart(ind_part(i),idim)
+                       fparttab(idim,i)=fpart(ind_part(i),idim)         ! gather particle forces
 #endif
                     end do
                  end do
                  do i=1,ip
-                    idtab(i)=idp(ind_part(i))
+                    idtab(i)=idp(ind_part(i))                           ! gather particle IDs
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-                    pottab(i)=ptcl_phi(ind_part(i))
+                    pottab(i)=ptcl_phi(ind_part(i))                     ! gather particle potentials
 #endif 
                  end do
                  !===========================================================================
-                 call perform_my_selection(.false.,z1,z2, &
-                      &                           om0in,omLin,hubin,Lbox, &
+                 call perform_my_selection(.false.,z1,z2,                                                                 &
+                      &                           om0in,omLin,hubin,Lbox,                                                 &
                       &                           observer,conenarrow_observer_redshift(cone_id),thetay,thetaz,theta,phi, &
-                      &                           pos,vel,idtab,pottab,fparttab,ip, &
-                      &                           posout,velout,idout,zout,potout,fpartout,npout,.false., &
-                      &                           dist1cone, dist2cone)
+                      &                           pos,vel,idtab,pottab,fparttab,ip,                                       &
+                      &                           posout,velout,idout,zout,potout,fpartout,npout,.false.,                 &
+                      &                           dist1cone,dist2cone)
                  !===========================================================================
-                 if(npout>0)then
+                 if(npout>0) then
                     do idim=1,ndim
                        do i=1,npout
-                          xp_out(ipout+i,idim)=posout(idim,i)/Lbox
-                          vp_out(ipout+i,idim)=velout(idim,i)
+                          xp_out(ipout+i,idim)=posout(idim,i)/Lbox      ! collect particle coordinates for writing (dimensionless)
+                          vp_out(ipout+i,idim)=velout(idim,i)           ! collect particle velocity for writing
 #ifdef WITHPARTFORCE
-                          fpart_out(ipout+i,idim)=fpartout(idim,i)
+                          fpart_out(ipout+i,idim)=fpartout(idim,i)      ! collect particle forces for writing
 #endif
                        end do
                     end do
                     do i=1,npout
-                       id_out(ipout+i)=idout(i)
+                       id_out(ipout+i)=idout(i)                         ! collect particle IDs for writing
                     end do
                     do i=1,npout
-                       zp_out(ipout+i)=zout(i)
+                       zp_out(ipout+i)=zout(i)                          ! collect particle redshifts for writing
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-                       pot_out(ipout+i)=potout(i)
+                       pot_out(ipout+i)=potout(i)                       ! collect particle potentials for writing
 #endif     
                     end do
                     ipout=ipout+npout
-                    npart_out=npart_out+npout
+                    npart_out=npart_out+npout                           ! increment total number of selected particles
                  endif
-                 ip=0
-              end if
-              if(ipout>=nstride)then
+                 ip=0                                                   ! reset particle counter
+              end if                                                    ! if(ip.eq.nvector)
+              !
+              if(ipout.ge.nstride) then                                 ! write into file when array size exceeds nstride
                  if(.not.opened) then
-                    open(ilun,file=TRIM(fileloc),form='unformatted')
+                    open(ilun,file=TRIM(fileloc),form='unformatted')    ! open file for write if not yet
                     rewind(ilun)  
-                    write(ilun)ncpu
-                    write(ilun)nstride
-                    write(ilun)npart
+                    write(ilun) ncpu
+                    write(ilun) nstride
+                    write(ilun) npart
                     opened=.true.
                  endif
                  do idim=1,ndim
-                    write(ilun)xp_out(1:nstride,idim)
-                    write(ilun)vp_out(1:nstride,idim)
+                    write(ilun) xp_out(1:nstride,idim)                  ! write particle coordinates
+                    write(ilun) vp_out(1:nstride,idim)                  ! write particle velocities
                  end do
-                 write(ilun)zp_out(1:nstride)
-                 if (write_cone_idp) write(ilun)id_out(1:nstride)
+                 write(ilun) zp_out(1:nstride)                          ! write particle redshifts
+                 if(write_cone_idp) write(ilun) id_out(1:nstride)       ! write particle IDs
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-                 write(ilun)pot_out(1:nstride)
+                 write(ilun) pot_out(1:nstride)                         ! write particle potentials
 #endif 
 #ifdef WITHPARTFORCE
                  do idim=1,ndim
-                    write(ilun)fpart_out(1:nstride,idim)
+                    write(ilun)fpart_out(1:nstride,idim)                ! write particle forces
                  end do
 #endif
+                 ! for particles beyond nstride, move to the start of array and
+                 ! write them later when particle number exceeds nstride again.
                  do idim=1,ndim
                     do i=1,ipout-nstride
-                       xp_out(i,idim)=xp_out(i+nstride,idim)
-                       vp_out(i,idim)=vp_out(i+nstride,idim)
+                       xp_out(i,idim)=xp_out(i+nstride,idim)            ! coordinates
+                       vp_out(i,idim)=vp_out(i+nstride,idim)            ! velocities
 #ifdef WITHPARTFORCE
-                       fpart_out(i,idim)=fpart_out(i+nstride,idim)
+                       fpart_out(i,idim)=fpart_out(i+nstride,idim)      ! forcea
 #endif
                     end do
                  end do
                  do i=1,ipout-nstride
-                    id_out(i)=id_out(i+nstride)
+                    id_out(i)=id_out(i+nstride)                         ! IDs
                  end do
                  do i=1,ipout-nstride
-                    zp_out(i)=zp_out(i+nstride)
+                    zp_out(i)=zp_out(i+nstride)                         ! redshifts
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-                    pot_out(i)=pot_out(i+nstride)
+                    pot_out(i)=pot_out(i+nstride)                       ! potentials
 #endif   
                  end do
-                 ipout=ipout-nstride
-              endif
-              ipart=nextp(ipart)  ! Go to next particle
+                 ipout=ipout-nstride                                    ! reset pointer to first particle
+              endif                                                     ! if(ipout.ge.nstride)
+              !
+              ipart=nextp(ipart)                                        ! go to next particle
            end do
            ! End loop over particles           
         end if
-        igrid=next(igrid)   ! Go to next grid
+        igrid=next(igrid)                                               ! go to next grid
      end do
      ! End loop over grids
 
-     if(ip>0)then
+     if(ip>0) then                                                      ! deal with remaining particles
         ! Lower left corner of 3x3x3 grid-cube
         do idim=1,ndim
            do i=1,ip
-              pos(idim,i)=xp(ind_part(i),idim)*Lbox
-              vel(idim,i)=vp(ind_part(i),idim)
+              pos(idim,i)=xp(ind_part(i),idim)*Lbox                     ! gather particle coordinates in Mpc
+              vel(idim,i)=vp(ind_part(i),idim)                          ! gather particle velocities
 #ifdef WITHPARTFORCE
-              fparttab(idim,i)=fpart(ind_part(i),idim)
+              fparttab(idim,i)=fpart(ind_part(i),idim)                  ! gather particle forces
 #endif
            end do
         end do
         do i=1,ip
-           idtab(i)=idp(ind_part(i))
+           idtab(i)=idp(ind_part(i))                                    ! gather particle IDs
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-           pottab(i)=ptcl_phi(ind_part(i))
+           pottab(i)=ptcl_phi(ind_part(i))                              ! gather particle potentials
 #endif  
         end do
         !===========================================================================
-        call perform_my_selection(.false.,z1,z2, &
-             &                           om0in,omLin,hubin,Lbox, &
+        call perform_my_selection(.false.,z1,z2,                                                                 &
+             &                           om0in,omLin,hubin,Lbox,                                                 &
              &                           observer,conenarrow_observer_redshift(cone_id),thetay,thetaz,theta,phi, &
-             &                           pos,vel,idtab,pottab,fparttab,ip, &
-             &                           posout,velout,idout,zout,potout,fpartout,npout,.false., &
-             &                           dist1cone, dist2cone)
+             &                           pos,vel,idtab,pottab,fparttab,ip,                                       &
+             &                           posout,velout,idout,zout,potout,fpartout,npout,.false.,                 &
+             &                           dist1cone,dist2cone)
         !===========================================================================
-        if(npout>0)then
+        !
+        if(npout>0) then
            do idim=1,ndim
               do i=1,npout
-                 xp_out(ipout+i,idim)=posout(idim,i)/Lbox
-                 vp_out(ipout+i,idim)=velout(idim,i)
+                 xp_out(ipout+i,idim)=posout(idim,i)/Lbox               ! collect particle coordinates for writing (dimensionless)
+                 vp_out(ipout+i,idim)=velout(idim,i)                    ! collect particle velocities for writing
 #ifdef WITHPARTFORCE
-                 fpart_out(ipout+i,idim)=fpartout(idim,i)
+                 fpart_out(ipout+i,idim)=fpartout(idim,i)               ! collect particle forces for writing
 #endif
               end do
            end do
            do i=1,npout
-              id_out(ipout+i)=idout(i)
+              id_out(ipout+i)=idout(i)                                  ! collect particle IDs for writing
            end do
            do i=1,npout
-              zp_out(ipout+i)=zout(i)
+              zp_out(ipout+i)=zout(i)                                   ! collect particle redshifts for writing
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-              pot_out(ipout+i)=potout(i)
+              pot_out(ipout+i)=potout(i)                                ! collect particle potential for writing
 #endif  
            end do
-           ipout=ipout+npout
-           npart_out=npart_out+npout
-        endif
-     endif
-     if(ipout>=nstride)then
-        if(.not.opened) then
+           ipout=ipout+npout                                            ! move pointer to particle
+           npart_out=npart_out+npout                                    ! increment total number of selected particles 
+        endif                                                           ! if(npout>0)
+        !
+     endif                                                              ! if(ip>0)
+     !
+     if(ipout.ge.nstride) then                                          ! write into file when array size exceeds nstride
+        if(.not.opened) then                                            ! open file for writing if not yet
            open(ilun,file=TRIM(fileloc),form='unformatted')
            rewind(ilun)  
-           write(ilun)ncpu
-           write(ilun)nstride
-           write(ilun)npart
+           write(ilun) ncpu
+           write(ilun) nstride
+           write(ilun) npart
            opened=.true.
         endif
         do idim=1,ndim
-           write(ilun)xp_out(1:nstride,idim)
-           write(ilun)vp_out(1:nstride,idim)
+           write(ilun) xp_out(1:nstride,idim)                           ! write particle coordinates
+           write(ilun) vp_out(1:nstride,idim)                           ! write partilce velocities
         end do
-        write(ilun)zp_out(1:nstride)
-        if (write_cone_idp) write(ilun)id_out(1:nstride)
+        write(ilun) zp_out(1:nstride)                                   ! write particle redshifts
+        if(write_cone_idp) write(ilun)id_out(1:nstride)                 ! write particle IDs
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-        write(ilun)pot_out(1:nstride)
+        write(ilun) pot_out(1:nstride)                                  ! write particle potentials
 #endif 
 #ifdef WITHPARTFORCE
         do idim=1,ndim
-           write(ilun)fpart_out(1:nstride,idim)
+           write(ilun) fpart_out(1:nstride,idim)                        ! write particle forces
         end do
 #endif
+        ! for particles beyond nstride, move to the start of array and
+        ! write them later when particle number exceeds nstride again.
         do idim=1,ndim
            do i=1,ipout-nstride
-              xp_out(i,idim)=xp_out(i+nstride,idim)
-              vp_out(i,idim)=vp_out(i+nstride,idim)
+              xp_out(i,idim)=xp_out(i+nstride,idim)                     ! coordinates
+              vp_out(i,idim)=vp_out(i+nstride,idim)                     ! velocities
 #ifdef WITHPARTFORCE
-              fpart_out(i,idim)=fpart_out(i+nstride,idim)
+              fpart_out(i,idim)=fpart_out(i+nstride,idim)               ! forces
 #endif
            end do
         end do
         do i=1,ipout-nstride
-           id_out(i)=id_out(i+nstride)
+           id_out(i)=id_out(i+nstride)                                  ! IDs
         end do
         do i=1,ipout-nstride
-           zp_out(i)=zp_out(i+nstride)
-#ifdef OUTPUT_PARTICLE_POTENTIAL
-           pot_out(i)=pot_out(i+nstride)
+           zp_out(i)=zp_out(i+nstride)                                  ! redshifts
+#ifdef OUTPUT_PARTICLE_POTENTIAL 
+           pot_out(i)=pot_out(i+nstride)                                ! potential
 #endif  
         end do
-        ipout=ipout-nstride
-     endif
+        ipout=ipout-nstride                                             ! reset particle pointer
+     endif                                                              ! if(ipout.ge.nstride)
   end do
   ! End loop over cpus
 
-  if(ipout>0)then
-     if(.not.opened) then
+  if(ipout>0) then                                                      ! write the remaining particles
+     if(.not.opened) then                                               ! open file for writing if not yet
         open(ilun,file=TRIM(fileloc),form='unformatted')
         rewind(ilun)  
-        write(ilun)ncpu
-        write(ilun)nstride
-        write(ilun)npart
+        write(ilun) ncpu
+        write(ilun) nstride
+        write(ilun) npart
         opened=.true.
      endif
      do idim=1,ndim
-        write(ilun)xp_out(1:ipout,idim)
-        write(ilun)vp_out(1:ipout,idim)
+        write(ilun) xp_out(1:ipout,idim)                                ! write particle coordinates
+        write(ilun) vp_out(1:ipout,idim)                                ! write particle velocities
      end do
-     write(ilun)zp_out(1:ipout)
-     if (write_cone_idp) write(ilun)id_out(1:ipout)
+     write(ilun) zp_out(1:ipout)                                        ! write particle redshifts
+     if (write_cone_idp) write(ilun) id_out(1:ipout)                    ! write particle IDs
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-     write(ilun)pot_out(1:ipout)
+     write(ilun) pot_out(1:ipout)                                       ! write particle potentials
 #endif  
 #ifdef WITHPARTFORCE
      do idim=1,ndim
-        write(ilun)fpart_out(1:ipout,idim)
+        write(ilun) fpart_out(1:ipout,idim)                             ! write particle forces
      end do
 #endif 
   endif
 
-  if(opened)close(ilun)
+  if(opened) close(ilun)                                                ! close file after writing
   
   if (verbose)write(*,*)'cone output=',myid,npart_out
 
   if(npart_out>0) then
      fileloc=TRIM(filename)//TRIM(nchar)//'.hdr'
-     open(ilun,file=TRIM(fileloc),form='unformatted')
+     open(ilun,file=TRIM(fileloc),form='unformatted')                   ! open header file for writing
      rewind(ilun)
-     write(ilun)ncpu
-     write(ilun)nstride
-     write(ilun)npart_out
+     write(ilun) ncpu
+     write(ilun) nstride
+     write(ilun) npart_out
      close(ilun)
-     if (reduce_infolocal(1).EQ.0) reduce_infolocal(1) = 1 ! modif V. REVERDY 2012 
+     if(reduce_infolocal(1).eq.0) reduce_infolocal(1) = 1 ! modif V. REVERDY 2012 
   endif
-   if((opened.and.(npart_out==0)).or.((.not.opened).and.(npart_out>0))) then
-     write(*,*)'Error in output_cone'
-     write(*,*)'npart_out=',npart_out,'opened=',opened
+  if((opened.and.(npart_out.eq.0)).or.((.not.opened).and.(npart_out>0))) then
+     write(*,*) 'Error in output_cone'
+     write(*,*) 'npart_out=',npart_out,'opened=',opened
      stop
   endif
 
   ! Send the token
-  if(mod(myid,IOGROUPSIZE)/=0 .and.(myid.lt.ncpu))then
-    dummy_io=1
-    call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag, &
-         & MPI_COMM_WORLD,info)
+  if(mod(myid,IOGROUPSIZE).ne.0.and.(myid.lt.ncpu))then
+     dummy_io=1
+     call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag,MPI_COMM_WORLD,info)
   end if
 
-!------------------ MODIF V. REVERDY 2012 ------------------!                                                                                ! Write info file 
+!-------------------------- VR 2012 ------------------------!           ! write info file 
   reduce_infolocal(2) = npart_out
-  call MPI_REDUCE(reduce_infolocal, reduce_infoglobal, 2, MPI_INTEGER8, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(reduce_infolocal,reduce_infoglobal,2,MPI_INTEGER8,MPI_SUM,0,MPI_COMM_WORLD,ierr)
   ! Write info file                               
-  if (myid.EQ.1) then
+  if (myid.eq.1) then
      if(cone_overlap)then
         aendconem2_info=aendconem2
         aendconem1_info=aendconem1
         aendcone_info=aendcone
         aexpold_info=aexp_old
-        if((use_aexp_restart).AND.(nstep_coarse_after_restart==2))aexpold_info=aexp_restart_light_cone !ry 14/02/2017
+        if((use_aexp_restart).and.(nstep_coarse_after_restart.eq.2))aexpold_info=aexp_restart_light_cone ! RY 14/02/2017
         aexp_info=aexp
 
         zendconem2_info=1./aendconem2_info-1.
@@ -1589,7 +1572,7 @@ subroutine output_cone(filename,cone_id,future) ! NOT DEFAULT RAMSES' LC!
         zexp_info=1./aexp-1.
 
         call init_cosmo_cone(om0in,omLin,hubin,Omega0,OmegaL,OmegaR,coverH0)
-        if (conenarrow_observer_redshift(cone_id).GT.0) then
+        if (conenarrow_observer_redshift(cone_id).gt.0) then
            dendconem2_info=((coord_distance(zendconem2_info,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0))/Lbox) ! in [0, 1]
            dendconem1_info=((coord_distance(zendconem1_info,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0))/Lbox) ! in [0, 1]
            dendcone_info  =((coord_distance(zendcone_info  ,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0))/Lbox) ! in [0, 1]
@@ -1603,46 +1586,48 @@ subroutine output_cone(filename,cone_id,future) ! NOT DEFAULT RAMSES' LC!
            dexp_info      =(coord_distance(zexp_info       ,Omega0,OmegaL,OmegaR,coverH0)/Lbox) ! in [0, 1]
         end if
      else
-        aendconem2_info=0.
-        aendconem1_info=0.
-        aendcone_info=0.
-        aexpold_info=0.
-        aexp_info=0.
-        zendconem2_info=0.
-        zendconem1_info=0.
-        zendcone_info=0.
-        zexpold_info=0.
-        zexp_info=0.
-        dendconem2_info=0.
-        dendconem1_info=0.
-        dendcone_info=0.
-        dexpold_info=0.
-        dexp_info=0.
+        aendconem2_info=0.D0
+        aendconem1_info=0.D0
+        aendcone_info  =0.D0
+        aexpold_info   =0.D0
+        aexp_info      =0.D0
+        zendconem2_info=0.D0
+        zendconem1_info=0.D0
+        zendcone_info  =0.D0
+        zexpold_info   =0.D0
+        zexp_info      =0.D0
+        dendconem2_info=0.D0
+        dendconem1_info=0.D0
+        dendcone_info  =0.D0
+        dexpold_info   =0.D0
+        dexp_info      =0.D0
      endif
 
-
-     call write_infoconepart(npart_out, conenarrow_id(cone_id), conenarrow_zmax(cone_id), conenarrow_observer_x(cone_id), conenarrow_observer_y(cone_id), conenarrow_observer_z(cone_id), conenarrow_observer_redshift(cone_id), &
-          & 1./(z2+1.), 1./(z1+1.), z2, z1, dist2cone, dist1cone, 0.D0, &
-          & reduce_infoglobal, &
-          & .false., thetay, thetaz, theta, phi,&
-               aendconem2_info,aendconem1_info,aendcone_info,aexpold_info,aexp_info,&
-               zendconem2_info,zendconem1_info,zendcone_info,zexpold_info,zexp_info,&
-               dendconem2_info,dendconem1_info,dendcone_info,dexpold_info,dexp_info,&
-               future)
+     call write_infoconepart(npart_out,conenarrow_id(cone_id),conenarrow_zmax(cone_id),conenarrow_observer_x(cone_id),  &
+                           & conenarrow_observer_y(cone_id),conenarrow_observer_z(cone_id),                             &
+                           & conenarrow_observer_redshift(cone_id),                                                     &
+                           & 1.D0/(z2+1.D0),1.D0/(z1+1.D0),z2,z1,dist2cone,dist1cone,0.D0,                              &
+                           & reduce_infoglobal,                                                                         &
+                           & .false.,thetay,thetaz,theta,phi,                                                           &
+                           & aendconem2_info,aendconem1_info,aendcone_info,aexpold_info,aexp_info,                      &
+                           & zendconem2_info,zendconem1_info,zendcone_info,zexpold_info,zexp_info,                      &
+                           & dendconem2_info,dendconem1_info,dendcone_info,dexpold_info,dexp_info,future)
   end if
-!------------------ MODIF V. REVERDY 2012 ------------------! 
-
+!-------------------------- VR 2012 ------------------------! 
 
 end subroutine output_cone
 
 
-
-subroutine perform_my_selection(justcount,z1,z2, &
-     &                          om0in,omLin,hubin,Lbox, &
-     &                          observer,observer_redshift,thetay,thetaz,theta,phi, &
-     &                          pos,vel,idtab,pottab,fparttab,npart, &
+!---------------------------------------------------------!
+!---------------------------------------------------------!
+!
+!---------------------------------------------------------!
+subroutine perform_my_selection(justcount,z1,z2,                                           &
+     &                          om0in,omLin,hubin,Lbox,                                    &
+     &                          observer,observer_redshift,thetay,thetaz,theta,phi,        &
+     &                          pos,vel,idtab,pottab,fparttab,npart,                       &
      &                          posout,velout,idout,zout,potout,fpartout,npartout,verbose, &
-     &                          dist1cone, dist2cone)
+     &                          dist1cone,dist2cone)
   !===========================================================================
   ! All the quantities below are real*8 except
   !      juscount : logical
@@ -1733,35 +1718,33 @@ subroutine perform_my_selection(justcount,z1,z2, &
   integer :: i,j,k,np,npartcount
   integer :: npart,npartout
   
-  if (verbose) write(*,*) 'Entering perform_my_selection'
+  if(verbose) write(*,*) 'Entering perform_my_selection'
   
   ! pi=3.14159
-  pi=acos(-1.0d0)
+  pi=dacos(-1.0d0)
   
   ! Initialize cosmological parameters
   call init_cosmo_cone(om0in,omLin,hubin,Omega0,OmegaL,OmegaR,coverH0)
   
   ! Convert angles in radians
   thetarad=theta*pi/180.0d0
-  phirad=phi*pi/180.0d0
+  phirad  =phi  *pi/180.0d0
   
   ! Compute the rotation matrix and its inverse to be in the appropriate frame
   call compute_rotation_matrix(thetarad,phirad,rot,rotm1)
   
   ! Compute comoving distance of the photon planes from the observer
   ! dist1,dist2=integral of c.dt/a between zero and z1,z2
-  if (observer_redshift.GT.0) then
-     dist1=coord_distance(z1,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0) ! V. REVERDY
-     dist2=coord_distance(z2,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0) ! V. REVERDY
+  if(observer_redshift.gt.0) then
+     dist1=coord_distance(z1,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0) ! VR
+     dist2=coord_distance(z2,Omega0,OmegaL,OmegaR,coverH0)-coord_distance(observer_redshift,Omega0,OmegaL,OmegaR,coverH0) ! VR
   else 
-     dist1=coord_distance(z1,Omega0,OmegaL,OmegaR,coverH0) ! V. REVERDY
-     dist2=coord_distance(z2,Omega0,OmegaL,OmegaR,coverH0) ! V. REVERDY
+     dist1=coord_distance(z1,Omega0,OmegaL,OmegaR,coverH0) ! VR
+     dist2=coord_distance(z2,Omega0,OmegaL,OmegaR,coverH0) ! VR
   end if
   
-
-
-  dist1cone = dist1/Lbox
-  dist2cone = dist2/Lbox
+  dist1cone = dist1/Lbox                                                ! distance to the closer  side of the shell (dimensionleass)
+  dist2cone = dist2/Lbox                                                ! distance to the farther side of the shell (dimensionless)
   
   ! Convert angles in radians
   thetayrad=thetay*pi/180.0d0
@@ -1772,8 +1755,8 @@ subroutine perform_my_selection(justcount,z1,z2, &
        &                       nrepxm,nrepxp,nrepym,nrepyp,nrepzm,nrepzp)    
   
   facnorm=1.0d0/(dist2-dist1)
-  tanybound=tan(thetayrad)
-  tanzbound=tan(thetazrad)
+  tanybound=dtan(thetayrad)
+  tanzbound=dtan(thetazrad)
   
   npartcount=0    
   ! loop on all the replica of potential interest
@@ -1781,220 +1764,223 @@ subroutine perform_my_selection(justcount,z1,z2, &
      do j=nrepym,nrepyp,1
         do i=nrepxm,nrepxp,1
            do np=1,npart
-              xcoordfr=pos(1,np)+Lbox*dble(i)-observer(1)
-              ycoordfr=pos(2,np)+Lbox*dble(j)-observer(2)
-              zcoordfr=pos(3,np)+Lbox*dble(k)-observer(3)
+              xcoordfr=pos(1,np)+Lbox*dble(i)-observer(1)               ! x distance to observer
+              ycoordfr=pos(2,np)+Lbox*dble(j)-observer(2)               ! y distance to observer
+              zcoordfr=pos(3,np)+Lbox*dble(k)-observer(3)               ! z distance to observer
               
               ! Rotation to get in the framework of the photon plane
               xcoord=xcoordfr*rotm1(1,1)+ &
                    & ycoordfr*rotm1(2,1)+ &
-                   & zcoordfr*rotm1(3,1)
+                   & zcoordfr*rotm1(3,1)                                ! rotated x coordinate relative to observer
               ycoord=xcoordfr*rotm1(1,2)+ &
                    & ycoordfr*rotm1(2,2)+ &
-                   & zcoordfr*rotm1(3,2)
+                   & zcoordfr*rotm1(3,2)                                ! rotated y coordinate relative to observer
               zcoord=xcoordfr*rotm1(1,3)+ &
                    & ycoordfr*rotm1(2,3)+ &
-                   & zcoordfr*rotm1(3,3)
+                   & zcoordfr*rotm1(3,3)                                ! rotated z coordinate relative to observer
               
-              if (xcoord > small) then ! To avoid divergences near the origin
-                 tany=abs(ycoord/xcoord)
-                 tanz=abs(zcoord/xcoord)
-                 dist=sqrt(xcoord**2+ycoord**2+zcoord**2)
-                 if (tany <= tanybound .and. tanz <= tanzbound &
-                      &  .and. dist > dist1 .and. dist <= dist2) then
-                    ! This particle is good, we can add it to the list
-                    npartcount=npartcount+1
-                    
-                    posout(1,npartcount)=xcoord
-                    posout(2,npartcount)=ycoord
-                    posout(3,npartcount)=zcoord
+              if(xcoord>small) then                                     ! to avoid divergences near the origin
+                 tany=dabs(ycoord/xcoord)
+                 tanz=dabs(zcoord/xcoord)
+                 dist=dsqrt(xcoord**2+ycoord**2+zcoord**2)
+                 if((tany.le.tanybound).and.(tanz.le.tanzbound) &
+                      &  .and.(dist.gt.dist1).and.(dist.le.dist2)) then ! this particle is good, we can add it to the list
+                    !
+                    npartcount=npartcount+1                             ! increment total number of selected particles
+                    !
+                    posout(1,npartcount)=xcoord                         ! x coordinate relative to cone vertex
+                    posout(2,npartcount)=ycoord                         ! y coordinate relative to cone vertex
+                    posout(3,npartcount)=zcoord                         ! z coordinate relative to cone vector
                     idout (npartcount)=idtab(np)
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-                    potout(npartcount)=pottab(np)
+                    potout(npartcount)=pottab(np)                       ! potential
 #endif  
                     ! Velocities are rotated
-                    vxfr=vel(1,np)
-                    vyfr=vel(2,np)
-                    vzfr=vel(3,np)
+                    vxfr=vel(1,np)                                      ! x component of unrotated velocity
+                    vyfr=vel(2,np)                                      ! y component of unrotated velocity
+                    vzfr=vel(3,np)                                      ! z component of unrotated velocity
                     velout(1,npartcount)=vxfr*rotm1(1,1)+ &
                          &               vyfr*rotm1(2,1)+ &
-                         &               vzfr*rotm1(3,1)
+                         &               vzfr*rotm1(3,1)                ! x component of rotated velocity
                     velout(2,npartcount)=vxfr*rotm1(1,2)+ &
                          &               vyfr*rotm1(2,2)+ &
-                         &               vzfr*rotm1(3,2)
+                         &               vzfr*rotm1(3,2)                ! y component of rotated velocity
                     velout(3,npartcount)=vxfr*rotm1(1,3)+ &
                          &               vyfr*rotm1(2,3)+ &
-                         &               vzfr*rotm1(3,3)
-                    
+                         &               vzfr*rotm1(3,3)                ! z component of rotated velocity
+                    ! Forces are rotated
 #ifdef WITHPARTFORCE
-                    fxfr=fparttab(1,np)
-                    fyfr=fparttab(2,np)
-                    fzfr=fparttab(3,np)
+                    fxfr=fparttab(1,np)                                 ! x component of unrotated force
+                    fyfr=fparttab(2,np)                                 ! y component of unrotated force
+                    fzfr=fparttab(3,np)                                 ! z component of unrotated force
                     fpartout(1,npartcount)=fxfr*rotm1(1,1)+ &
-                         &               fyfr*rotm1(2,1)+ &
-                         &               fzfr*rotm1(3,1)
+                         &                 fyfr*rotm1(2,1)+ &
+                         &                 fzfr*rotm1(3,1)              ! x component of rotated force
                     fpartout(2,npartcount)=fxfr*rotm1(1,2)+ &
-                         &               fyfr*rotm1(2,2)+ &
-                         &               fzfr*rotm1(3,2)
+                         &                 fyfr*rotm1(2,2)+ &
+                         &                 fzfr*rotm1(3,2)              ! y component of rotated force
                     fpartout(3,npartcount)=fxfr*rotm1(1,3)+ &
-                         &               fyfr*rotm1(2,3)+ &
-                         &               fzfr*rotm1(3,3)     
+                         &                 fyfr*rotm1(2,3)+ &
+                         &                 fzfr*rotm1(3,3)              ! z component of rotated force
                     
 #endif
-
-                    
-                    ! Compute the redshift of the particle using linear
-                    ! interpolation
+                    ! Compute redshift of particle by linear interpolation
                     dxtest1=dist-dist1
                     dxtest2=dist2-dist
                     zout(npartcount)=(dxtest1*z2+dxtest2*z1)*facnorm
-
+                    !
                  endif
               endif
            enddo
         enddo
      enddo
   enddo
+  !
   npartout=npartcount
+  !
   if (verbose) write(*,*) 'End of perform_my_selection'
+
 end subroutine perform_my_selection
 
-!===========================================================================
+!--------------------------------------------------------------------------!
+!--------------------------------------------------------------------------!
+! Compute the rotation matrix rot and its transpose matrix rotm1. rot brings
+! a vector along the x-axis to a new vector described by (theta, phi), while
+! rotm1 does the opposite. Here phi is the same as usually used in spherical
+! polar coordinate system, while theta is pi/2 minus the theta angle usually
+! used in spherical polar coordinates. Both angles are expressed in radians.
+!--------------------------------------------------------------------------!
 subroutine compute_rotation_matrix(thetashiftrad,phishiftrad,rot,rotm1)
-  !===========================================================================
-  ! Rotations matrixes used to perform the calculations.
-  ! theta and phi are expressed in radians
-  !===========================================================================
   implicit none
   real(kind=8) :: thetashiftrad,phishiftrad
   real(kind=8) :: rot(3,3),rotm1(3,3)
 
   integer :: i,j
 
-  rot(1,1) = cos(thetashiftrad)*cos(phishiftrad)
-  rot(1,2) = cos(thetashiftrad)*sin(phishiftrad)
-  rot(1,3) = -sin(thetashiftrad)
-  rot(2,1) = -sin(phishiftrad)
-  rot(2,2) = cos(phishiftrad)
+  rot(1,1) =  dcos(thetashiftrad)*dcos(phishiftrad)
+  rot(1,2) =  dcos(thetashiftrad)*dsin(phishiftrad)
+  rot(1,3) = -dsin(thetashiftrad)
+  rot(2,1) = -dsin(phishiftrad)
+  rot(2,2) =  dcos(phishiftrad)
   rot(2,3) = 0.0d0
-  rot(3,1) = cos(phishiftrad)*sin(thetashiftrad)
-  rot(3,2) = sin(phishiftrad)*sin(thetashiftrad)
-  rot(3,3) = cos(thetashiftrad)
+  rot(3,1) = dcos(phishiftrad)*dsin(thetashiftrad)
+  rot(3,2) = dsin(phishiftrad)*dsin(thetashiftrad)
+  rot(3,3) = dcos(thetashiftrad)
+
   do j=1,3
      do i=1,3
         rotm1(i,j)=rot(j,i)
      enddo
   enddo
+
 end subroutine compute_rotation_matrix
 
-!===========================================================================
+!---------------------------------------------------------------------------!
+!---------------------------------------------------------------------------!
+! A slice of photons between redshifts z1 and z2 corresponding to coordinates
+! x1 and x2 at its center and of opening angle (thetay, thetaz) is considered.
+!
+! We obtain the coordinates of the 8 vertices of the mimimum (simple) polygon
+! containing it. The centre of the lighcone is taken to be alighed to x-axis.
+!---------------------------------------------------------------------------!
 subroutine compute_minimum_polygon(x1,x2,thetayrad,thetazrad,sl)
-  !===========================================================================
-  ! A slice of photons between redshifts z1 and z2 corresponding to coordinates
-  ! x1 and x2 at its center and of opening angles thetay and thetaz is considered.
-  ! We compute the coordinates of the eights points of the mimimum (simple)
-  ! polygon containing it.
-  !===========================================================================
   implicit none
   real(kind=8)::x1,x2,thetayrad,thetazrad,sl(3,8)
 
-!  real(kind=8) :: r(3),axis(3) ! CBH_LC - not used
-
   ! Part of the polygon close to the observer
-  sl(1,1:4)=x1/sqrt(1.0d0+tan(thetayrad)**2+tan(thetazrad)**2)
-  sl(2,1)=-sl(1,1)*tan(thetayrad)
-  sl(3,1)=-sl(1,1)*tan(thetazrad)
-  sl(2,2)= sl(1,1)*tan(thetayrad)
-  sl(3,2)=-sl(1,1)*tan(thetazrad)
-  sl(2,3)=-sl(1,1)*tan(thetayrad)
-  sl(3,3)= sl(1,1)*tan(thetazrad)
-  sl(2,4)= sl(1,1)*tan(thetayrad)
-  sl(3,4)= sl(1,1)*tan(thetazrad)
-
+  sl(1,1:4)=x1/dsqrt(1.0D0+dtan(thetayrad)**2+dtan(thetazrad)**2)       ! x coordinate
+  sl(2,1)=-sl(1,1)*dtan(thetayrad)                                      ! y coordinate of vertex 1
+  sl(3,1)=-sl(1,1)*dtan(thetazrad)                                      ! z coordinate of vertex 1
+  sl(2,2)= sl(1,1)*dtan(thetayrad)                                      ! y coordinate of vertex 2
+  sl(3,2)=-sl(1,1)*dtan(thetazrad)                                      ! z coordinate of vertex 2
+  sl(2,3)=-sl(1,1)*dtan(thetayrad)                                      ! y coordinate of vertex 3
+  sl(3,3)= sl(1,1)*dtan(thetazrad)                                      ! z coordinate of vertex 3
+  sl(2,4)= sl(1,1)*dtan(thetayrad)                                      ! y coordinate of vertex 4
+  sl(3,4)= sl(1,1)*dtan(thetazrad)                                      ! z coordinate of vertex 4
 
   ! Part of the polygon far away from the observer
-  sl(1,5:8)=x2
-  sl(2,5)=-x2*tan(thetayrad)
-  sl(3,5)=-x2*tan(thetazrad)
-  sl(2,6)= x2*tan(thetayrad)
-  sl(3,6)=-x2*tan(thetazrad)
-  sl(2,7)=-x2*tan(thetayrad)
-  sl(3,7)= x2*tan(thetazrad)
-  sl(2,8)= x2*tan(thetayrad)
-  sl(3,8)= x2*tan(thetazrad)
+  sl(1,5:8)= x2                                                         ! x coordinate
+  sl(2,5)  =-x2*dtan(thetayrad)                                         ! y coordinate of vertex 5
+  sl(3,5)  =-x2*dtan(thetazrad)                                         ! z coordinate of vertex 5
+  sl(2,6)  = x2*dtan(thetayrad)                                         ! y coordinate of vertex 6
+  sl(3,6)  =-x2*dtan(thetazrad)                                         ! z coordinate of vertex 6
+  sl(2,7)  =-x2*dtan(thetayrad)                                         ! y coordinate of vertex 7
+  sl(3,7)  = x2*dtan(thetazrad)                                         ! z coordinate of vertex 7
+  sl(2,8)  = x2*dtan(thetayrad)                                         ! y coordinate of vertex 8
+  sl(3,8)  = x2*dtan(thetazrad)                                         ! z coordinate of vertex 8
+
 end subroutine compute_minimum_polygon
 
-!===========================================================================
+!--------------------------------------------------------------------------! 
+!--------------------------------------------------------------------------! 
+! Calculate the numbers of replics needed to contain the entire photon shell
+!
+! two*theta1, two*theta2 are the opening angles of the lightcone in degrees.
+! The observer's position is expressed in comoving Mpc, so is the simulation
+! boxsize (Lbox). Moreover, the positions of particles inside the simulation
+! box are supposed to be in [0,Lbox], and z1 and z2 are the redshifts of the 
+! successive photon planes, with z1 < z2
+!--------------------------------------------------------------------------!
 subroutine compute_replica(thetayrad,thetazrad,dist1,dist2,observer,Lbox,rot, &
-     &                           nrepxm,nrepxp,nrepym,nrepyp,nrepzm,nrepzp)
-  !===========================================================================
-  ! 2*theta1 and 2*theta2 are the opening angles of the lightcone in degrees.
-  ! The observer position is expressed in comoving Mpc, as well as the simulation
-  ! box size Lbox. Furthermore, the positions of particles inside the simulation
-  ! are supposed to be in [0,Lbox[.
-  ! z1 and z2 are the redshifts of the successive photon planes, z1 < z2
-  !===========================================================================
+     &                     nrepxm,nrepxp,nrepym,nrepyp,nrepzm,nrepzp)
   implicit none
   real(kind=8) :: thetayrad,thetazrad,observer(3),Lbox,rot(3,3),dist1,dist2
   integer :: nrepxm,nrepxp,nrepym,nrepyp,nrepzm,nrepzp
   integer :: myint
   real(kind=8) :: sl(3,8),slfr(3)
-  real(kind=8) :: xplmin=0,xplmax=0,yplmin=0,yplmax=0,zplmin=0,zplmax=0
+  real(kind=8) :: xplmin=0.0d0,xplmax=0.0d0,yplmin=0.0d0,yplmax=0.0d0,zplmin=0.0d0,zplmax=0.0d0
   integer :: i,j
 
-  ! Compute the minimum polygon containing the 2 plans of photons (which
-  ! are slightly curved)
+  ! compute the minimum polygon containing the two shells of photons
   call compute_minimum_polygon(dist1,dist2,thetayrad,thetazrad,sl)
 
-  ! Rotate the minimum polygon in the reference frame of the simulation
+  ! rotate the minimum polygon in the reference frame of the simulation
   do j=1,8
      do i=1,3
-        slfr(i)=sl(1,j)*rot(1,i) &
-             & +sl(2,j)*rot(2,i) &
-             & +sl(3,j)*rot(3,i)
+        slfr(i) = sl(1,j)*rot(1,i)+ &
+                & sl(2,j)*rot(2,i)+ &
+                & sl(3,j)*rot(3,i)                                      ! rotate to the physical angles
      enddo
-     if (j.eq.1) then
+     !
+     if(j.eq.1) then
         xplmin=slfr(1)
-        xplmax=xplmin
         yplmin=slfr(2)
-        yplmax=yplmin
         zplmin=slfr(3)
+        xplmax=xplmin
+        yplmax=yplmin
         zplmax=zplmin
      else
-        xplmin=min(xplmin,slfr(1))
-        xplmax=max(xplmax,slfr(1))
-        yplmin=min(yplmin,slfr(2))
-        yplmax=max(yplmax,slfr(2))
-        zplmin=min(zplmin,slfr(3))
-        zplmax=max(zplmax,slfr(3))
+        xplmin=dmin1(xplmin,slfr(1))                                    ! find minimum x coordinate of all 8 vertices
+        xplmax=dmax1(xplmax,slfr(1))                                    ! find maximum x coordinate of all 8 vertices
+        yplmin=dmin1(yplmin,slfr(2))                                    ! find minimum y coordinate of all 8 vertices
+        yplmax=dmax1(yplmax,slfr(2))                                    ! find maximum y coordinate of all 8 vertices
+        zplmin=dmin1(zplmin,slfr(3))                                    ! find minimum z coordinate of all 8 vertices
+        zplmax=dmax1(zplmax,slfr(3))                                    ! find maximum z coordinate of all 8 vertices
      endif
   enddo
 
-
   ! Uses the fact that a cube will contain the minimum polygon if and only
-  ! if all its edges are contained in the cube to compute the relevant
-  ! replica
-  nrepxm=myint((xplmin+observer(1))/Lbox)
-  nrepxp=myint((xplmax+observer(1))/Lbox)
-  nrepym=myint((yplmin+observer(2))/Lbox)
-  nrepyp=myint((yplmax+observer(2))/Lbox)
-  nrepzm=myint((zplmin+observer(3))/Lbox)
-  nrepzp=myint((zplmax+observer(3))/Lbox)
+  ! if all its edges are contained in the cube to compute relevant replica
+  nrepxm=myint((xplmin+observer(1))/Lbox)                               ! index of leftmost  replica
+  nrepxp=myint((xplmax+observer(1))/Lbox)                               ! index of rightmost replica
+  nrepym=myint((yplmin+observer(2))/Lbox)                               ! index of front     replica
+  nrepyp=myint((yplmax+observer(2))/Lbox)                               ! index of back      replica
+  nrepzm=myint((zplmin+observer(3))/Lbox)                               ! index of top       replica
+  nrepzp=myint((zplmax+observer(3))/Lbox)                               ! index of bottom    replica
+
 end subroutine compute_replica
 
-
-!------------------ MODIF V. REVERDY 2012 ------------------! 
-
-!===========================================================================
-! WRITE INFO
-!===========================================================================
-subroutine write_infoconepart(npart_tot, conepartid, conepartzlim, observer_x, observer_y, observer_z, observer_redshift, &
-                            & amax, amin, zmax, zmin, dmax, dmin, dtol, &
-                            & reduce_infoglobal, &
-                            & isfullsky, input_thetay, input_thetaz, input_theta, input_phi,&
-                            aendconem2_info,aendconem1_info,aendcone_info,aexpold_info,aexp_info,&
-                            zendconem2_info,zendconem1_info,zendcone_info,zexpold_info,zexp_info, &
-                            dendconem2_info,dendconem1_info,dendcone_info,dexpold_info,dexp_info,future)
+!--------------------------------------------------------------------------!
+!--------------------------------------------------------------------------!
+! Subroutine to write useful information
+!--------------------------------------------------------------------------!
+subroutine write_infoconepart(npart_tot,conepartid,conepartzlim,observer_x,observer_y,observer_z,observer_redshift, &
+                            & amax,amin,zmax,zmin,dmax,dmin,dtol,                                                   &
+                            & reduce_infoglobal,                                                                    &
+                            & isfullsky,input_thetay,input_thetaz,input_theta,input_phi,                            &
+                            & aendconem2_info,aendconem1_info,aendcone_info,aexpold_info,aexp_info,                 &
+                            & zendconem2_info,zendconem1_info,zendcone_info,zexpold_info,zexp_info,                 &
+                            & dendconem2_info,dendconem1_info,dendcone_info,dexpold_info,dexp_info,future)
   use amr_commons
 #ifndef WITHOUTMPI
   use mpi
@@ -2113,10 +2099,10 @@ end subroutine write_infoconepart
 !===========================================================================
 
 
-
-!===========================================================================
-! WRITE INFO
-!===========================================================================
+!--------------------------------------------------------------------------!
+!--------------------------------------------------------------------------!
+! Subroutine to write useful information
+!--------------------------------------------------------------------------!
 subroutine write_infosamplepart(npart_tot, aexp_sample, &
                         & xmin, xmax, ymin, ymax, zmin, zmax, &
                         & reduce_infoglobal)
@@ -2168,7 +2154,8 @@ subroutine write_infosamplepart(npart_tot, aexp_sample, &
   close(ilun)
   
 end subroutine write_infosamplepart
-!===========================================================================
+
+
 
 !------------------ MODIF V. REVERDY 2012 ------------------! 
 
@@ -2180,35 +2167,37 @@ end subroutine write_infosamplepart
 !cone cosmo routines
 !===================
 
-
 !===========================================================================
 subroutine init_cosmo_cone(om0in,omLin,hubin,Omega0,OmegaL,OmegaR,coverH0)
-  !===========================================================================
+  !=========================================================================
   ! om0in : the value of omega0
   ! omLin : the value of Lambda
   !         We MUST have omega0+Lambda=1.0d0
   ! hubin : the value of H0/100 where H0 is the present Hubble constant
   !         in km/s/Mpc
-  !===========================================================================
+  !=========================================================================
   implicit none
   real(kind=8) :: om0in,omLin,hubin
   real(kind=8) :: Omega0,OmegaL,OmegaR,coverH0
   real(kind=8) :: verysmall=1d-6
+  !
   omega0=om0in
   omegaL=omLin
   omegaR=1.0d0-omega0-omegaL
-  if (abs(omegaR) > verysmall) then
+  !
+  if(dabs(omegaR)>verysmall) then
      write(*,*) 'ERROR in propagate_photons, init_cosmo.'
      write(*,*) 'This routine works only for flat universes, omega0+Lambda=1.'
      STOP
   endif
+  !
   coverH0=299792.5d0/(100.0d0*hubin)
+  !
 end subroutine init_cosmo_cone
-
 
 !===========================================================================
 function coord_distance(zz,Omega0,OmegaL,OmegaR,coverH0)
-  !===========================================================================
+  !=========================================================================
   use amr_commons
   implicit none
   !real(kind=8) :: z,res,coord_distance,zz
@@ -2216,8 +2205,8 @@ function coord_distance(zz,Omega0,OmegaL,OmegaR,coverH0)
   real(kind=8) :: Omega0,OmegaL,OmegaR,coverH0
   integer::i
 
-  z=abs(zz)
-  atmp=1./(z+1.)
+  z=dabs(zz)
+  atmp=1.D0/(z+1.D0)
 
   i=1
   do while(aexp_frw(i)>atmp.and.i<n_frw)
@@ -2225,33 +2214,36 @@ function coord_distance(zz,Omega0,OmegaL,OmegaR,coverH0)
   end do
 
   ! Interpolate proper time
-  res=tprop_frw(i)*(atmp-aexp_frw(i-1))/(aexp_frw(i)-aexp_frw(i-1))+ &
-       & tprop_frw(i-1)*(atmp-aexp_frw(i))/(aexp_frw(i-1)-aexp_frw(i))
+  res = tprop_frw(i  )*(atmp-aexp_frw(i-1))/(aexp_frw(i  )-aexp_frw(i-1))+ &
+      & tprop_frw(i-1)*(atmp-aexp_frw(i  ))/(aexp_frw(i-1)-aexp_frw(i  ))
 
 !  call qromb(0.d0,z,res,omega0,omegaL,OmegaR)
 !  coord_distance=coverH0*res
   coord_distance=-coverH0*res
-  if (zz.lt.0) coord_distance=-coord_distance
+  !
+  if(zz.lt.0.0D0) coord_distance=-coord_distance
 end function coord_distance
 
 !===========================================================================
 function funcE(z,Omega0,OmegaL,OmegaR)
-  !===========================================================================
+  !=========================================================================
   implicit none
   real(kind=8) :: funcE,z,HsurH0
   real(kind=8) :: omega0,omegaL,OmegaR
 
-  funcE=1.d0/HsurH0(z,Omega0,OmegaL,OmegaR)
+  funcE=1.D0/HsurH0(z,Omega0,OmegaL,OmegaR)
+
 end function funcE
 
 !===========================================================================
 function HsurH0(z,omega0,omegaL,OmegaR)
-  !===========================================================================
+  !=========================================================================
   implicit none
   real(kind=8) :: z,omega0,omegaL,OmegaR,HsurH0
-  HsurH0=sqrt(Omega0*(1.d0+z)**3+OmegaR*(1.d0+z)**2+OmegaL)
-end function HsurH0
 
+  HsurH0=dsqrt(Omega0*(1.D0+z)**3+OmegaR*(1.D0+z)**2+OmegaL)
+
+end function HsurH0
 
 !===========================================================================
 SUBROUTINE qromb(a,b,ss,omega0,omegaL,OmegaR)
@@ -2263,15 +2255,16 @@ SUBROUTINE qromb(a,b,ss,omega0,omegaL,OmegaR)
   !  USES polint,trapzd
   INTEGER :: j
   REAL(kind=8) :: dss,h(JMAXP),s(JMAXP)
-  h(1)=1.
+
+  h(1)=1.D0
   do j=1,JMAX
      call trapzd(a,b,s(j),j,omega0,omegaL,OmegaR)
      if (j.ge.K) then
-        call polint(h(j-KM),s(j-KM),K,0.d0,ss,dss)
-        if (abs(dss).le.EPS*abs(ss)) return
+        call polint(h(j-KM),s(j-KM),K,0.D0,ss,dss)
+        if(dabs(dss).le.EPS*dabs(ss)) return
      endif
      s(j+1)=s(j)
-     h(j+1)=0.25*h(j)
+     h(j+1)=0.25D0*h(j)
   enddo
 
   print *, 'too many steps in qromb'
@@ -2286,10 +2279,11 @@ SUBROUTINE polint(xa,ya,n,x,y,dy)
   PARAMETER (NMAX=10)
   INTEGER :: i,m,ns
   REAL(kind=8) ::den,dif,dift,ho,hp,w,c(NMAX),d(NMAX)
+  !
   ns=1
-  dif=abs(x-xa(1))
+  dif=dabs(x-xa(1))
   do i=1,n
-     dift=abs(x-xa(i))
+     dift=dabs(x-xa(i))
      if (dift.lt.dif) then
         ns=i
         dif=dift
@@ -2297,15 +2291,17 @@ SUBROUTINE polint(xa,ya,n,x,y,dy)
      c(i)=ya(i)
      d(i)=ya(i)
   enddo
+  !
   y=ya(ns)
   ns=ns-1
+  !
   do m=1,n-1
      do i=1,n-m
         ho=xa(i)-x
         hp=xa(i+m)-x
         w=c(i+1)-d(i)
         den=ho-hp
-        if(den.eq.0.) print *, 'failure in polint'
+        if(den.eq.0.D0) print *, 'failure in polint'
         den=w/den
         d(i)=hp*den
         c(i)=ho*den
@@ -2318,7 +2314,9 @@ SUBROUTINE polint(xa,ya,n,x,y,dy)
      endif
      y=y+dy
   enddo
+  !
   return
+
 END SUBROUTINE polint
 
 !===========================================================================
@@ -2329,19 +2327,20 @@ SUBROUTINE trapzd(a,b,s,n,omega0,omegaL,OmegaR)
   REAL(kind=8) :: a,b,s,funcE,omega0,omegaL,OmegaR
   INTEGER :: it,j
   REAL(kind=8) :: del,sum,tnm,x
+
   if (n.eq.1) then
-     s=0.5*(b-a)*(funcE(a,omega0,omegaL,OmegaR)+funcE(b,omega0,omegaL,OmegaR))
+     s=0.5D0*(b-a)*(funcE(a,omega0,omegaL,OmegaR)+funcE(b,omega0,omegaL,OmegaR))
   else
      it=2**(n-2)
      tnm=it
      del=(b-a)/tnm
-     x=a+0.5*del
-     sum=0.
+     x=a+0.5D0*del
+     sum=0.D0
      do j=1,it
         sum=sum+funcE(x,omega0,omegaL,OmegaR)
         x=x+del
      enddo
-     s=0.5*(s+(b-a)*sum/tnm)
+     s=0.5D0-*(s+(b-a)*sum/tnm)
   endif
   return
 END SUBROUTINE trapzd
