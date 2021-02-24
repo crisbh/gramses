@@ -937,8 +937,8 @@ end subroutine part2map_ramses
 ! rather than waiting for reaching some certain batch size.
 !---------------------------------------------------------!
 subroutine extract_sample(xmin,xmax,ymin,ymax,zmin,zmax,nsample,filename)
-  use amr_commons,ONLY : myid,next,headl,numbl,levelmin,ncpu,dp,sp,verbose, &
-                       & nstride,ndim,aexp,i8b,i4b,iogroupsize,sampletoken,
+  use amr_commons,ONLY : myid,next,headl,numbl,levelmin,ncpu,dp,sp,verbose,&
+                       & nstride,ndim,aexp,i8b,i4b,iogroupsize,sampletoken,&
                        & IOGROUPSIZESAMPLE,write_sample_idp,adaptive_iogroupsize
   use pm_commons, ONLY : xp,vp,mp,idp,nextp,headp,numbp,npart
   use mpi
@@ -2340,7 +2340,7 @@ SUBROUTINE trapzd(a,b,s,n,omega0,omegaL,OmegaR)
         sum=sum+funcE(x,omega0,omegaL,OmegaR)
         x=x+del
      enddo
-     s=0.5D0-*(s+(b-a)*sum/tnm)
+     s=0.5D0*(s+(b-a)*sum/tnm)
   endif
   return
 END SUBROUTINE trapzd
