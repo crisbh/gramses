@@ -26,7 +26,7 @@ recursive subroutine amr_step(ilevel,icount)
   !-------------------------------------------------------------------!
   
   integer::i,idim,ivar,info, ii
-!  logical::ok_defrag,output_now_all
+! logical::ok_defrag,output_now_all
   logical::ok_defrag,ok_output ! 31-01-19
   logical,save::first_step=.true.
   integer,dimension(1:5) :: gr_ord1
@@ -39,22 +39,22 @@ recursive subroutine amr_step(ilevel,icount)
   integer::ilun
   integer::icone
   real(dp)::tbeginoutput,tendoutput
-  !real(dp)::tbegin,tend
-  !character(LEN=5)::ncharlvl
-  !integer::tmpncell
-  integer:: future=-1
-  ! END CBH_LC 
+! real(dp)::tbegin,tend
+! character(LEN=5)::ncharlvl
+! integer::tmpncell
+  integer::future=-1
+  ! CBH_LC 
 
   ! Specific ordering of gr_pots for synchro and move steps
   gr_ord1(1:5)=(/9,8,7,5,6   /) ! Smallest to largest (sync)
   gr_ord2(1:6)=(/6,5,7,8,9,10/) ! Largest to smallest (move). igrp==10 does the position update.
 
-  if(numbtot(1,ilevel)==0)return
+  if(numbtot(1,ilevel)==0) return
 
   if(verbose)write(*,999)icount,ilevel
 
-    !----------------------------31-01-19----------------------------!
-    !--------------------- Interpol scale factor --------------------!
+  !----------------------------31-01-19----------------------------!
+  !--------------------- Interpol scale factor --------------------!
   if(cosmo.and.dabs(t_next).lt.1.0D-8)then
      ! Find neighbouring scale factors
      ii=1
@@ -64,18 +64,17 @@ recursive subroutine amr_step(ilevel,icount)
      ! Interpolate expansion factor for the next step
      t_next = tau_frw(ii  )*(aout(iout)-aexp_frw(ii-1))/(aexp_frw(ii  )-aexp_frw(ii-1)) + &
             & tau_frw(ii-1)*(aout(iout)-aexp_frw(ii  ))/(aexp_frw(ii-1)-aexp_frw(ii  ))
-
+     !
   end if
-    !----------------------------31-01-19----------------------------!
+  !----------------------------31-01-19----------------------------!
 
 
-    !--------------  Lightcone outputs ! CBH_LC --------------!
-    !------------------------09-02-21-------------------------!
-
-  if((ilevel==levelmin).and.writencoarse.and.withiocoarse.and.nstep_coarse==0)then
+  !--------------- Lightcone outputs CBH_LC --------------!
+  !-----------------------09-02-21------------------------!
+  if((ilevel.eq.levelmin).and.writencoarse.and.withiocoarse.and.(nstep_coarse.eq.0)) then
      call title(nstep_coarse,nchar)
-     filedir='output_ncoarse_'//TRIM(nchar)//'/'
-     filecmd='mkdir -p '//TRIM(filedir)
+     filedir='output_ncoarse_'//TRIM(nchar)//'/'                        ! include coarse step number in folder name
+     filecmd='mkdir -p '//TRIM(filedir)                                 ! create folder to store data on this coarse step
 #ifndef WITHOUTMKDIR
 #ifdef NOSYSTEM
      call PXFMKDIR(TRIM(filedir),LEN(TRIM(filedir)),O'755',info)
@@ -85,15 +84,13 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
      call MPI_BARRIER(MPI_COMM_WORLD,info)
   endif
- 
-    !--------------  Lightcone outputs ! CBH_LC --------------!
-    !------------------------09-02-21-------------------------!
-
+  !--------------- Lightcone outputs CBH_LC --------------!
+  !-----------------------09-02-21------------------------!
 
   !-------------------------------------------
   ! Make new refinements and update boundaries
   !-------------------------------------------
-                               call timer('refine','start')
+  call timer('refine','start')
   if(levelmin.lt.nlevelmax .and.(.not.static.or.(nstep_coarse_old.eq.nstep_coarse.and.restart_remap)))then
      if(ilevel==levelmin.or.icount>1)then
         do i=ilevel,nlevelmax
@@ -196,19 +193,20 @@ recursive subroutine amr_step(ilevel,icount)
   ! Particle leakage
   !-----------------
                                call timer('particles','start')
-  if(pic)call make_tree_fine(ilevel)
+  if(pic) call make_tree_fine(ilevel)
 
   !------------------------
   ! Output results to files
   !------------------------
 
-    !----------------------------31-01-19----------------------------!
-    !------------------ Output at exact scale factor-----------------!
+  !----------------------------31-01-19----------------------------!
+  !------------------ Output at exact scale factor-----------------!
 
   ok_output=.false.
-  if(ilevel==levelmin)then
-     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout)-1.0D-8.or.t>=tout(iout))then
-                               call timer('io','start')
+  !
+  if(ilevel.eq.levelmin) then
+     if(mod(nstep_coarse,foutput).eq.0.or.aexp>=aout(iout)-1.0D-8.or.t>=tout(iout)) then
+        call timer('io','start')
         if(.not.ok_defrag)then
            call defrag
         endif
@@ -228,38 +226,41 @@ recursive subroutine amr_step(ilevel,icount)
 
         ! Run the clumpfinder
 #if NDIM==3
-        if(clumpfind .and. ndim==3) call clump_finder(.true.,.false.)
+        if(clumpfind.and.ndim.eq.3) call clump_finder(.true.,.false.)
 #endif
 
         ! Dump lightcone
-!        if(lightcone .and. ndim==3) call output_cone() ! CBH_LC - lightcone used by the default RAMSES
-
+!       if(lightcone .and. ndim==3) call output_cone()                  ! CBH_LC lightcone used by the default RAMSES
      endif
 
 !     ! Important can't be done in sink routines because it must be done after dump all
-!     if(sink)acc_rate=0.   ! from ecosmog
+!     if(sink) acc_rate=0.   ! from ecosmog
     
-    !-------------- END Output at exact scale factor-----------------!
-    !----------------------------31-01-19----------------------------!
+     !-------------- END Output at exact scale factor-----------------!
+     !----------------------------31-01-19----------------------------!
 
 
 
-    !-------------- PARTICLE Lightcone outputs ! CBH_LC --------------!
-    !----------------------------09-02-21----------------------------!
-
-     !!!!!!!!!!!!!!!!!!!!!!!!!!!!! BEGIN YANN MODIF 09/2008!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
-        !------------------
-        !NCOARSE REPOSITORY
-        !-----------------
-      if((cone_full.or.cone_narrow.or.map_zoom.or.map_full.or.sample_zoom.or.sample_full.or.conegrav_full.or.conegrav_narrow).and.writencoarse.and.withiocoarse) then
-        if (myid==1) then
+     !-------------- particle lightcone outputs CBH_LC ---------------!
+     !----------------------------09-02-21----------------------------!
+     !-------------------
+     ! ncoarse repository
+     !-------------------
+     if((cone_full.or.cone_narrow.or.           &                       ! full or narrow particle lightcone
+      &  map_zoom.or.map_full.or.               &                       ! full or zoomed 2D particle map
+      &  sample_zoom.or.sample_full.or.         &                       ! full or zoomed 3D particle sample
+      &  conegrav_full.or.conegrav_narrow).and. &                       ! full or narrow gravdata lightcone
+      & writencoarse.and.                       &
+      & withiocoarse.and.                       &
+      & nstep_coarse>0) then                                            ! Baojiu: added a new condition
+        !
+        if(myid.eq.1) then
            if(verbose) write(*,*)'Entering Output Ncoarse'
         endif
-        !Create repository
-        call title(nstep_coarse,nchar)
-        filedir='output_ncoarse_'//TRIM(nchar)//'/'
-        filecmd='mkdir -p '//TRIM(filedir)
+        ! Create repository
+        call title(nstep_coarse,nchar) 
+        filedir='output_ncoarse_'//TRIM(nchar)//'/'                     ! include coarse step number in folder name
+        filecmd='mkdir -p '//TRIM(filedir)                              ! create folder to store data on this coarse step
 #ifndef WITHOUTMKDIR
 #ifdef NOSYSTEM
         call PXFMKDIR(TRIM(filedir),LEN(TRIM(filedir)),O'755',info)
@@ -267,156 +268,182 @@ recursive subroutine amr_step(ilevel,icount)
         call system(filecmd)
 #endif
 #endif
+        !
 #ifndef WITHOUTMPI
         call MPI_BARRIER(MPI_COMM_WORLD,info)
 #endif
         tbeginoutput=MPI_WTIME()
         
-        !Write essential information for ncoarse repository in info_ncoarse file
-        if(myid==1) then
-           !!!OLD
-           !ilun=4*ncpu+myid+10
-           !filename=TRIM(filedir)//'info_ncoarse_'//TRIM(nchar)//'.txt'
-           !open(ilun,file=TRIM(filename),form='formatted')
-           !write(ilun,'("ncpu        =",I11)')ncpu
-           !write(ilun,'("nstride     =",I11)')nstride
-           !write(ilun,'("nstep_coarse=",I11)')nstep_coarse
-           !write(ilun,'("aexp        =",E23.15)')aexp
-           !close(ilun)
-           !!!OlD
-           !!!NEW
+        ! Write essential information for ncoarse repository in info_ncoarse file
+        if(myid.eq.1) then
            filename=TRIM(filedir)//'info_ncoarse_'//TRIM(nchar)//'.txt'
            call output_info_ncoarse(filename)
-
-           !!!NEW
-
         endif
    
-        !-------------------!
-        !PARTICLE LIGHT CONE!
-        !-------------------!
-        !------------------ MODIF V. REVERDY 2011 ------------------!
-        if(cone_full)then
-          do icone = 1, conefull_number
-            if (conefull_ok(icone)) then
-              write(nchar_cone,'(I5.5)') conefull_id(icone)
-              !past
-              future=-1
-              filename=TRIM(filedir)//'cone_part_fullsky_past_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
-              call output_cone_fullsky(filename, conefull_id(icone), conefull_observer_x(icone), conefull_observer_y(icone), conefull_observer_z(icone), conefull_observer_redshift(icone), conefull_zmax(icone),future)
-              if(cone_overlap)then
-                 !future
-                 future=1
-                 filename=TRIM(filedir)//'cone_part_fullsky_future_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
-                 call output_cone_fullsky(filename, conefull_id(icone), conefull_observer_x(icone), conefull_observer_y(icone), conefull_observer_z(icone), conefull_observer_redshift(icone), conefull_zmax(icone),future)
-              endif
+        !------------------------------! 
+        ! output full particle lightcone
+        !------------------------------!
+        if(cone_full) then
+           do icone=1,conefull_number
+              if(conefull_ok(icone)) then
+                 write(nchar_cone,'(I5.5)') conefull_id(icone)
+                 ! write the past lightcone by default
+                 future=-1                                              ! past lightcone
+                 filename=TRIM(filedir)//'cone_part_fullsky_past_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+                 !
+                 call output_cone_fullsky(filename,conefull_id(icone),         &
+                                 &        conefull_observer_x(icone),          &
+                                 &        conefull_observer_y(icone),          &
+                                 &        conefull_observer_z(icone),          & 
+                                 &        conefull_observer_redshift(icone),   &
+                                 &        conefull_zmax(icone),future)
+                 if(cone_overlap) then
+                    ! also write the future lightcone if cone_overlap is true
+                    future=1                                            ! future lightcone
+                    filename=TRIM(filedir)//'cone_part_fullsky_future_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+                    !
+                    call output_cone_fullsky(filename,conefull_id(icone),       & 
+                                    &        conefull_observer_x(icone),        &
+                                    &        conefull_observer_y(icone),        &
+                                    &        conefull_observer_z(icone),        &
+                                    &        conefull_observer_redshift(icone), &
+                                    &        conefull_zmax(icone),future)
+                 endif
 #ifndef WITHOUTMPI
-              call MPI_BARRIER(MPI_COMM_WORLD,info)
+                 call MPI_BARRIER(MPI_COMM_WORLD,info)                  ! wait for all CPUs to finish
 #endif
-            endif
-          enddo
+              endif
+           enddo
         endif
+        !
+        !--------------------------------! 
+        ! output narrow particle lightcone
+        !--------------------------------!
         if(cone_narrow) then
-           do icone = 1, conenarrow_number
-              if (conenarrow_ok(icone)) then
+           do icone=1,conenarrow_number
+              if(conenarrow_ok(icone)) then
                  write(nchar_cone,'(I5.5)') conenarrow_id(icone)
-                 !past
-                 future=-1
+                 ! write the past lightcone by default
+                 future=-1                                              ! past lightcone
                  filename=TRIM(filedir)//'cone_part_narrow_past_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+                 !
                  call output_cone(filename,conenarrow_id(icone),future)
-                 if(cone_overlap)then
-                    !future
-                    future=1
+                 !
+                 if(cone_overlap) then
+                    ! also write the future lightcone if cone_overlap is true
+                    future=1                                            ! future lightcone
                     filename=TRIM(filedir)//'cone_part_narrow_future_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+                    !
                     call output_cone(filename,conenarrow_id(icone),future)
                  endif
 #ifndef WITHOUTMPI
-                 call MPI_BARRIER(MPI_COMM_WORLD,info)
+                 call MPI_BARRIER(MPI_COMM_WORLD,info)                  ! wait for all CPUs to finish
 #endif
               endif
            end do
         endif
-        !------------------ MODIF V. REVERDY 2011 ------------------!
-        
-        
-        !---!
-        !MAP!
-        !---!
-        if(map_full.and.(mod(nstep_coarse,fmap_full)==0)) then
+        !
+        !-------------------------------------!
+        ! output full projected 2D particle map
+        !-------------------------------------!
+        if(map_full.and.(mod(nstep_coarse,fmap_full).eq.0)) then
            filename=TRIM(filedir)//'map_full_ncoarse_'//TRIM(nchar)//'.dat'
-           call part2map_ramses(TRIM(proj_map_full),nx_map_full,ny_map_full,0.d0,1.d0,0.d0,1.d0,0.d0,1.d0,.false.,filename)
+           call part2map_ramses(TRIM(proj_map_full),            &
+                        &       nx_map_full,                    &
+                        &       ny_map_full,                    &
+                        &       0.D0,1.D0,0.D0,1.D0,0.D0,1.D0,  & ! boundaries of simulation box
+                        &       .false.,                        &
+                        &       filename)
         endif
-        if(map_zoom.and.(mod(nstep_coarse,fmap_zoom)==0)) then
+        !
+        !---------------------------------------!
+        ! output zoomed projected 2D particle map
+        !---------------------------------------!
+        if(map_zoom.and.(mod(nstep_coarse,fmap_zoom).eq.0)) then
            filename=TRIM(filedir)//'map_zoom_ncoarse_'//TRIM(nchar)//'.dat'
-           call part2map_ramses(TRIM(proj_map),nx_map,ny_map,xmin_map,xmax_map,ymin_map,ymax_map,zmin_map,zmax_map,.false.,filename)
+           call part2map_ramses(TRIM(proj_map),                 &
+                        &       nx_map,                         &
+                        &       ny_map,                         &
+                        &       xmin_map,                       &       ! x boundary of selected region
+                        &       xmax_map,                       &       ! x boundary of selected region
+                        &       ymin_map,                       &       ! y boundary of selected region
+                        &       ymax_map,                       &       ! y boundary of selected region
+                        &       zmin_map,                       &       ! z boundary of selected region
+                        &       zmax_map,                       &       ! z boundary of selected region
+                        &       .false.,                        &
+                        &       filename)
         endif
-     
-        !------!
-        !SAMPLE!
-        !------!
-        if(sample_full.and.(mod(nstep_coarse,fsample_full)==0))then
+        !
+        !-------------------------------------------!
+        ! output extractd particle sample in full box
+        !-------------------------------------------!
+        if(sample_full.and.(mod(nstep_coarse,fsample_full).eq.0)) then
            filename=TRIM(filedir)//'sample_part_full_ncoarse_'//TRIM(nchar)//'_proc_'
-           call extract_sample(0.d0,1.d0,0.d0,1.d0,0.d0,1.d0,nsample_sample_full,filename)
+           call extract_sample(0.D0,1.D0,0.D0,1.D0,0.D0,1.D0,   &       ! boundaries of selected region
+                       &       nsample_sample_full,             &       ! unused quantity
+                       &       filename)
         endif
-        if(sample_zoom.and.(mod(nstep_coarse,fsample_zoom)==0)) then
+        !
+        !----------------------------------------!
+        ! output extractd sample in cubic subboxes
+        !----------------------------------------!
+        if(sample_zoom.and.(mod(nstep_coarse,fsample_zoom).eq.0)) then
            filename=TRIM(filedir)//'sample_part_zoom_ncoarse_'//TRIM(nchar)//'_proc_'
-           call extract_sample(xmin_sample,xmax_sample,ymin_sample,ymax_sample,zmin_sample,zmax_sample,nsample_sample,filename)
+           call extract_sample(xmin_sample,xmax_sample,         &       ! x boundaries of selected region
+                       &       ymin_sample,ymax_sample,         &       ! y boundaries of selected region
+                       &       zmin_sample,zmax_sample,         &       ! z boundaries of selected region
+                       &       nsample_sample,                  &       ! unused quantity
+                       &       filename)
         endif
 #ifndef WITHOUTMPI
         call MPI_BARRIER(MPI_COMM_WORLD,info)
 #endif
         tendoutput=MPI_WTIME()
-        if(myid==1) write(*,*)'Time for coarse output=',tendoutput-tbeginoutput,'s'
-        
+        if(myid.eq.1) write(*,*) 'Time for coarse output=',     &       ! output time spent on writing particle lightcone
+                               & tendoutput-tbeginoutput,'s'
+        !  
      endif
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!! END YANN MODIF 09/2008!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     !-------------- particle lightcone outputs CBH_LC ---------------!
+     !----------------------------09-02-21----------------------------!
+     !
+  endif                                                                 ! if(ilevel.eq.levelmin)
 
-    !-----------END PARTICLE Lightcone outputs ! CBH_LC -------------!
-    !----------------------------09-02-21----------------------------!
-
-
-  endif
-
-
-    !-------------------Default RAMSES output block (31-01-19)-------------------!
-
-!  if(ilevel==levelmin)then
+  !------------------ Default RAMSES output block (31-01-19) ------------------!
+  !
+! if(ilevel==levelmin)then
 !
 !#ifdef WITHOUTMPI
-!     output_now_all = output_now
+!    output_now_all = output_now
 !#else
-!     ! check if any of the processes received a signal for output
-!     call MPI_BARRIER(MPI_COMM_WORLD,mpi_err)
-!     call MPI_ALLREDUCE(output_now,output_now_all,1,MPI_LOGICAL,MPI_LOR,MPI_COMM_WORLD,mpi_err)
+!    ! check if any of the processes received a signal for output
+!    call MPI_BARRIER(MPI_COMM_WORLD,mpi_err)
+!    call MPI_ALLREDUCE(output_now,output_now_all,1,MPI_LOGICAL,MPI_LOR,MPI_COMM_WORLD,mpi_err)
 !#endif
-!     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.EQV..true.)then
-!                               call timer('io','start')
-!        if(.not.ok_defrag)then
-!           call defrag
-!        endif
+!    if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.EQV..true.)then
+!       call timer('io','start')
+!       if(.not.ok_defrag)then
+!          call defrag
+!       endif
 !
-!        call dump_all
+!       call dump_all
 !
-!        ! Run the clumpfinder, (produce output, don't keep arrays alive on output)
-!        ! CAREFUL: create_output is used to destinguish between the case where
-!        ! the clumpfinder is called from create_sink or directly from amr_step.
+!       ! Run the clumpfinder, (produce output, don't keep arrays alive on output)
+!       ! CAREFUL: create_output is used to destinguish between the case where
+!       ! the clumpfinder is called from create_sink or directly from amr_step.
 !#if NDIM==3
-!        if(clumpfind .and. ndim==3) call clump_finder(.true.,.false.)
+!       if(clumpfind .and. ndim==3) call clump_finder(.true.,.false.)
 !#endif
 !
-!        ! Dump lightcone
-!        if(lightcone .and. ndim==3) call output_cone()
+!       ! Dump lightcone
+!       if(lightcone .and. ndim==3) call output_cone()
 !
-!        if (output_now_all.EQV..true.) then
+!       if(output_now_all.EQV..true.) then
 !          output_now=.false.
-!        endif
-!
-!     endif
-!
-!  endif
+!       endif
+!    endif
+! endif
 
-    !----------------End Default RAMSES output block (31-01-19)------------------!
-
+  !----------------End Default RAMSES output block (31-01-19)------------------!
 
   !----------------------------
   ! Output frame to movie dump (without synced levels)
@@ -437,9 +464,8 @@ recursive subroutine amr_step(ilevel,icount)
      !----------------------------------------------------
      ! Kinetic feedback from giant molecular clouds
      !----------------------------------------------------
-                               call timer('feedback','start')
+     call timer('feedback','start')
      if(hydro.and.star.and.eta_sn>0.and.f_w>0)call kinetic_feedback
-
   endif
 
   !--------------------
@@ -545,11 +571,11 @@ recursive subroutine amr_step(ilevel,icount)
      else
         ! Solve the 10 GR potentials.
         do igr=1,10
-           if((nstep_coarse.eq.-1).and.(igr.gt.4)) cycle   ! CBH
+           if((nstep_coarse.eq.-1).and.(igr.gt.4)) cycle                ! CBH
            call multigrid_fine_gr(ilevel,icount,igr)
         end do
         
-        if(nstep_coarse.eq.-1) then ! CBH
+        if(nstep_coarse.eq.-1) then                                     ! CBH
            if(ilevel.gt.levelmin) then
               print'(A)','ilevel larger than levelmin in the initial conditions. Please check.'
               call clean_stop
@@ -822,7 +848,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! Magnetic diffusion step
   if((hydro).and.(.not.static_gas))then
      if(eta_mag>0d0.and.ilevel==levelmin)then
-                               call timer('hydro - diffusion','start')
+        call timer('hydro - diffusion','start')
         call diffusion
      endif
   end if
@@ -831,7 +857,7 @@ recursive subroutine amr_step(ilevel,icount)
   !-----------------------
   ! Compute refinement map
   !-----------------------
-                               call timer('flag','start')
+  call timer('flag','start')
   if(.not.static.or.(nstep_coarse_old.eq.nstep_coarse.and.restart_remap)) call flag_fine(ilevel,icount)
 
   !----------------------------
@@ -845,7 +871,7 @@ recursive subroutine amr_step(ilevel,icount)
   !---------------
 #ifdef ATON
   if(aton.and.ilevel==levelmin)then
-                               call timer('aton','start')
+     call timer('aton','start')
      call rad_step(dtnew(ilevel))
   endif
 #endif
@@ -871,43 +897,49 @@ recursive subroutine amr_step(ilevel,icount)
   end if
 
   !-------------------------------
-  ! Update coarser level time-step
+  ! Update coarser-level time step
   !-------------------------------
   if(ilevel>levelmin)then
-     if(nsubcycle(ilevel-1)==1)dtnew(ilevel-1)=dtnew(ilevel)
-     if(icount==2)dtnew(ilevel-1)=dtold(ilevel)+dtnew(ilevel)
+     if(nsubcycle(ilevel-1)==1) dtnew(ilevel-1)=              dtnew(ilevel)
+     if(icount==2)              dtnew(ilevel-1)=dtold(ilevel)+dtnew(ilevel)
   end if
 
-    !-------------- Gravity Lightcone outputs ! CBH_LC --------------!
-    !----------------------------09-02-21----------------------------!
-
-  ! New coarse time-step
-  if(ilevel==levelmin) then
-     nstep_coarse=nstep_coarse+1 ! This is normally done in adaptive_loop !
+  !--------------- gravity lightcone outputs CBH_LC ---------------!
+  !----------------------------09-02-21----------------------------!
+  !
+  ! New coarse time step
+  if(ilevel.eq.levelmin) then
+     nstep_coarse=nstep_coarse+1                                        ! this is normally done in adaptive_loop
   endif
 
-  if(.NOT.writencoarse.and.ilevel==levelmin.and.withiocoarse) then
-    writencoarse = .true.
+  if((.not.writencoarse).and.(ilevel.eq.levelmin).and.withiocoarse) then
+     writencoarse=.true.
   endif
   
-  !------------------ MODIF V. REVERDY 2011 ------------------!
-  if(use_aexp_restart.and.ilevel==levelmin) nstep_coarse_after_restart=nstep_coarse_after_restart+1
-  if(myid==1.and.ilevel==levelmin) then
-    if(verbose)write(*,*)' '
-    if(verbose)write(*,*)' '
-    if(verbose)write(*,*)' '
-    if(verbose)write(*,*)' '
-    if(verbose)write(*,*)' '
-    if(verbose)write(*,*)'====================== BEGIN TIME STEP ======================'
-  end if
-  if(nstep_coarse_after_restart==1.and.ilevel==levelmin) aexp_restart_light_cone=aexp
-!-----------------------------------------------------------!    
-
-
-  if((ilevel==levelmin).and.writencoarse.and.withiocoarse)then
+  if(use_aexp_restart.and.(ilevel.eq.levelmin)) then
+     nstep_coarse_after_restart=nstep_coarse_after_restart+1
+  endif
+  !
+  if((myid.eq.1).and.(ilevel.eq.levelmin)) then
+     if(verbose) write(*,*)' '
+     if(verbose) write(*,*)' '
+     if(verbose) write(*,*)' '
+     if(verbose) write(*,*)' '
+     if(verbose) write(*,*)' '
+     if(verbose) write(*,*)'====================== BEGIN TIME STEP ======================'
+  endif
+  !
+  if((nstep_coarse_after_restart.eq.1).and.(ilevel.eq.levelmin)) then
+     aexp_restart_light_cone=aexp
+  endif
+  !
+  if((ilevel.eq.levelmin).and.writencoarse.and.withiocoarse. &
+                    &     and.(nstep_coarse>0)) then                    ! Baojiu: added a new condition
+     !
      call title(nstep_coarse,nchar)
-     filedir='output_ncoarse_'//TRIM(nchar)//'/'
-     filecmd='mkdir -p '//TRIM(filedir)
+     filedir='output_ncoarse_'//TRIM(nchar)//'/'                        ! include coarse step number in folder name
+     filecmd='mkdir -p '//TRIM(filedir)                                 ! create folder to store data on this coarse step
+     !
 #ifndef WITHOUTMKDIR
 #ifdef NOSYSTEM
      call PXFMKDIR(TRIM(filedir),LEN(TRIM(filedir)),O'755',info)
@@ -918,64 +950,111 @@ recursive subroutine amr_step(ilevel,icount)
      call MPI_BARRIER(MPI_COMM_WORLD,info)
   endif
   
-  
-  if((ilevel==levelmin).and.writencoarse.and.withiocoarse)then
-    call MPI_BARRIER(MPI_COMM_WORLD,info)
-
-    !Lighcone shell limits ry modif 27/01/15
-    if((conegrav_overlap.or.cone_overlap).and.(nstep_coarse.gt.1))then
-       if(myid==1)print*,nstep_coarse,aendconem2,aendconem1,aendcone,aexp,aexp_old
-       aendconem2=aendconem1
-       aendconem1=aendcone
-       aendcone=aexp+(aexp-aexp_old)
-       if(aendcone<aendconem1)aendcone=aendconem1 !to avoid inversion of shells
-    endif
-    
-   if(verbose) write(*,*) 'Begin write ncoarse grav'  
-    tbeginoutput=MPI_WTIME()
-    if(conegrav_full) then
-      do icone = 1, conefull_number
-        if (conefull_ok(icone)) then
-           future=0
-          if(verbose) write(*,*) 'Begin conegrav', icone
-          write(nchar_cone,'(I5.5)') conefull_id(icone)
-          filename='cone_grav_fullsky_pastnfut_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
-          call output_conegrav(.true., filedir, filename, conefull_id(icone), conefull_observer_x(icone), conefull_observer_y(icone), conefull_observer_z(icone), conefull_observer_redshift(icone), conefull_zmax(icone), conegrav_mode, conegrav_levelmin, conegrav_levelmax, 0.D0, 0.D0, 0.D0, 0.D0,future)
-          call MPI_BARRIER(MPI_COMM_WORLD,info)
-        endif
-      enddo
-    endif
-    if(conegrav_narrow) then
-       do icone = 1, conenarrow_number
-          if (conenarrow_ok(icone)) then
-             future=0
-             if(verbose) write(*,*) 'Begin conegravnarrow', icone
-             write(nchar_cone,'(I5.5)') conenarrow_id(icone)
-             filename='cone_grav_narrow_pastnfut_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
-             call output_conegrav(.false., filedir, filename, conenarrow_id(icone), conenarrow_observer_x(icone), conenarrow_observer_y(icone), conenarrow_observer_z(icone), conenarrow_observer_redshift(icone), conenarrow_zmax(icone), conegrav_mode, conegrav_levelmin, conegrav_levelmax, conenarrow_thetay(icone), conenarrow_thetaz(icone), conenarrow_theta(icone), conenarrow_phi(icone),future)
-             call MPI_BARRIER(MPI_COMM_WORLD,info)
-          endif
-       enddo
-    endif
-    if(verbose) write(*,*) 'Begin samplegrav'  
-    if(samplegrav_zoom.and.(mod(nstep_coarse,fsample_full)==0))then
-      filename='sample_grav_zoom_ncoarse_'//TRIM(nchar)//'_proc_'
-      call extract_samplegrav(filedir, filename, xmin_sample, xmax_sample, ymin_sample, ymax_sample, zmin_sample, zmax_sample, nsample_sample, 0, 0)
-    endif  
-    call MPI_BARRIER(MPI_COMM_WORLD,info)
-    tendoutput=MPI_WTIME()
-    if(verbose) write(*,*) 'End write ncoarse grav'
-    if(myid.EQ.1) write(*,*) 'Time for coarsegrav output=',tendoutput-tbeginoutput,'s'
+  if((ilevel.eq.levelmin).and.writencoarse.and.withiocoarse &
+                    &    .and.(nstep_coarse>0)) then                    ! Baojiu: added a new condition
+     ! 
+     call MPI_BARRIER(MPI_COMM_WORLD,info)
+     !
+     ! lighcone shell limits ry modif 27/01/15
+     if((conegrav_overlap.or.cone_overlap).and.(nstep_coarse.gt.1)) then
+        if(myid.eq.1) print*,nstep_coarse,aendconem2,aendconem1, &
+                           & aendcone,aexp,aexp_old
+        aendconem2=aendconem1                                           ! farther boundary of past lightcone
+        aendconem1=aendcone                                             ! boundary between past and future lightcones
+        aendcone  =aexp+(aexp-aexp_old)                                 ! closer boundary of future lightcone
+        if(aendcone<aendconem1) aendcone=aendconem1                     ! avoid possible inversion of shells
+     endif
+     !
+     if(verbose) write(*,*) 'Begin write ncoarse grav'  
+     tbeginoutput=MPI_WTIME()
+     !
+     !--------------------------------------! 
+     ! Output grav data in fullsky lightcones
+     !--------------------------------------!
+     if(conegrav_full) then
+        do icone=1,conefull_number                                      ! loop over all cones
+           if(conefull_ok(icone)) then                                  ! check if this cone needs writing 
+              future=0                                                  ! 0 is the only allowed value of future
+              if(verbose) write(*,*) 'Begin conegrav',icone
+              write(nchar_cone,'(I5.5)') conefull_id(icone)
+              filename='cone_grav_fullsky_pastnfut_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+              !
+              call output_conegrav(.true.,filedir,filename,             &
+                         &         conefull_id(icone),                  &
+                         &         conefull_observer_x(icone),          &
+                         &         conefull_observer_y(icone),          &
+                         &         conefull_observer_z(icone),          &
+                         &         conefull_observer_redshift(icone),   &
+                         &         conefull_zmax(icone),                &
+                         &         conegrav_mode,                       &
+                         &         conegrav_levelmin,                   &
+                         &         conegrav_levelmax,                   &
+                         &         0.D0,0.D0,0.D0,0.D0,                 &
+                         &         future)
+              !
+              call MPI_BARRIER(MPI_COMM_WORLD,info)                     ! wait for all CPUs to finish writing
+           endif
+        enddo                                                           ! do icone=1,conefull_number
+     endif
+     !
+     !-------------------------------------!
+     ! Output grav data in narrow lightcones
+     !-------------------------------------!
+     if(conegrav_narrow) then
+        do icone=1,conenarrow_number                                    ! loop over all cones
+           if(conenarrow_ok(icone)) then                                ! check if this cone needs writing
+              future=0                                                  ! 0 is the only allowed value of future
+              if(verbose) write(*,*) 'Begin conegravnarrow',icone
+              write(nchar_cone,'(I5.5)') conenarrow_id(icone)
+              filename='cone_grav_narrow_pastnfut_'//nchar_cone//'_ncoarse_'//TRIM(nchar)//'_proc_'
+              !
+              call output_conegrav(.false.,filedir,filename,            &
+                         &         conenarrow_id(icone),                &
+                         &         conenarrow_observer_x(icone),        &
+                         &         conenarrow_observer_y(icone),        &
+                         &         conenarrow_observer_z(icone),        &
+                         &         conenarrow_observer_redshift(icone), &
+                         &         conenarrow_zmax(icone),              &
+                         &         conegrav_mode,                       &
+                         &         conegrav_levelmin,                   &
+                         &         conegrav_levelmax,                   &
+                         &         conenarrow_thetay(icone),            &
+                         &         conenarrow_thetaz(icone),            &
+                         &         conenarrow_theta(icone),             &
+                         &         conenarrow_phi(icone),               &
+                         &         future)
+              !
+              call MPI_BARRIER(MPI_COMM_WORLD,info)                     ! wait for all CPUs to finish writing
+           endif
+        enddo                                                           ! do icone=1,conenarrow_number
+     endif
+     !
+     !--------------------------------------------------------!
+     ! Output grav data in chosen cubes from the simulation box
+     !--------------------------------------------------------!
+     if(verbose) write(*,*) 'Begin samplegrav'  
+     if(samplegrav_zoom.and.(mod(nstep_coarse,fsample_full).eq.0)) then   
+        filename='sample_grav_zoom_ncoarse_'//TRIM(nchar)//'_proc_'
+        call extract_samplegrav(filedir,filename,xmin_sample,           &
+                    &           xmax_sample,ymin_sample,ymax_sample,    &
+                    &           zmin_sample,zmax_sample,nsample_sample, &
+                    &           0,0)
+     endif
+     ! 
+     call MPI_BARRIER(MPI_COMM_WORLD,info)                              ! wait for all CPUs to finish writing
+     !
+     tendoutput=MPI_WTIME()
+     if(verbose) write(*,*) 'End write ncoarse grav'
+     if(myid.eq.1) write(*,*) 'Time for coarsegrav output=', &          ! output time spent on writing particle lightcone
+                            & tendoutput-tbeginoutput,'s'
+     ! 
   endif
 
-  !if(dotiming) tend=MPI_WTIME()
-  !if(dotiming.and.myid==1) write(ilun_time1,*)ilevel, 'Time for amr_step->outputgrav',tend-tbegin
-  
+  ! if(dotiming) tend=MPI_WTIME()
+  ! if(dotiming.and.myid==1) write(ilun_time1,*)ilevel, 'Time for amr_step->outputgrav',tend-tbegin
 
-    !-----------END Gravity Lightcone outputs ! CBH_LC --------------!
-    !----------------------------09-02-21----------------------------!
-
-
+  !--------------- Gravity Lightcone outputs CBH_LC ---------------!
+  !----------------------------09-02-21----------------------------!
 
 999 format(' Entering amr_step',i1,' for level',i2)
 
