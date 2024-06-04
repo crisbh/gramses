@@ -854,6 +854,9 @@ subroutine load_gadget
   integer::clock_start,clock_end,clock_rate
   real(dp)::gadgetvfact
 
+  ! Variables for Tophat
+  real(dp):: Amp, pii, n_osc, box_test
+
   ! Local particle count
   ipart=0
   call SYSTEM_CLOCK(COUNT_RATE=clock_rate)
@@ -886,9 +889,24 @@ subroutine load_gadget
         start = 1
         TIME_START(clock_start)
         do i=1,nparticles
-           xx_dp(1,1) = pos(1,i)/gadgetheader%boxsize
-           xx_dp(1,2) = pos(2,i)/gadgetheader%boxsize
-           xx_dp(1,3) = pos(3,i)/gadgetheader%boxsize
+           ! Tophat block begins
+           pos(1,i) = pos(1,i)+0.5D0
+           pos(2,i) = pos(2,i)+0.5D0
+           pos(3,i) = pos(3,i)+0.5D0
+           box_test = 256.0d0
+           if(pos(1,i).gt.box_test) pos(1,i)=pos(1,i)-box_test
+           if(pos(2,i).gt.box_test) pos(2,i)=pos(2,i)-box_test
+           if(pos(3,i).gt.box_test) pos(3,i)=pos(3,i)-box_test
+           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/(gadgetheader%boxsize/box_test)+0.5D0))-0.5D0)/box_test
+           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/(gadgetheader%boxsize/box_test)+0.5D0))-0.5D0)/box_test
+           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/(gadgetheader%boxsize/box_test)+0.5D0))-0.5D0)/box_test
+
+!          write(*,*) xx_dp(1,1), pos(1,i)
+           ! Tophat block ends
+
+!          xx_dp(1,1) = pos(1,i)/gadgetheader%boxsize
+!          xx_dp(1,2) = pos(2,i)/gadgetheader%boxsize
+!          xx_dp(1,3) = pos(3,i)/gadgetheader%boxsize
 #ifndef WITHOUTMPI
            call cmp_cpumap(xx_dp,cc,1)
            if(cc(1)==myid)then
@@ -901,9 +919,26 @@ subroutine load_gadget
               end if
 #endif
               xp(ipart,1:3)=xx_dp(1,1:3)
+
+              ! Tophat block begins
+              pii = 4.0d0*datan(1.0d0)
+              Amp = 1.0d0/10.0d0**3
+              n_osc = 4.0d0
+
+              xp(ipart,1)  = xp(ipart,1)+(Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,1))
+!              xp(ipart,1)  = xp(ipart,1)+(Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,1))
+
               vp(ipart,1)  =vel(1, i) * gadgetvfact
               vp(ipart,2)  =vel(2, i) * gadgetvfact
               vp(ipart,3)  =vel(3, i) * gadgetvfact
+
+              vp(ipart,1)  = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,1))
+              vp(ipart,2)  = 0.0D0
+              vp(ipart,3)  = 0.0D0
+ 
+              write(*,*) xp(ipart,1)
+              ! Tophat block ends 
+               
               mp(ipart)    = massparticles
               levelp(ipart)=levelmin
               idp(ipart)   =ids(i)
