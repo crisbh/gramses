@@ -890,6 +890,8 @@ subroutine load_gadget
         TIME_START(clock_start)
         do i=1,nparticles
            ! Tophat block begins
+           ! Push particles towards centre of cells, i.e. build a lattice
+           ! Note: in the cosmological ICs data there is one particle per cell
            pos(1,i) = pos(1,i)+0.5D0
            pos(2,i) = pos(2,i)+0.5D0
            pos(3,i) = pos(3,i)+0.5D0
@@ -907,6 +909,7 @@ subroutine load_gadget
 !          xx_dp(1,1) = pos(1,i)/gadgetheader%boxsize
 !          xx_dp(1,2) = pos(2,i)/gadgetheader%boxsize
 !          xx_dp(1,3) = pos(3,i)/gadgetheader%boxsize
+
 #ifndef WITHOUTMPI
            call cmp_cpumap(xx_dp,cc,1)
            if(cc(1)==myid)then
@@ -920,25 +923,31 @@ subroutine load_gadget
 #endif
               xp(ipart,1:3)=xx_dp(1,1:3)
 
+              ! ---------------------------------------------------------------
               ! Tophat block begins
+              ! ---------------------------------------------------------------
+              ! Here we fix the initial positions and velocities of the particles.
+              ! The former are such that the particle configuration reproduces
+              ! the correct density field. For this, the displacements are computed
+              ! following the density-displacement duality method.
               pii = 4.0d0*datan(1.0d0)
-              Amp = 1.0d0/10.0d0**3
-              n_osc = 4.0d0
+              !Amp = 1.0d0/10.0d0**3
+              Amp = 3.0d-2
+              n_osc = 2.0d0
 
-              xp(ipart,1)  = xp(ipart,1)+(Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,1))
-!              xp(ipart,1)  = xp(ipart,1)+(Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,1))
+              do idim = 1, ndim 
+                 xp(ipart,idim) = xp(ipart,idim) + (Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,idim))
 
-              vp(ipart,1)  =vel(1, i) * gadgetvfact
-              vp(ipart,2)  =vel(2, i) * gadgetvfact
-              vp(ipart,3)  =vel(3, i) * gadgetvfact
+!                 vp(ipart,1)  = vel(1, i) * gadgetvfact
+!                 vp(ipart,2)  = vel(2, i) * gadgetvfact
+!                 vp(ipart,3)  = vel(3, i) * gadgetvfact
 
-              vp(ipart,1)  = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,1))
-              vp(ipart,2)  = 0.0D0
-              vp(ipart,3)  = 0.0D0
- 
-              write(*,*) xp(ipart,1)
+                 vp(ipart,idim) = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,idim))
+    
+                 write(*,*) xp(ipart,1)
+              end do
               ! Tophat block ends 
-               
+
               mp(ipart)    = massparticles
               levelp(ipart)=levelmin
               idp(ipart)   =ids(i)
