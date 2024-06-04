@@ -855,6 +855,7 @@ subroutine load_gadget
   real(dp)::gadgetvfact
 
   ! Variables for Tophat
+  integer::idim
   real(dp):: Amp, pii, n_osc, box_test
 
   ! Local particle count
