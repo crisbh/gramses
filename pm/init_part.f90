@@ -945,7 +945,7 @@ subroutine load_gadget
 
                  vp(ipart,idim) = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,idim))
     
-                 write(*,*) xp(ipart,1)
+!                 write(*,*) xp(ipart,1)
               end do
               ! Tophat block ends 
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH -n 256
-#SBATCH -t 6:00:00
+#SBATCH -n 512
+#SBATCH -t 10:00:00
 #SBATCH -J tophat
 #SBATCH -o ./logs/%j.log
 #SBATCH -e ./logs/%j.err
