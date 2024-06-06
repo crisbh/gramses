@@ -1,12 +1,12 @@
 #!/bin/sh
 
-#SBATCH -n 512
-#SBATCH -t 10:00:00
+#SBATCH -n 256
+#SBATCH -t 02:00:00
 #SBATCH -J tophat
 #SBATCH -o ./logs/%j.log
 #SBATCH -e ./logs/%j.err
-#SBATCH -p cosma8
-#SBATCH -A dp203 
+#SBATCH -p cosma7
+#SBATCH -A dp004 
 #SBATCH --exclusive
 
 # prepare
@@ -20,8 +20,8 @@ unset I_MPI_HYDRA_BOOTSTRAP
 #make clean && make
 
 # run
-#mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_sim_256.nml
-mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_PM512.nml
+#mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_B512_PM256.nml
+mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_PM256.nml
 
 # report
 echo ""
