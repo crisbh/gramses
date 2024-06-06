@@ -856,7 +856,7 @@ subroutine load_gadget
 
   ! Variables for Tophat
   integer::idim
-  real(dp):: Amp, pii, n_osc, box_test
+  real(dp):: Amp, pii, n_osc, BoxSize, MeshSize
 
   ! Local particle count
   ipart=0
@@ -890,23 +890,38 @@ subroutine load_gadget
         start = 1
         TIME_START(clock_start)
         do i=1,nparticles
+           ! ---------------------------------------------------------------
            ! Tophat block begins
-           ! Push particles towards centre of cells, i.e. build a lattice
+           ! ---------------------------------------------------------------
+           ! Reset particles to centre of cells, i.e. build a lattice
            ! Note: in the cosmological ICs data there is one particle per cell
-           pos(1,i) = pos(1,i)+0.5D0
-           pos(2,i) = pos(2,i)+0.5D0
-           pos(3,i) = pos(3,i)+0.5D0
-           box_test = 256.0d0
-           if(pos(1,i).gt.box_test) pos(1,i)=pos(1,i)-box_test
-           if(pos(2,i).gt.box_test) pos(2,i)=pos(2,i)-box_test
-           if(pos(3,i).gt.box_test) pos(3,i)=pos(3,i)-box_test
-           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/(gadgetheader%boxsize/box_test)+0.5D0))-0.5D0)/box_test
-           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/(gadgetheader%boxsize/box_test)+0.5D0))-0.5D0)/box_test
-           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/(gadgetheader%boxsize/box_test)+0.5D0))-0.5D0)/box_test
+           ! Notice that pos so far has units of boxsize
+           MeshSize = 256.0d0
+           BoxSize = gadgetheader%boxsize
 
-!          write(*,*) xx_dp(1,1), pos(1,i)
+           ! Displace particles by half a cell
+           pos(1,i) = pos(1,i) + 0.5D0 * BoxSize/MeshSize
+           pos(2,i) = pos(2,i) + 0.5D0 * BoxSize/MeshSize
+           pos(3,i) = pos(3,i) + 0.5D0 * BoxSize/MeshSize
+
+           ! Impose periodic BC
+           if(pos(1,i).gt.BoxSize) pos(1,i)=pos(1,i)-BoxSize
+           if(pos(2,i).gt.BoxSize) pos(2,i)=pos(2,i)-BoxSize
+           if(pos(3,i).gt.BoxSize) pos(3,i)=pos(3,i)-BoxSize
+
+           ! Reset particles to cell centres
+           ! Final xx_dp Pos array should be dimensionless
+           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/(BoxSize/MeshSize)+0.5D0))-0.5D0)/MeshSize
+           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/(BoxSize/MeshSize)+0.5D0))-0.5D0)/MeshSize
+           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/(BoxSize/MeshSize)+0.5D0))-0.5D0)/MeshSize
+
+!           write(*,*) xx_dp(1,1), pos(1,i)
+
+           ! ---------------------------------------------------------------
            ! Tophat block ends
+           ! ---------------------------------------------------------------
 
+           ! Original RAMSES lines
 !          xx_dp(1,1) = pos(1,i)/gadgetheader%boxsize
 !          xx_dp(1,2) = pos(2,i)/gadgetheader%boxsize
 !          xx_dp(1,3) = pos(3,i)/gadgetheader%boxsize
@@ -936,18 +951,31 @@ subroutine load_gadget
               Amp = 3.0d-2
               n_osc = 2.0d0
 
-              do idim = 1, ndim 
-                 xp(ipart,idim) = xp(ipart,idim) + (Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,idim))
+!              if(verbose)write(*,*)'Applying displacements and velocities to particles.'
 
-!                 vp(ipart,1)  = vel(1, i) * gadgetvfact
-!                 vp(ipart,2)  = vel(2, i) * gadgetvfact
-!                 vp(ipart,3)  = vel(3, i) * gadgetvfact
+!              xp(ipart,1) = xp(ipart,1) + (Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,1))
+!              xp(ipart,2) = xp(ipart,2) + (Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,2))
+!              xp(ipart,3) = xp(ipart,3) + (Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,3))
 
-                 vp(ipart,idim) = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,idim))
+!              ! Orginal RAMSES lines
+!              vp(ipart,1)  = vel(1, i) * gadgetvfact
+!              vp(ipart,2)  = vel(2, i) * gadgetvfact
+!              vp(ipart,3)  = vel(3, i) * gadgetvfact
+
+              
+              ! Density-displacement duality
+!              vp(ipart,1) = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,1))
+!              vp(ipart,2) = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,2))
+!              vp(ipart,3) = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,3))
+
+              vp(ipart,1) = 0.0d0
+              vp(ipart,2) = 0.0d0
+              vp(ipart,3) = 0.0d0
     
-!                 write(*,*) xp(ipart,1)
-              end do
+              write(*,*) xp(ipart,1), xp(ipart,2), xp(ipart,3)
+              ! ---------------------------------------------------------------
               ! Tophat block ends 
+              ! ---------------------------------------------------------------
 
               mp(ipart)    = massparticles
               levelp(ipart)=levelmin
