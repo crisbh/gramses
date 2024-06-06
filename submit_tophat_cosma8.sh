@@ -17,7 +17,7 @@ module load intel_mpi/2018
 unset I_MPI_HYDRA_BOOTSTRAP
 
 # compile
-#make clean && make
+cd bin && make clean && make && cd ..
 
 # run
 #mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_B512_PM256.nml
