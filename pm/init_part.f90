@@ -856,7 +856,7 @@ subroutine load_gadget
 
   ! Variables for Tophat
   integer::idim
-  real(dp):: Amp, pii, n_osc, BoxSize, MeshSize
+  real(dp):: Amp, pii, n_wave, BoxSize, MeshSize
 
   ! Local particle count
   ipart=0
@@ -949,13 +949,13 @@ subroutine load_gadget
               pii = 4.0d0*datan(1.0d0)
               !Amp = 1.0d0/10.0d0**3
               Amp = 3.0d-2
-              n_osc = 2.0d0
+              n_wave = 1.0d0
 
 !              if(verbose)write(*,*)'Applying displacements and velocities to particles.'
 
-!              xp(ipart,1) = xp(ipart,1) + (Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,1))
-!              xp(ipart,2) = xp(ipart,2) + (Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,2))
-!              xp(ipart,3) = xp(ipart,3) + (Amp/2.0d0/pii/n_osc)*dcos(2.0d0*pii*n_osc*xp(ipart,3))
+              xp(ipart,1) = xp(ipart,1) + (Amp/2.0d0/pii/n_wave)*dcos(2.0d0*pii*n_wave*xp(ipart,1))
+!              xp(ipart,2) = xp(ipart,2) + (Amp/2.0d0/pii/n_wave)*dcos(2.0d0*pii*n_wave*xp(ipart,2))
+!              xp(ipart,3) = xp(ipart,3) + (Amp/2.0d0/pii/n_wave)*dcos(2.0d0*pii*n_wave*xp(ipart,3))
 
 !              ! Orginal RAMSES lines
 !              vp(ipart,1)  = vel(1, i) * gadgetvfact
@@ -964,15 +964,15 @@ subroutine load_gadget
 
               
               ! Density-displacement duality
-!              vp(ipart,1) = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,1))
-!              vp(ipart,2) = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,2))
-!              vp(ipart,3) = hexp*(Amp/2.0d0/pii/n_osc)*dcos(2.0D0*pii*n_osc*xp(ipart,3))
+              vp(ipart,1) = hexp*(Amp/2.0d0/pii/n_wave)*dcos(2.0D0*pii*n_wave*xp(ipart,1))
+!              vp(ipart,2) = hexp*(Amp/2.0d0/pii/n_wave)*dcos(2.0D0*pii*n_wave*xp(ipart,2))
+!              vp(ipart,3) = hexp*(Amp/2.0d0/pii/n_wave)*dcos(2.0D0*pii*n_wave*xp(ipart,3))
 
               vp(ipart,1) = 0.0d0
               vp(ipart,2) = 0.0d0
               vp(ipart,3) = 0.0d0
     
-              write(*,*) xp(ipart,1), xp(ipart,2), xp(ipart,3)
+!              write(*,*) xp(ipart,1), xp(ipart,2), xp(ipart,3)
               ! ---------------------------------------------------------------
               ! Tophat block ends 
               ! ---------------------------------------------------------------
