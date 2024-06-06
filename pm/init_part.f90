@@ -954,8 +954,8 @@ subroutine load_gadget
 !              if(verbose)write(*,*)'Applying displacements and velocities to particles.'
 
               xp(ipart,1) = xp(ipart,1) + (Amp/2.0d0/pii/n_wave)*dcos(2.0d0*pii*n_wave*xp(ipart,1))
-!              xp(ipart,2) = xp(ipart,2) + (Amp/2.0d0/pii/n_wave)*dcos(2.0d0*pii*n_wave*xp(ipart,2))
-!              xp(ipart,3) = xp(ipart,3) + (Amp/2.0d0/pii/n_wave)*dcos(2.0d0*pii*n_wave*xp(ipart,3))
+              xp(ipart,2) = xp(ipart,2) + (Amp/2.0d0/pii/n_wave)*dcos(2.0d0*pii*n_wave*xp(ipart,2))
+              xp(ipart,3) = xp(ipart,3) + (Amp/2.0d0/pii/n_wave)*dcos(2.0d0*pii*n_wave*xp(ipart,3))
 
 !              ! Orginal RAMSES lines
 !              vp(ipart,1)  = vel(1, i) * gadgetvfact
@@ -965,8 +965,8 @@ subroutine load_gadget
               
               ! Density-displacement duality
               vp(ipart,1) = hexp*(Amp/2.0d0/pii/n_wave)*dcos(2.0D0*pii*n_wave*xp(ipart,1))
-!              vp(ipart,2) = hexp*(Amp/2.0d0/pii/n_wave)*dcos(2.0D0*pii*n_wave*xp(ipart,2))
-!              vp(ipart,3) = hexp*(Amp/2.0d0/pii/n_wave)*dcos(2.0D0*pii*n_wave*xp(ipart,3))
+              vp(ipart,2) = hexp*(Amp/2.0d0/pii/n_wave)*dcos(2.0D0*pii*n_wave*xp(ipart,2))
+              vp(ipart,3) = hexp*(Amp/2.0d0/pii/n_wave)*dcos(2.0D0*pii*n_wave*xp(ipart,3))
 
               vp(ipart,1) = 0.0d0
               vp(ipart,2) = 0.0d0
