@@ -19,7 +19,7 @@ aout=0.0033,0.01001,0.0125,0.02,0.25
 
 &INIT_PARAMS
 filetype='gadget'
-initfile(1)='/cosma7/data/dp004/dc-barr3/projects/tophat/default_syn_B256_PM256_zini3025/ics'
+initfile(1)='/cosma8/data/dp203/dc-barr3/projects/Tophat_GR/data/input/2lptic_ICs/default_syn_B256_PM256_zini3025/ics'
 /
 
 &AMR_PARAMS
