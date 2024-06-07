@@ -856,7 +856,7 @@ subroutine load_gadget
 
   ! Variables for Tophat
   integer::idim
-  real(dp):: Amp, pii, lambda_pert, k_pert, BoxSize, MeshSize, disp_x, disp_y, disp_z
+  real(dp):: Amp, pii, lambda_pert, k_pert, BoxSize, MeshSize, CellSize, disp_x, disp_y, disp_z
 
   ! Local particle count
   ipart=0
