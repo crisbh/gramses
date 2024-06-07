@@ -912,9 +912,14 @@ subroutine load_gadget
 
            ! Reset particles to cell centres
            ! Final xx_dp Pos array should be dimensionless
-           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
-           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
-           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+!           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+!           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+!           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+
+           ! Alternatively, put particles in cell boundaries
+           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
+           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
+           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
 
 
 !           write(*,*) xx_dp(1,1), pos(1,i)
