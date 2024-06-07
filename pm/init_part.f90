@@ -898,11 +898,12 @@ subroutine load_gadget
            ! Notice that pos so far has units of boxsize
            MeshSize = 256.0d0
            BoxSize = gadgetheader%boxsize
+           CellSize= BoxSize/MeshSize
 
            ! Displace particles by half a cell
-           pos(1,i) = pos(1,i) + 0.5D0 * BoxSize/MeshSize
-           pos(2,i) = pos(2,i) + 0.5D0 * BoxSize/MeshSize
-           pos(3,i) = pos(3,i) + 0.5D0 * BoxSize/MeshSize
+           pos(1,i) = pos(1,i) + 0.5D0 * CellSize
+           pos(2,i) = pos(2,i) + 0.5D0 * CellSize
+           pos(3,i) = pos(3,i) + 0.5D0 * CellSize
 
            ! Impose periodic BC
            if(pos(1,i).gt.BoxSize) pos(1,i)=pos(1,i)-BoxSize
@@ -911,9 +912,10 @@ subroutine load_gadget
 
            ! Reset particles to cell centres
            ! Final xx_dp Pos array should be dimensionless
-           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/(BoxSize/MeshSize)+0.5D0))-0.5D0)/MeshSize
-           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/(BoxSize/MeshSize)+0.5D0))-0.5D0)/MeshSize
-           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/(BoxSize/MeshSize)+0.5D0))-0.5D0)/MeshSize
+           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+
 
 !           write(*,*) xx_dp(1,1), pos(1,i)
 
