@@ -896,17 +896,16 @@ subroutine load_gadget
            ! Reset particles to centre of cells, i.e. build a lattice
            ! Note: in the cosmological ICs data there is one particle per cell
            ! Notice that pos so far has units of boxsize
-           !MeshSize = 256.0d0
            MeshSize = 2.0d0**levelmin
            BoxSize = gadgetheader%boxsize
            CellSize= BoxSize/MeshSize
 
-           ! Displace particles by half a cell
+           ! Shift particles by half a cell to the right
            pos(1,i) = pos(1,i) + 0.5D0 * CellSize
            pos(2,i) = pos(2,i) + 0.5D0 * CellSize
            pos(3,i) = pos(3,i) + 0.5D0 * CellSize
 
-           ! Impose periodic BC
+           ! Impose periodic BC due to this shift
            if(pos(1,i).gt.BoxSize) pos(1,i)=pos(1,i)-BoxSize
            if(pos(2,i).gt.BoxSize) pos(2,i)=pos(2,i)-BoxSize
            if(pos(3,i).gt.BoxSize) pos(3,i)=pos(3,i)-BoxSize
