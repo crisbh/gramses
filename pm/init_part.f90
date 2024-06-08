@@ -968,9 +968,9 @@ subroutine load_gadget
               disp_y = Amp / k_pert * dcos(k_pert * xp(ipart,2))
               disp_z = Amp / k_pert * dcos(k_pert * xp(ipart,3))
 
-!              xp(ipart,1) = xp(ipart,1) + disp_x
-!              xp(ipart,2) = xp(ipart,2) + disp_y
-!              xp(ipart,3) = xp(ipart,3) + disp_z
+              xp(ipart,1) = xp(ipart,1) + disp_x
+              xp(ipart,2) = xp(ipart,2) + disp_y
+              xp(ipart,3) = xp(ipart,3) + disp_z
 
 !              ! Orginal RAMSES lines
 !              vp(ipart,1)  = vel(1, i) * gadgetvfact
@@ -983,9 +983,9 @@ subroutine load_gadget
               vp(ipart,2) = hexp * (Amp/k_pert) * dcos(k_pert * xp(ipart,2))
               vp(ipart,3) = hexp * (Amp/k_pert) * dcos(k_pert * xp(ipart,3))
 
-              vp(ipart,1) = 0.0d0
-              vp(ipart,2) = 0.0d0
-              vp(ipart,3) = 0.0d0
+!              vp(ipart,1) = 0.0d0
+!              vp(ipart,2) = 0.0d0
+!              vp(ipart,3) = 0.0d0
 
 !              write(*,*) xp(ipart,1), xp(ipart,2), xp(ipart,3)
               ! ---------------------------------------------------------------
