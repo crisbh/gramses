@@ -896,7 +896,8 @@ subroutine load_gadget
            ! Reset particles to centre of cells, i.e. build a lattice
            ! Note: in the cosmological ICs data there is one particle per cell
            ! Notice that pos so far has units of boxsize
-           MeshSize = 256.0d0
+           !MeshSize = 256.0d0
+           MeshSize = 2.0d0**levelmin
            BoxSize = gadgetheader%boxsize
            CellSize= BoxSize/MeshSize
 
@@ -912,14 +913,14 @@ subroutine load_gadget
 
            ! Reset particles to cell centres
            ! Final xx_dp Pos array should be dimensionless
-!           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
-!           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
-!           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
 
            ! Alternatively, put particles in cell boundaries
-           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
-           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
-           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
+!           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
+!           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
+!           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
 
 
 !           write(*,*) xx_dp(1,1), pos(1,i)
@@ -968,9 +969,9 @@ subroutine load_gadget
               disp_y = Amp / k_pert * dcos(k_pert * xp(ipart,2))
               disp_z = Amp / k_pert * dcos(k_pert * xp(ipart,3))
 
-              xp(ipart,1) = xp(ipart,1) + disp_x
-              xp(ipart,2) = xp(ipart,2) + disp_y
-              xp(ipart,3) = xp(ipart,3) + disp_z
+!              xp(ipart,1) = xp(ipart,1) + disp_x
+!              xp(ipart,2) = xp(ipart,2) + disp_y
+!              xp(ipart,3) = xp(ipart,3) + disp_z
 
 !              ! Orginal RAMSES lines
 !              vp(ipart,1)  = vel(1, i) * gadgetvfact
@@ -983,9 +984,9 @@ subroutine load_gadget
               vp(ipart,2) = hexp * (Amp/k_pert) * dcos(k_pert * xp(ipart,2))
               vp(ipart,3) = hexp * (Amp/k_pert) * dcos(k_pert * xp(ipart,3))
 
-!              vp(ipart,1) = 0.0d0
-!              vp(ipart,2) = 0.0d0
-!              vp(ipart,3) = 0.0d0
+              vp(ipart,1) = 0.0d0
+              vp(ipart,2) = 0.0d0
+              vp(ipart,3) = 0.0d0
 
 !              write(*,*) xp(ipart,1), xp(ipart,2), xp(ipart,3)
               ! ---------------------------------------------------------------
