@@ -856,7 +856,7 @@ subroutine load_gadget
 
   ! Variables for Tophat
   integer::idim
-  real(dp):: Amp, pii, lambda_pert, k_pert, BoxSize, MeshSize, CellSize, disp_x, disp_y, disp_z
+  real(dp):: Amp, pii, lambda_pert, k_pert, BoxSize, MeshSize, CellSize, disp_x, disp_y, disp_z, Offset
 
   ! Local particle count
   ipart=0
@@ -912,14 +912,14 @@ subroutine load_gadget
 
            ! Reset particles to cell centres
            ! Final xx_dp Pos array should be dimensionless
-           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
-           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
-           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+!           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+!           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+!           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
 
            ! Alternatively, put particles in cell boundaries
-!           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
-!           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
-!           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
+           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
+           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
+           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
 
 
 !           write(*,*) 'DEBUG: Final pos for particle i in the lattice= ',i, xx_dp(1,1), xx_dp(1,2), xx_dp(1,3)
@@ -967,6 +967,11 @@ subroutine load_gadget
               disp_x = Amp / k_pert * dcos(k_pert * xp(ipart,1))
               disp_y = Amp / k_pert * dcos(k_pert * xp(ipart,2))
               disp_z = Amp / k_pert * dcos(k_pert * xp(ipart,3))
+              ! Test: offset the density field
+              Offset = 0.5d0 / MeshSize
+!              disp_x = Amp / k_pert * dcos(k_pert * (xp(ipart,1) - Offset))
+!              disp_y = Amp / k_pert * dcos(k_pert * (xp(ipart,2) - Offset))
+!              disp_z = Amp / k_pert * dcos(k_pert * (xp(ipart,3) - Offset))
 
               xp(ipart,1) = xp(ipart,1) + disp_x
               xp(ipart,2) = xp(ipart,2) + disp_y
@@ -982,6 +987,10 @@ subroutine load_gadget
               vp(ipart,1) = hexp * (Amp/k_pert) * dcos(k_pert * xp(ipart,1))
               vp(ipart,2) = hexp * (Amp/k_pert) * dcos(k_pert * xp(ipart,2))
               vp(ipart,3) = hexp * (Amp/k_pert) * dcos(k_pert * xp(ipart,3))
+              ! Test: offset the density field
+!              vp(ipart,1) = hexp * (Amp/k_pert) * dcos(k_pert * (xp(ipart,1) - Offset))
+!              vp(ipart,2) = hexp * (Amp/k_pert) * dcos(k_pert * (xp(ipart,2) - Offset))
+!              vp(ipart,3) = hexp * (Amp/k_pert) * dcos(k_pert * (xp(ipart,3) - Offset))
 
 !              vp(ipart,1) = 0.0d0
 !              vp(ipart,2) = 0.0d0
