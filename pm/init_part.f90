@@ -895,12 +895,12 @@ subroutine load_gadget
            ! ---------------------------------------------------------------
            ! Reset particles to centre of cells, i.e. build a lattice
            ! Note: in the cosmological ICs data there is one particle per cell
-           ! Notice that pos so far has units of boxsize
            MeshSize = 2.0d0**levelmin
            BoxSize = gadgetheader%boxsize
            CellSize= BoxSize/MeshSize
 
            ! Shift particles by half a cell to the right
+           ! Notice that pos so far has units of boxsize
            pos(1,i) = pos(1,i) + 0.5D0 * CellSize
            pos(2,i) = pos(2,i) + 0.5D0 * CellSize
            pos(3,i) = pos(3,i) + 0.5D0 * CellSize
@@ -922,7 +922,7 @@ subroutine load_gadget
 !           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
 
 
-!           write(*,*) xx_dp(1,1), pos(1,i)
+!           write(*,*) 'DEBUG: Final pos for particle i in the lattice= ',i, xx_dp(1,1), xx_dp(1,2), xx_dp(1,3)
 
            ! ---------------------------------------------------------------
            ! Tophat block ends
