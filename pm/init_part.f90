@@ -919,6 +919,11 @@ subroutine load_gadget
            NCellx = DBLE(NINT(pos(1,i)/CellSize + 0.5D0))
            NCelly = DBLE(NINT(pos(2,i)/CellSize + 0.5D0))
            NCellz = DBLE(NINT(pos(3,i)/CellSize + 0.5D0))
+
+           if((NCellx.gt.MeshSize).or.(NCelly.gt.MeshSize).or.(NCellz.gt.MeshSize)) then
+              write(*,*) 'DEBUG: for particle i, Found NCellx,y,z = ', i, NCellx, NCelly, NCellz
+           end if
+
            ! Reset particles to cell centres
            ! Final xx_dp Pos array should be dimensionless
 !           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
