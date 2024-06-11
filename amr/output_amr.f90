@@ -463,7 +463,8 @@ subroutine output_info(filename)
   write(ilun,*)
 
   ! Write physical parameters
-  write(ilun,'("boxlen      =",E23.15)')scale
+  !write(ilun,'("boxlen      =",E23.15)')scale  ! Default line
+  write(ilun,'("boxlen      =",E23.15)')boxlen_ini  ! in Mpc/h
   write(ilun,'("time        =",E23.15)')t
   write(ilun,'("aexp        =",E23.15)')aexp
   write(ilun,'("H0          =",E23.15)')h0
