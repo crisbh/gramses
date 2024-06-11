@@ -895,9 +895,15 @@ subroutine load_gadget
            ! ---------------------------------------------------------------
            ! Reset particles to centre of cells, i.e. build a lattice
            ! Note: in the cosmological ICs data there is one particle per cell
-           MeshSize = 2.0d0**levelmin
+           MeshSize= 2.0d0**levelmin
            BoxSize = gadgetheader%boxsize
-           CellSize= BoxSize/MeshSize
+           ! Cell size normalised by box size
+           CellSize = 1.0d0/MeshSize
+
+           ! Normalise pos
+           pos(1,i) = pos(1,i)/BoxSize
+           pos(2,i) = pos(2,i)/BoxSize
+           pos(3,i) = pos(3,i)/BoxSize
 
            ! Shift particles by half a cell to the right
            ! Notice that pos so far has units of boxsize
@@ -906,9 +912,9 @@ subroutine load_gadget
            pos(3,i) = pos(3,i) + 0.5D0 * CellSize
 
            ! Impose periodic BC due to this shift
-           if(pos(1,i).gt.BoxSize) pos(1,i)=pos(1,i)-BoxSize
-           if(pos(2,i).gt.BoxSize) pos(2,i)=pos(2,i)-BoxSize
-           if(pos(3,i).gt.BoxSize) pos(3,i)=pos(3,i)-BoxSize
+           if(pos(1,i).gt.1.0d0) pos(1,i)= pos(1,i) - 1.0d0
+           if(pos(2,i).gt.1.0d0) pos(2,i)= pos(2,i) - 1.0d0
+           if(pos(3,i).gt.1.0d0) pos(3,i)= pos(3,i) - 1.0d0
 
            ! Reset particles to cell centres
            ! Final xx_dp Pos array should be dimensionless
@@ -918,9 +924,9 @@ subroutine load_gadget
 
            ! Alternatively, put particles in cell boundaries
            ! 1.0d-7 works for PM64
-           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
-           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
-           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 1.0D-7)/MeshSize
+           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 1.0D-7) * CellSize
+           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 1.0D-7) * CellSize
+           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 1.0D-7) * CellSize
 
 
 !           write(*,*) 'DEBUG: Final pos for particle i in the lattice= ',i, xx_dp(1,1), xx_dp(1,2), xx_dp(1,3)
