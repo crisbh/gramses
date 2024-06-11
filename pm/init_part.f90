@@ -856,7 +856,7 @@ subroutine load_gadget
 
   ! Variables for Tophat
   integer::idim
-  real(dp):: Amp, pii, lambda_pert, k_pert, BoxSize, MeshSize, CellSize, disp_x, disp_y, disp_z, Offset
+  real(dp):: Amp, pii, lambda_pert, k_pert, BoxSize, MeshSize, CellSize, disp_x, disp_y, disp_z, Offset, delta_i, NCellx, NCelly, NCellz
 
   ! Local particle count
   ipart=0
@@ -916,6 +916,9 @@ subroutine load_gadget
            if(pos(2,i).gt.1.0d0) pos(2,i)= pos(2,i) - 1.0d0
            if(pos(3,i).gt.1.0d0) pos(3,i)= pos(3,i) - 1.0d0
 
+           NCellx = DBLE(NINT(pos(1,i)/CellSize + 0.5D0))
+           NCelly = DBLE(NINT(pos(2,i)/CellSize + 0.5D0))
+           NCellz = DBLE(NINT(pos(3,i)/CellSize + 0.5D0))
            ! Reset particles to cell centres
            ! Final xx_dp Pos array should be dimensionless
 !           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
@@ -924,9 +927,9 @@ subroutine load_gadget
 
            ! Alternatively, put particles in cell boundaries
            ! 1.0d-7 works for PM64
-           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 1.0D-7) * CellSize
-           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 1.0D-7) * CellSize
-           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 1.0D-7) * CellSize
+           xx_dp(1,1) = (NCellx - 1.0D-7) * CellSize
+           xx_dp(1,2) = (NCelly - 1.0D-7) * CellSize
+           xx_dp(1,3) = (NCellz - 1.0D-7) * CellSize
 
 
 !           write(*,*) 'DEBUG: Final pos for particle i in the lattice= ',i, xx_dp(1,1), xx_dp(1,2), xx_dp(1,3)
@@ -963,9 +966,11 @@ subroutine load_gadget
 
               ! Parameters for the initial density perturbation
               pii = 4.0d0*datan(1.0d0)
-              Amp = 3.0d-2
+              ! Notice that Amp = delta_i/3
+              delta_i = 3.0d-2
               lambda_pert = 1.0d0
 
+              Amp = delta_i / 3.0d0
               k_pert = 2.0d0 * pii / lambda_pert
 
 !              if(verbose)write(*,*)'Applying displacements and velocities to particles.'
