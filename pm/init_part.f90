@@ -923,6 +923,7 @@ subroutine load_gadget
 
            if((NCellx.gt.MeshSize).or.(NCelly.gt.MeshSize).or.(NCellz.gt.MeshSize)) then
               write(*,*) 'DEBUG: for particle i, Found NCellx,y,z = ', i, NCellx, NCelly, NCellz
+              call clean_stop
            end if
 
            ! Reset particles to cell centres
@@ -987,7 +988,7 @@ subroutine load_gadget
               disp_y = Amp / k_pert * dcos(k_pert * xp(ipart,2))
               disp_z = Amp / k_pert * dcos(k_pert * xp(ipart,3))
               ! Test: offset the density field
-              Offset = 0.5d0 / MeshSize
+!              Offset = 0.5d0 / MeshSize
 !              disp_x = Amp / k_pert * dcos(k_pert * (xp(ipart,1) - Offset))
 !              disp_y = Amp / k_pert * dcos(k_pert * (xp(ipart,2) - Offset))
 !              disp_z = Amp / k_pert * dcos(k_pert * (xp(ipart,3) - Offset))
@@ -995,6 +996,17 @@ subroutine load_gadget
               xp(ipart,1) = xp(ipart,1) + disp_x
               xp(ipart,2) = xp(ipart,2) + disp_y
               xp(ipart,3) = xp(ipart,3) + disp_z
+
+              if(xp(ipart,1).gt.1.0d0) xp(ipart,1) = xp(ipart,1) - 1.0d0
+              if(xp(ipart,2).gt.1.0d0) xp(ipart,2) = xp(ipart,2) - 1.0d0
+              if(xp(ipart,3).gt.1.0d0) xp(ipart,3) = xp(ipart,3) - 1.0d0
+
+              ! Check final position is within the box
+              if((xp(ipart,1).gt.1.0d0).or.(xp(ipart,2).gt.1.0d0).or.(xp(ipart,3).gt.1.0d0).or.(xp(ipart,1).lt.0.0d0).or.(xp(ipart,2).lt.0.0d0).or.(xp(ipart,3).lt.0.0d0)) then
+                 write(*,*) 'DEBUG: for particle ipart, Found x,y,z = ', ipart, xp(ipart,1), xp(ipart,2), xp(ipart,3)
+                 call clean_stop
+              end if
+
 
 !              ! Orginal RAMSES lines
 !              vp(ipart,1)  = vel(1, i) * gadgetvfact
