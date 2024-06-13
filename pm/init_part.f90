@@ -916,6 +916,7 @@ subroutine load_gadget
            if(pos(2,i).gt.1.0d0) pos(2,i)= pos(2,i) - 1.0d0
            if(pos(3,i).gt.1.0d0) pos(3,i)= pos(3,i) - 1.0d0
 
+           ! Calculate the index of the cell where the particle lies
            NCellx = DBLE(NINT(pos(1,i)/CellSize + 0.5D0))
            NCelly = DBLE(NINT(pos(2,i)/CellSize + 0.5D0))
            NCellz = DBLE(NINT(pos(3,i)/CellSize + 0.5D0))
@@ -925,17 +926,18 @@ subroutine load_gadget
            end if
 
            ! Reset particles to cell centres
+           ! i.e. shift to the left by half a cell
            ! Final xx_dp Pos array should be dimensionless
-!           xx_dp(1,1) = (DBLE(NINT(pos(1,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
-!           xx_dp(1,2) = (DBLE(NINT(pos(2,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
-!           xx_dp(1,3) = (DBLE(NINT(pos(3,i)/CellSize + 0.5D0)) - 0.5D0)/MeshSize
+!           xx_dp(1,1) = (NCellx - 0.5D0) * CellSize
+!           xx_dp(1,2) = (NCelly - 0.5D0) * CellSize
+!           xx_dp(1,3) = (NCellz - 0.5D0) * CellSize
 
            ! Alternatively, put particles in cell boundaries
-           ! 1.0d-7 works for PM64
+           ! i.e. shift to the left by a tiny value
+           ! 1.0d-7 works for PM64, 128 and 256
            xx_dp(1,1) = (NCellx - 1.0D-7) * CellSize
            xx_dp(1,2) = (NCelly - 1.0D-7) * CellSize
            xx_dp(1,3) = (NCellz - 1.0D-7) * CellSize
-
 
 !           write(*,*) 'DEBUG: Final pos for particle i in the lattice= ',i, xx_dp(1,1), xx_dp(1,2), xx_dp(1,3)
 
