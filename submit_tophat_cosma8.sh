@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH -n 512
-#SBATCH -t 06:00:00
+#SBATCH -n 1024
+#SBATCH -t 24:00:00
 #SBATCH -J tophat
 #SBATCH -o ./logs/%j.log
 #SBATCH -e ./logs/%j.err
@@ -13,6 +13,7 @@
 module purge
 module load intel_comp/2018-update2
 module load intel_mpi/2018
+module load python/3.10.1
 # module load hdfview
 unset I_MPI_HYDRA_BOOTSTRAP
 
