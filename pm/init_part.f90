@@ -900,6 +900,8 @@ subroutine load_gadget
            ! Cell size normalised by box size
            CellSize = 1.0d0/MeshSize
 
+           if(myid==1) write(*,*) 'tophat: CellSize=', CellSize
+
            ! Normalise pos
            pos(1,i) = pos(1,i)/BoxSize
            pos(2,i) = pos(2,i)/BoxSize
@@ -923,8 +925,13 @@ subroutine load_gadget
 
            if((NCellx.gt.MeshSize).or.(NCelly.gt.MeshSize).or.(NCellz.gt.MeshSize)) then
               write(*,*) 'DEBUG: for particle i, Found NCellx,y,z = ', i, NCellx, NCelly, NCellz
-              call clean_stop
+!              call clean_stop
            end if
+
+           ! Check cell index and Periodic BC
+           if(NCellx.gt.MeshSize) NCellx = NCellx - MeshSize
+           if(NCelly.gt.MeshSize) NCelly = NCelly - MeshSize
+           if(NCellz.gt.MeshSize) NCellz = NCellz - MeshSize
 
            ! Reset particles to cell centres
            ! i.e. shift to the left by half a cell
