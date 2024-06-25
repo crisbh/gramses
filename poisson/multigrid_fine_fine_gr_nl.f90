@@ -177,6 +177,7 @@ subroutine cmp_source_mean_gr_nl(ilevel,igr,src_nl_sum)
 
    real(dp) :: ctilde,twoac2,aomega
    real(dp) :: potc,gr_a,gr_b,rhs
+   real(dp) :: test_ratio ! DEBUG CBH tophat
    
    ! Set constants
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
@@ -217,6 +218,11 @@ subroutine cmp_source_mean_gr_nl(ilevel,igr,src_nl_sum)
 
          ! Define rhs to calculate its mean
          if(igr==5) then 
+            test_ratio = (1.0D0-potc/twoac2)
+            if(test_ratio.lt.1e-4) then
+               write(*,*)'DEBUG tophat PM512, potc, twoac2, (1-potc/twoac2)=', potc, twoac2, test_ratio
+            end if
+
             rhs = (gr_a-aomega*(1.0D0-potc/twoac2)**6 + gr_b/(1.0D0-potc/twoac2)**6)/(1.0D0-potc/twoac2) 
          else
 !             gr_b = aomega*6.0d0/twoac2! Q-test 7-5-19
