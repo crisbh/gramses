@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -n 1024
-#SBATCH -t 24:00:00
+#SBATCH -t 48:00:00
 #SBATCH -J tophat
 #SBATCH -o ./logs/%j.log
 #SBATCH -e ./logs/%j.err
@@ -21,16 +21,15 @@ unset I_MPI_HYDRA_BOOTSTRAP
 cd bin && make clean && make && cd ..
 
 # Define input param file
-PARAM_FILE="./namelist/gr_tophat_B256_PM512_cosma8.nml"
+#PARAM_FILE="./namelist/gr_tophat_B256_PM512_cosma8.nml"
+PARAM_FILE="./namelist/gr_tophat_B25_6_PM512_cosma8.nml"
 
 # run
 # smooth density field with parts at cell boundaries
 mpirun -np $SLURM_NTASKS ./bin/ramses3d $PARAM_FILE
-#mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_PM64_cosma8.nml
 #mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_PM256_cosma8.nml
 #mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_PM512_cosma8.nml
 #mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_B256_PM512_cosma8.nml
-#mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_PM64_test_cosma8.nml
 #mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_B256_PM128_cosma8.nml
 #mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_PM128_cosma8.nml
 #mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_PM256_cosma8.nml
