@@ -988,11 +988,13 @@ subroutine load_gadget
               ! Parameters for the initial density perturbation
               pii = 4.0d0*datan(1.0d0)
               ! Notice that Amp = delta_i/3
-              delta_i = 3.0d-2
+              delta_i = 9.0d-2
               lambda_pert = 1.0d0
 
               Amp = delta_i / 3.0d0
               k_pert = 2.0d0 * pii / lambda_pert
+
+              if((i==1).and.(myid==1)) write(*,*) 'tophat: delta_i=', delta_i
 
 !              if(verbose)write(*,*)'Applying displacements and velocities to particles.'
 
