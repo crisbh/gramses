@@ -24,8 +24,8 @@ initfile(1)='/cosma8/data/dp203/dc-barr3/projects/Tophat_GR/data/input/2lptic_IC
 
 &AMR_PARAMS
 levelmin=9 
-levelmax=9 
-ngridtot=200000000
+levelmax=16
+ngridtot=4000000000
 nparttot=80000000000
 nexpand=1
 /

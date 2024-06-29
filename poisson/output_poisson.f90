@@ -45,8 +45,8 @@ subroutine backup_poisson(filename)
   write(ilun)ndim+1
   write(ilun)nlevelmax
   write(ilun)nboundary
-!  do ilevel=1,nlevelmax ! CBH 17-02-20 Default RAMSES line
-  do ilevel=levelmin,nlevelmax  ! CBH 11-01-19 Used for readgrav?
+  do ilevel=1,nlevelmax ! CBH 17-02-20 Default RAMSES line
+!  do ilevel=levelmin,nlevelmax  ! CBH 11-01-19 Used for readgrav?
      do ibound=1,nboundary+ncpu
         if(ibound<=ncpu)then
            ncache=numbl(ibound,ilevel)

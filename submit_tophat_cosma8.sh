@@ -1,8 +1,8 @@
 #!/bin/sh
 
 #SBATCH -n 1024
-#SBATCH -t 48:00:00
-#SBATCH -J tophat
+#SBATCH -t 36:00:00
+#SBATCH -J 9e-2AMR
 #SBATCH -o ./logs/%j.log
 #SBATCH -e ./logs/%j.err
 #SBATCH -p cosma8
@@ -21,8 +21,10 @@ unset I_MPI_HYDRA_BOOTSTRAP
 cd bin && make clean && make && cd ..
 
 # Define input param file
+PARAM_FILE="./namelist/gr_tophat_B256_PM512_deltai_9e-2_AMR_cosma8.nml"
+#PARAM_FILE="./namelist/gr_tophat_B256_PM512_deltai_9e-2_cosma8.nml"
 #PARAM_FILE="./namelist/gr_tophat_B256_PM512_cosma8.nml"
-PARAM_FILE="./namelist/gr_tophat_B25_6_PM512_cosma8.nml"
+#PARAM_FILE="./namelist/gr_tophat_B25_6_PM512_cosma8.nml"
 
 # run
 # smooth density field with parts at cell boundaries
