@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -n 1024
-#SBATCH -t 36:00:00
+#SBATCH -t 32:00:00
 #SBATCH -J 9e-2AMR
 #SBATCH -o ./logs/%j.log
 #SBATCH -e ./logs/%j.err
@@ -11,11 +11,9 @@
 
 # prepare
 module purge
-module load intel_comp/2018-update2
-module load intel_mpi/2018
-module load python/3.10.1
-# module load hdfview
-unset I_MPI_HYDRA_BOOTSTRAP
+module load intel_comp
+module load compiler-rt tbb compiler mpi
+module load python
 
 # compile
 cd bin && make clean && make && cd ..
@@ -38,15 +36,16 @@ mpirun -np $SLURM_NTASKS ./bin/ramses3d $PARAM_FILE
 #mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_PM512_cosma8.nml
 #mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_B1243_PM256_cosma8.nml
 
-# Readgrav data
-bash ./run_batch_readgrav.sh $SLURM_NTASKS 9
-
-# Back up simulation data
-echo "Job done. Now backing up data..."
-JOB_DIR_NAME=snapshots/"data_job_"$SLURM_JOBID
-mkdir $JOB_DIR_NAME
-mv output_000* $JOB_DIR_NAME
-cp logs/$SLURM_JOBID.* $JOB_DIR_NAME
+# Post processing
+## Readgrav data
+#bash ./run_batch_readgrav.sh $SLURM_NTASKS 9
+#
+## Back up simulation data
+#echo "Job done. Now backing up data..."
+#JOB_DIR_NAME=snapshots/"data_job_"$SLURM_JOBID
+#mkdir $JOB_DIR_NAME
+#mv output_000* $JOB_DIR_NAME
+#cp logs/$SLURM_JOBID.* $JOB_DIR_NAME
 
 
 # report
