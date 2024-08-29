@@ -161,10 +161,10 @@ subroutine init_poisson_gr
                        read(ilun)xx
                     end do
 
-!                    ! Read cell centers
-!                    do ivar=1,ndim
-!                       read(ilun)xx
-!                    end do
+                    ! Read cell centers
+                    do ivar=1,ndim
+                       read(ilun)xx
+                    end do
 
                  end if
                  ! END DEBUG BLOCK 17-02-20
