@@ -219,7 +219,7 @@ subroutine cmp_source_mean_gr_nl(ilevel,igr,src_nl_sum)
          ! Define rhs to calculate its mean
          if(igr==5) then 
             test_ratio = (1.0D0-potc/twoac2)
-            if(test_ratio.lt.1e-4) then
+            if(test_ratio.lt.1e-14) then
                write(*,*)'DEBUG tophat PM512, potc, twoac2, (1-potc/twoac2)=', potc, twoac2, test_ratio
             end if
 
