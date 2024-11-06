@@ -856,7 +856,7 @@ subroutine load_gadget
 
   ! Variables for Tophat
   integer::idim
-  real(dp):: Amp, pii, lambda_pert, k_pert, BoxSize, MeshSize, CellSize, disp_x, disp_y, disp_z, Offset, delta_i, NCellx, NCelly, NCellz
+  real(dp):: Amp, pii, lambda_pert_x, lambda_pert_y, lambda_pert_z, k_pert_x, k_pert_y, k_pert_z, BoxSize, MeshSize, CellSize, disp_x, disp_y, disp_z, Offset, delta_i, NCellx, NCelly, NCellz
 
   ! Local particle count
   ipart=0
@@ -900,7 +900,7 @@ subroutine load_gadget
            ! Cell size normalised by box size
            CellSize = 1.0d0/MeshSize
 
-           if((i==1).and.(myid==1)) write(*,*) 'tophat: CellSize=', CellSize
+           ! if((i==1).and.(myid==1)) write(*,*) 'tophat: CellSize=', CellSize
 
            ! Normalise pos
            pos(1,i) = pos(1,i)/BoxSize
@@ -989,24 +989,27 @@ subroutine load_gadget
               pii = 4.0d0*datan(1.0d0)
               ! Notice that Amp = delta_i/3
               delta_i = 9.0d-2
-              lambda_pert = 1.0d0
+              lambda_pert_x = 2.0d-1
+              lambda_pert_y = lambda_pert_x
+              lambda_pert_z = lambda_pert_x
 
               Amp = delta_i / 3.0d0
-              k_pert = 2.0d0 * pii / lambda_pert
-
-              if((i==1).and.(myid==1)) write(*,*) 'tophat: delta_i=', delta_i
+              k_pert_x = 2.0d0 * pii / lambda_pert_x
+              k_pert_y = 2.0d0 * pii / lambda_pert_y
+              k_pert_z = 2.0d0 * pii / lambda_pert_z
 
 !              if(verbose)write(*,*)'Applying displacements and velocities to particles.'
 
               ! Displacements associated to the sin density field
-              disp_x = Amp / k_pert * dcos(k_pert * xp(ipart,1))
-              disp_y = Amp / k_pert * dcos(k_pert * xp(ipart,2))
-              disp_z = Amp / k_pert * dcos(k_pert * xp(ipart,3))
+              ! Anisotropic case
+              disp_x = Amp / k_pert_x * dcos(k_pert_x * xp(ipart,1))
+              disp_y = Amp / k_pert_y * dcos(k_pert_y * xp(ipart,2))
+              disp_z = Amp / k_pert_z * dcos(k_pert_z * xp(ipart,3))
               ! Test: offset the density field
 !              Offset = 0.5d0 / MeshSize
-!              disp_x = Amp / k_pert * dcos(k_pert * (xp(ipart,1) - Offset))
-!              disp_y = Amp / k_pert * dcos(k_pert * (xp(ipart,2) - Offset))
-!              disp_z = Amp / k_pert * dcos(k_pert * (xp(ipart,3) - Offset))
+!              disp_x = Amp / k_pert_x * dcos(k_pert * (xp(ipart,1) - Offset))
+!              disp_y = Amp / k_pert_x * dcos(k_pert * (xp(ipart,2) - Offset))
+!              disp_z = Amp / k_pert_x * dcos(k_pert * (xp(ipart,3) - Offset))
 
               xp(ipart,1) = xp(ipart,1) + disp_x
               xp(ipart,2) = xp(ipart,2) + disp_y
@@ -1030,13 +1033,9 @@ subroutine load_gadget
 
 
               ! Velocities correspond to dot disp
-              vp(ipart,1) = hexp * (Amp/k_pert) * dcos(k_pert * xp(ipart,1))
-              vp(ipart,2) = hexp * (Amp/k_pert) * dcos(k_pert * xp(ipart,2))
-              vp(ipart,3) = hexp * (Amp/k_pert) * dcos(k_pert * xp(ipart,3))
-              ! Test: offset the density field
-!              vp(ipart,1) = hexp * (Amp/k_pert) * dcos(k_pert * (xp(ipart,1) - Offset))
-!              vp(ipart,2) = hexp * (Amp/k_pert) * dcos(k_pert * (xp(ipart,2) - Offset))
-!              vp(ipart,3) = hexp * (Amp/k_pert) * dcos(k_pert * (xp(ipart,3) - Offset))
+              vp(ipart,1) = hexp * (Amp/k_pert_x) * dcos(k_pert_x* xp(ipart,1))
+              vp(ipart,2) = hexp * (Amp/k_pert_y) * dcos(k_pert_y* xp(ipart,2))
+              vp(ipart,3) = hexp * (Amp/k_pert_z) * dcos(k_pert_z* xp(ipart,3))
 
 !              vp(ipart,1) = 0.0d0
 !              vp(ipart,2) = 0.0d0
