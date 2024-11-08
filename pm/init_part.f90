@@ -856,7 +856,10 @@ subroutine load_gadget
 
   ! Variables for Tophat
   integer::idim
-  real(dp):: Amp, pii, lambda_pert_x, lambda_pert_y, lambda_pert_z, k_pert_x, k_pert_y, k_pert_z, BoxSize, MeshSize, CellSize, disp_x, disp_y, disp_z, Offset, delta_i, NCellx, NCelly, NCellz
+  real(dp):: Amp_x, Amp_y, Amp_z, pii, lambda_pert_x, lambda_pert_y, lambda_pert_z, &
+     k_pert_x, k_pert_y, k_pert_z, BoxSize, MeshSize, CellSize, &
+     disp_x, disp_y, disp_z, Offset, delta_i, &
+     NCellx, NCelly, NCellz
 
   ! Local particle count
   ipart=0
@@ -989,11 +992,14 @@ subroutine load_gadget
               pii = 4.0d0*datan(1.0d0)
               ! Notice that Amp = delta_i/3
               delta_i = 9.0d-2
-              lambda_pert_x = 2.0d-1
+              lambda_pert_x = 1.0d0
+              !lambda_pert_x = 2.0d-1
               lambda_pert_y = lambda_pert_x
               lambda_pert_z = lambda_pert_x
 
-              Amp = delta_i / 3.0d0
+              Amp_z = delta_i / 3.0d0
+              Amp_y = 1.1d0 * Amp_z  ! 1.2
+              Amp_x = 0.9d0 * Amp_z  ! 0.8
               k_pert_x = 2.0d0 * pii / lambda_pert_x
               k_pert_y = 2.0d0 * pii / lambda_pert_y
               k_pert_z = 2.0d0 * pii / lambda_pert_z
@@ -1002,22 +1008,27 @@ subroutine load_gadget
 
               ! Displacements associated to the sin density field
               ! Anisotropic case
-              disp_x = Amp / k_pert_x * dcos(k_pert_x * xp(ipart,1))
-              disp_y = Amp / k_pert_y * dcos(k_pert_y * xp(ipart,2))
-              disp_z = Amp / k_pert_z * dcos(k_pert_z * xp(ipart,3))
-              ! Test: offset the density field
-!              Offset = 0.5d0 / MeshSize
-!              disp_x = Amp / k_pert_x * dcos(k_pert * (xp(ipart,1) - Offset))
-!              disp_y = Amp / k_pert_x * dcos(k_pert * (xp(ipart,2) - Offset))
-!              disp_z = Amp / k_pert_x * dcos(k_pert * (xp(ipart,3) - Offset))
+              ! disp_x = Amp_x / k_pert_x * dcos(k_pert_x * xp(ipart,1))
+              ! disp_y = Amp_y / k_pert_y * dcos(k_pert_y * xp(ipart,2))
+              ! disp_z = Amp_z / k_pert_z * dcos(k_pert_z * xp(ipart,3))
+
+              ! Test Tophat: put OD at centre of the box (cos->sin)
+              disp_x = Amp_x / k_pert_x * dsin(k_pert_x * xp(ipart,1))
+              disp_y = Amp_y / k_pert_y * dsin(k_pert_y * xp(ipart,2))
+              disp_z = Amp_z / k_pert_z * dsin(k_pert_z * xp(ipart,3))
 
               xp(ipart,1) = xp(ipart,1) + disp_x
               xp(ipart,2) = xp(ipart,2) + disp_y
               xp(ipart,3) = xp(ipart,3) + disp_z
 
+              ! Check boundaries
               if(xp(ipart,1).gt.1.0d0) xp(ipart,1) = xp(ipart,1) - 1.0d0
               if(xp(ipart,2).gt.1.0d0) xp(ipart,2) = xp(ipart,2) - 1.0d0
               if(xp(ipart,3).gt.1.0d0) xp(ipart,3) = xp(ipart,3) - 1.0d0
+
+              if(xp(ipart,1).lt.0.0d0) xp(ipart,1) = xp(ipart,1) + 1.0d0
+              if(xp(ipart,2).lt.0.0d0) xp(ipart,2) = xp(ipart,2) + 1.0d0
+              if(xp(ipart,3).lt.0.0d0) xp(ipart,3) = xp(ipart,3) + 1.0d0
 
               ! Check final position is within the box
               if((xp(ipart,1).gt.1.0d0).or.(xp(ipart,2).gt.1.0d0).or.(xp(ipart,3).gt.1.0d0).or.(xp(ipart,1).lt.0.0d0).or.(xp(ipart,2).lt.0.0d0).or.(xp(ipart,3).lt.0.0d0)) then
@@ -1033,9 +1044,14 @@ subroutine load_gadget
 
 
               ! Velocities correspond to dot disp
-              vp(ipart,1) = hexp * (Amp/k_pert_x) * dcos(k_pert_x* xp(ipart,1))
-              vp(ipart,2) = hexp * (Amp/k_pert_y) * dcos(k_pert_y* xp(ipart,2))
-              vp(ipart,3) = hexp * (Amp/k_pert_z) * dcos(k_pert_z* xp(ipart,3))
+              ! vp(ipart,1) = hexp * (Amp_x/k_pert_x) * dcos(k_pert_x* xp(ipart,1))
+              ! vp(ipart,2) = hexp * (Amp_y/k_pert_y) * dcos(k_pert_y* xp(ipart,2))
+              ! vp(ipart,3) = hexp * (Amp_z/k_pert_z) * dcos(k_pert_z* xp(ipart,3))
+
+              ! Test Tophat: put OD at centre of the box (cos->sin)
+              vp(ipart,1) = - hexp * (Amp_x/k_pert_x) * dsin(k_pert_x* xp(ipart,1))
+              vp(ipart,2) = - hexp * (Amp_y/k_pert_y) * dsin(k_pert_y* xp(ipart,2))
+              vp(ipart,3) = - hexp * (Amp_z/k_pert_z) * dsin(k_pert_z* xp(ipart,3))
 
 !              vp(ipart,1) = 0.0d0
 !              vp(ipart,2) = 0.0d0
