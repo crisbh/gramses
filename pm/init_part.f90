@@ -856,10 +856,8 @@ subroutine load_gadget
 
   ! Variables for Tophat
   integer::idim
-  real(dp):: Amp_x, Amp_y, Amp_z, pii, lambda_pert_x, lambda_pert_y, lambda_pert_z, &
-     k_pert_x, k_pert_y, k_pert_z, BoxSize, MeshSize, CellSize, &
-     disp_x, disp_y, disp_z, Offset, delta_i, &
-     NCellx, NCelly, NCellz
+  real(dp), dimension(3) :: Amp, lambda_pert, k_pert, disp, NCell
+  real(dp):: pii, BoxSize, MeshSize, CellSize, Offset, delta_i
 
   ! Local particle count
   ipart=0
@@ -922,22 +920,22 @@ subroutine load_gadget
            if(pos(3,i).gt.1.0d0) pos(3,i)= pos(3,i) - 1.0d0
 
            ! Calculate the index of the cell where the particle lies
-           NCellx = DBLE(NINT(pos(1,i)/CellSize + 0.5D0))
-           NCelly = DBLE(NINT(pos(2,i)/CellSize + 0.5D0))
-           NCellz = DBLE(NINT(pos(3,i)/CellSize + 0.5D0))
+           NCell(1) = DBLE(NINT(pos(1,i)/CellSize + 0.5D0))
+           NCell(2) = DBLE(NINT(pos(2,i)/CellSize + 0.5D0))
+           NCell(3) = DBLE(NINT(pos(3,i)/CellSize + 0.5D0))
 
-!           if((NCellx.gt.MeshSize).or.(NCelly.gt.MeshSize).or.(NCellz.gt.MeshSize)) then
-!              write(*,*) 'DEBUG: for particle ipart, Found NCellx,y,z = ', ipart, NCellx, NCelly, NCellz
+!           if((NCell(1).gt.MeshSize).or.(NCell(2).gt.MeshSize).or.(NCell(3).gt.MeshSize)) then
+!              write(*,*) 'DEBUG: for particle ipart, Found NCellx,y,z = ', ipart, NCell(1), NCell(2), NCell(3)
 !!              call clean_stop
 !           end if
 !
            ! Check cell index and Periodic BC
-           if(NCellx.gt.MeshSize) NCellx = NCellx - MeshSize
-           if(NCelly.gt.MeshSize) NCelly = NCelly - MeshSize
-           if(NCellz.gt.MeshSize) NCellz = NCellz - MeshSize
+           if(NCell(1).gt.MeshSize) NCell(1) = NCell(1) - MeshSize
+           if(NCell(2).gt.MeshSize) NCell(2) = NCell(2) - MeshSize
+           if(NCell(3).gt.MeshSize) NCell(3) = NCell(3) - MeshSize
 
-           if((NCellx.gt.MeshSize).or.(NCelly.gt.MeshSize).or.(NCellz.gt.MeshSize)) then
-              write(*,*) 'DEBUG: for particle ipart, Found NCellx,y,z = ', ipart, NCellx, NCelly, NCellz
+           if((NCell(1).gt.MeshSize).or.(NCell(2).gt.MeshSize).or.(NCell(3).gt.MeshSize)) then
+              write(*,*) 'DEBUG: for particle ipart, Found NCellx,y,z = ', ipart, NCell(1), NCell(2), NCell(3)
               call clean_stop
            end if
 
@@ -945,16 +943,16 @@ subroutine load_gadget
            ! Reset particles to cell centres
            ! i.e. shift to the left by half a cell
            ! Final xx_dp Pos array should be dimensionless
-!           xx_dp(1,1) = (NCellx - 0.5D0) * CellSize
-!           xx_dp(1,2) = (NCelly - 0.5D0) * CellSize
-!           xx_dp(1,3) = (NCellz - 0.5D0) * CellSize
+!           xx_dp(1,1) = (NCell(1) - 0.5D0) * CellSize
+!           xx_dp(1,2) = (NCell(2) - 0.5D0) * CellSize
+!           xx_dp(1,3) = (NCell(3) - 0.5D0) * CellSize
 
            ! Alternatively, put particles in cell boundaries
            ! i.e. shift to the left by a tiny value
            ! 1.0d-7 works for PM64, 128 and 256
-           xx_dp(1,1) = (NCellx - 1.0D-7) * CellSize
-           xx_dp(1,2) = (NCelly - 1.0D-7) * CellSize
-           xx_dp(1,3) = (NCellz - 1.0D-7) * CellSize
+           xx_dp(1,1) = (NCell(1) - 1.0D-7) * CellSize
+           xx_dp(1,2) = (NCell(2) - 1.0D-7) * CellSize
+           xx_dp(1,3) = (NCell(3) - 1.0D-7) * CellSize
 
 !           write(*,*) 'DEBUG: Final pos for particle i in the lattice= ',i, xx_dp(1,1), xx_dp(1,2), xx_dp(1,3)
 
@@ -990,34 +988,35 @@ subroutine load_gadget
 
               ! Parameters for the initial density perturbation
               pii = 4.0d0*datan(1.0d0)
+
               ! Notice that Amp = delta_i/3 is what multiplies the sinusoidals
               delta_i = 9.0d-2
-              lambda_pert_x = 1.0d0
-              lambda_pert_y = lambda_pert_x
-              lambda_pert_z = lambda_pert_x
+              lambda_pert(1) = 1.0d0
+              lambda_pert(2) = 1.0d0
+              lambda_pert(3) = 1.0d0
 
-              Amp_z = delta_i / 3.0d0
-              Amp_y = 1.0d0 * Amp_z  ! 1.2
-              Amp_x = 1.0d0 * Amp_z  ! 0.8
-              k_pert_x = 2.0d0 * pii / lambda_pert_x
-              k_pert_y = 2.0d0 * pii / lambda_pert_y
-              k_pert_z = 2.0d0 * pii / lambda_pert_z
+              Amp(3) = delta_i / 3.0d0
+              Amp(1) = 1.0d0 * Amp(3) ! 1.2
+              Amp(2) = 1.0d0 * Amp(3) ! 0.8
+              k_pert(1) = 2.0d0 * pii / lambda_pert(1)
+              k_pert(2) = 2.0d0 * pii / lambda_pert(2)
+              k_pert(3) = 2.0d0 * pii / lambda_pert(3)
 
 !              if(verbose)write(*,*)'Applying displacements and velocities to particles.'
 
               ! RM and MB convention: OD and UD in opposite corners of the box
-              disp_x = Amp_x / k_pert_x * dcos(k_pert_x * xp(ipart,1))
-              disp_y = Amp_y / k_pert_y * dcos(k_pert_y * xp(ipart,2))
-              disp_z = Amp_z / k_pert_z * dcos(k_pert_z * xp(ipart,3))
+              disp(1) = Amp(1) / k_pert(1) * dcos(k_pert(1) * xp(ipart,1))
+              disp(2) = Amp(2) / k_pert(2) * dcos(k_pert(2) * xp(ipart,2))
+              disp(3) = Amp(3) / k_pert(3) * dcos(k_pert(3) * xp(ipart,3))
 
               ! Alternative: put OD at centre of the box using shift by -pi/2
-              ! disp_x = Amp_x / k_pert_x * dsin(k_pert_x * xp(ipart,1))
-              ! disp_y = Amp_y / k_pert_y * dsin(k_pert_y * xp(ipart,2))
-              ! disp_z = Amp_z / k_pert_z * dsin(k_pert_z * xp(ipart,3))
+              ! disp(1) = Amp(1) / k_pert(1) * dsin(k_pert(1) * xp(ipart,1))
+              ! disp(2) = Amp(2) / k_pert(2) * dsin(k_pert(2) * xp(ipart,2))
+              ! disp(3) = Amp(3) / k_pert(3) * dsin(k_pert(3) * xp(ipart,3))
 
-              xp(ipart,1) = xp(ipart,1) + disp_x
-              xp(ipart,2) = xp(ipart,2) + disp_y
-              xp(ipart,3) = xp(ipart,3) + disp_z
+              xp(ipart,1) = xp(ipart,1) + disp(1)
+              xp(ipart,2) = xp(ipart,2) + disp(2)
+              xp(ipart,3) = xp(ipart,3) + disp(3)
 
               ! Check boundaries
               if(xp(ipart,1).gt.1.0d0) xp(ipart,1) = xp(ipart,1) - 1.0d0
@@ -1042,9 +1041,9 @@ subroutine load_gadget
 
 
               ! Velocities correspond to dot disp
-              vp(ipart,1) = hexp * disp_x
-              vp(ipart,2) = hexp * disp_y
-              vp(ipart,3) = hexp * disp_z
+              vp(ipart,1) = hexp * disp(1)
+              vp(ipart,2) = hexp * disp(2)
+              vp(ipart,3) = hexp * disp(3)
 
 !              vp(ipart,1) = 0.0d0
 !              vp(ipart,2) = 0.0d0
