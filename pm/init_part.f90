@@ -856,7 +856,7 @@ subroutine load_gadget
 
   ! Variables for Tophat
   integer::idim
-  real(dp), dimension(3) :: Amp, lambda_pert, k_pert, disp, NCell
+  real(dp), dimension(3) :: Amp, lambda_pert, k_pert, disp, NCell, pert_rand, r
   real(dp):: pii, BoxSize, MeshSize, CellSize, Offset, delta_i
 
   ! Local particle count
@@ -943,18 +943,30 @@ subroutine load_gadget
            ! Reset particles to cell centres
            ! i.e. shift to the left by half a cell
            ! Final xx_dp Pos array should be dimensionless
-!           xx_dp(1,1) = (NCell(1) - 0.5D0) * CellSize
-!           xx_dp(1,2) = (NCell(2) - 0.5D0) * CellSize
-!           xx_dp(1,3) = (NCell(3) - 0.5D0) * CellSize
+           xx_dp(1,1) = (NCell(1) - 0.5D0) * CellSize
+           xx_dp(1,2) = (NCell(2) - 0.5D0) * CellSize
+           xx_dp(1,3) = (NCell(3) - 0.5D0) * CellSize
 
            ! Alternatively, put particles in cell boundaries
            ! i.e. shift to the left by a tiny value
            ! 1.0d-7 works for PM64, 128 and 256
-           xx_dp(1,1) = (NCell(1) - 1.0D-7) * CellSize
-           xx_dp(1,2) = (NCell(2) - 1.0D-7) * CellSize
-           xx_dp(1,3) = (NCell(3) - 1.0D-7) * CellSize
+           ! xx_dp(1,1) = (NCell(1) - 1.0D-7) * CellSize
+           ! xx_dp(1,2) = (NCell(2) - 1.0D-7) * CellSize
+           ! xx_dp(1,3) = (NCell(3) - 1.0D-7) * CellSize
 
 !           write(*,*) 'DEBUG: Final pos for particle i in the lattice= ',i, xx_dp(1,1), xx_dp(1,2), xx_dp(1,3)
+
+           ! Now that the lattice is built, apply random perturbation
+           ! should have mean 0 so use r-0.5
+           call random_seed()
+           call random_number(r)
+           pert_rand(1) = (r(1) - 0.5d0) * 1.0d-5 * CellSize
+           pert_rand(2) = (r(2) - 0.5d0) * 1.0d-5 * CellSize
+           pert_rand(3) = (r(3) - 0.5d0) * 1.0d-5 * CellSize
+
+           xx_dp(1,1) = xx_dp(1,1) + pert_rand(1)
+           xx_dp(1,2) = xx_dp(1,2) + pert_rand(2)
+           xx_dp(1,3) = xx_dp(1,3) + pert_rand(3)
 
            ! ---------------------------------------------------------------
            ! Tophat block ends
@@ -1014,9 +1026,9 @@ subroutine load_gadget
               ! disp(2) = Amp(2) / k_pert(2) * dsin(k_pert(2) * xp(ipart,2))
               ! disp(3) = Amp(3) / k_pert(3) * dsin(k_pert(3) * xp(ipart,3))
 
-              xp(ipart,1) = xp(ipart,1) + disp(1)
-              xp(ipart,2) = xp(ipart,2) + disp(2)
-              xp(ipart,3) = xp(ipart,3) + disp(3)
+              ! xp(ipart,1) = xp(ipart,1) + disp(1)
+              ! xp(ipart,2) = xp(ipart,2) + disp(2)
+              ! xp(ipart,3) = xp(ipart,3) + disp(3)
 
               ! Check boundaries
               if(xp(ipart,1).gt.1.0d0) xp(ipart,1) = xp(ipart,1) - 1.0d0
@@ -1041,13 +1053,14 @@ subroutine load_gadget
 
 
               ! Velocities correspond to dot disp
-              vp(ipart,1) = hexp * disp(1)
-              vp(ipart,2) = hexp * disp(2)
-              vp(ipart,3) = hexp * disp(3)
+              ! vp(ipart,1) = hexp * disp(1)
+              ! vp(ipart,2) = hexp * disp(2)
+              ! vp(ipart,3) = hexp * disp(3)
 
-!              vp(ipart,1) = 0.0d0
-!              vp(ipart,2) = 0.0d0
-!              vp(ipart,3) = 0.0d0
+              ! As IC to generate the glass, use particles at rest
+              vp(ipart,1) = 0.0d0
+              vp(ipart,2) = 0.0d0
+              vp(ipart,3) = 0.0d0
 
 !              write(*,*) xp(ipart,1), xp(ipart,2), xp(ipart,3)
               ! ---------------------------------------------------------------
