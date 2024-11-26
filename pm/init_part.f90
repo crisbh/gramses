@@ -938,7 +938,7 @@ subroutine load_gadget
 
            if((NCellx.gt.MeshSize).or.(NCelly.gt.MeshSize).or.(NCellz.gt.MeshSize)) then
               write(*,*) 'DEBUG: for particle ipart, Found NCellx,y,z = ', ipart, NCellx, NCelly, NCellz
-!              call clean_stop
+              call clean_stop
            end if
 
 
@@ -963,9 +963,9 @@ subroutine load_gadget
            ! ---------------------------------------------------------------
 
            ! Original RAMSES lines
-!          xx_dp(1,1) = pos(1,i)/gadgetheader%boxsize
-!          xx_dp(1,2) = pos(2,i)/gadgetheader%boxsize
-!          xx_dp(1,3) = pos(3,i)/gadgetheader%boxsize
+           ! xx_dp(1,1) = pos(1,i)/gadgetheader%boxsize
+           ! xx_dp(1,2) = pos(2,i)/gadgetheader%boxsize
+           ! xx_dp(1,3) = pos(3,i)/gadgetheader%boxsize
 
 #ifndef WITHOUTMPI
            call cmp_cpumap(xx_dp,cc,1)
@@ -990,32 +990,30 @@ subroutine load_gadget
 
               ! Parameters for the initial density perturbation
               pii = 4.0d0*datan(1.0d0)
-              ! Notice that Amp = delta_i/3
+              ! Notice that Amp = delta_i/3 is what multiplies the sinusoidals
               delta_i = 9.0d-2
               lambda_pert_x = 1.0d0
-              !lambda_pert_x = 2.0d-1
               lambda_pert_y = lambda_pert_x
               lambda_pert_z = lambda_pert_x
 
               Amp_z = delta_i / 3.0d0
-              Amp_y = 1.1d0 * Amp_z  ! 1.2
-              Amp_x = 0.9d0 * Amp_z  ! 0.8
+              Amp_y = 1.0d0 * Amp_z  ! 1.2
+              Amp_x = 1.0d0 * Amp_z  ! 0.8
               k_pert_x = 2.0d0 * pii / lambda_pert_x
               k_pert_y = 2.0d0 * pii / lambda_pert_y
               k_pert_z = 2.0d0 * pii / lambda_pert_z
 
 !              if(verbose)write(*,*)'Applying displacements and velocities to particles.'
 
-              ! Displacements associated to the sin density field
-              ! Anisotropic case
-              ! disp_x = Amp_x / k_pert_x * dcos(k_pert_x * xp(ipart,1))
-              ! disp_y = Amp_y / k_pert_y * dcos(k_pert_y * xp(ipart,2))
-              ! disp_z = Amp_z / k_pert_z * dcos(k_pert_z * xp(ipart,3))
+              ! RM and MB convention: OD and UD in opposite corners of the box
+              disp_x = Amp_x / k_pert_x * dcos(k_pert_x * xp(ipart,1))
+              disp_y = Amp_y / k_pert_y * dcos(k_pert_y * xp(ipart,2))
+              disp_z = Amp_z / k_pert_z * dcos(k_pert_z * xp(ipart,3))
 
-              ! Test Tophat: put OD at centre of the box (cos->sin)
-              disp_x = Amp_x / k_pert_x * dsin(k_pert_x * xp(ipart,1))
-              disp_y = Amp_y / k_pert_y * dsin(k_pert_y * xp(ipart,2))
-              disp_z = Amp_z / k_pert_z * dsin(k_pert_z * xp(ipart,3))
+              ! Alternative: put OD at centre of the box using shift by -pi/2
+              ! disp_x = Amp_x / k_pert_x * dsin(k_pert_x * xp(ipart,1))
+              ! disp_y = Amp_y / k_pert_y * dsin(k_pert_y * xp(ipart,2))
+              ! disp_z = Amp_z / k_pert_z * dsin(k_pert_z * xp(ipart,3))
 
               xp(ipart,1) = xp(ipart,1) + disp_x
               xp(ipart,2) = xp(ipart,2) + disp_y
@@ -1044,14 +1042,9 @@ subroutine load_gadget
 
 
               ! Velocities correspond to dot disp
-              ! vp(ipart,1) = hexp * (Amp_x/k_pert_x) * dcos(k_pert_x* xp(ipart,1))
-              ! vp(ipart,2) = hexp * (Amp_y/k_pert_y) * dcos(k_pert_y* xp(ipart,2))
-              ! vp(ipart,3) = hexp * (Amp_z/k_pert_z) * dcos(k_pert_z* xp(ipart,3))
-
-              ! Test Tophat: put OD at centre of the box (cos->sin)
-              vp(ipart,1) = - hexp * (Amp_x/k_pert_x) * dsin(k_pert_x* xp(ipart,1))
-              vp(ipart,2) = - hexp * (Amp_y/k_pert_y) * dsin(k_pert_y* xp(ipart,2))
-              vp(ipart,3) = - hexp * (Amp_z/k_pert_z) * dsin(k_pert_z* xp(ipart,3))
+              vp(ipart,1) = hexp * disp_x
+              vp(ipart,2) = hexp * disp_y
+              vp(ipart,3) = hexp * disp_z
 
 !              vp(ipart,1) = 0.0d0
 !              vp(ipart,2) = 0.0d0
