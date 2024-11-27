@@ -20,7 +20,8 @@ aout=0.0033,0.0387,0.0614,0.16
 
 &INIT_PARAMS
 filetype='gadget'
-initfile(1)='/cosma8/data/dp203/dc-barr3/projects/Tophat_GR/data/input/2lptic_ICs/default_syn_B64_PM64_zini302_5/ics'
+!initfile(1)='/cosma8/data/dp203/dc-barr3/projects/Tophat_GR/data/input/2lptic_ICs/default_syn_B64_PM64_zini302_5/ics'
+initfile(1)='/cosma7/data/dp004/dc-barr3/projects/tophat/data/input/tophat_glass_B64_PM64_zini302_5/ics'
 /
 
 &AMR_PARAMS

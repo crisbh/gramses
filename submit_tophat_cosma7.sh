@@ -1,8 +1,8 @@
 #!/bin/sh
 
-#SBATCH -n 256
-#SBATCH -t 02:00:00
-#SBATCH -J tophat
+#SBATCH -n 112
+#SBATCH -t 00:30:00
+#SBATCH -J TestTH
 #SBATCH -o ./logs/%j.log
 #SBATCH -e ./logs/%j.err
 #SBATCH -p cosma7
@@ -11,17 +11,15 @@
 
 # prepare
 module purge
-module load intel_comp/2018-update2
-module load intel_mpi/2018
-# module load hdfview
-unset I_MPI_HYDRA_BOOTSTRAP
+module load intel_comp
+module load compiler-rt tbb compiler mpi
+module load python
 
 # compile
-#make clean && make
+cd bin && make clean && make && cd ..
 
 # run
-#mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_B512_PM256.nml
-mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_PM256.nml
+mpirun -np $SLURM_NTASKS ./bin/ramses3d ./namelist/gr_tophat_B64_PM64.nml
 
 # report
 echo ""

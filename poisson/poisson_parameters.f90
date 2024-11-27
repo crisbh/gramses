@@ -2,7 +2,8 @@ module poisson_parameters
   use amr_parameters
 
   ! Convergence criterion for Poisson solvers
-  real(dp)::epsilon=1.0D-4
+  !real(dp)::epsilon=1.0D-4
+  real(dp)::epsilon=1.0D-5
 
   ! Type of force computation
   integer ::gravity_type=0
