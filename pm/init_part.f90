@@ -831,6 +831,10 @@ subroutine load_gadget
   use amr_commons
   use pm_commons
   use gadgetreadfilemod
+
+  ! Glass TEST:
+  use random
+
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -858,6 +862,7 @@ subroutine load_gadget
   integer::idim
   real(dp), dimension(3) :: Amp, lambda_pert, k_pert, disp, NCell, pert_rand, r
   real(dp):: pii, BoxSize, MeshSize, CellSize, Offset, delta_i
+  real(kind=8) :: randNumb
 
   ! Local particle count
   ipart=0
@@ -956,17 +961,38 @@ subroutine load_gadget
 
 !           write(*,*) 'DEBUG: Final pos for particle i in the lattice= ',i, xx_dp(1,1), xx_dp(1,2), xx_dp(1,3)
 
+           ! GLASS TEST:
            ! Now that the lattice is built, apply random perturbation
            ! should have mean 0 so use r-0.5
-           call random_seed()
-           call random_number(r)
-           pert_rand(1) = (r(1) - 0.5d0) * 1.0d-5 * CellSize
-           pert_rand(2) = (r(2) - 0.5d0) * 1.0d-5 * CellSize
-           pert_rand(3) = (r(3) - 0.5d0) * 1.0d-5 * CellSize
+           !call random_seed()
+           !call random_number(r)
+           !pert_rand(1) = (r(1) - 0.5d0) * 1.0d-5 * CellSize
+           !pert_rand(2) = (r(2) - 0.5d0) * 1.0d-5 * CellSize
+           !pert_rand(3) = (r(3) - 0.5d0) * 1.0d-5 * CellSize
 
-           xx_dp(1,1) = xx_dp(1,1) + pert_rand(1)
-           xx_dp(1,2) = xx_dp(1,2) + pert_rand(2)
-           xx_dp(1,3) = xx_dp(1,3) + pert_rand(3)
+           !xx_dp(1,1) = xx_dp(1,1) + pert_rand(1)
+           !xx_dp(1,2) = xx_dp(1,2) + pert_rand(2)
+           !xx_dp(1,3) = xx_dp(1,3) + pert_rand(3)
+
+           do idim=1,ndim
+             call ranf(localseed, randNumb)
+             pert_rand(idim) = (randNumb - 0.5d0) * 1.0d-4 * CellSize
+             xx_dp(1,idim) = xx_dp(1,idim) + pert_rand(idim)
+           end do
+
+           ! Draw the position completely randomly, i.e. over the full box
+           ! do idim=1,ndim
+           !   call ranf(localseed, randNumb)
+           !   xx_dp(1,idim) = randNumb
+           ! end do
+
+           !pert_rand(1) = r(1)
+           !pert_rand(2) = r(2)
+           !pert_rand(3) = r(3)
+
+           !xx_dp(1,1) = pert_rand(1)
+           !xx_dp(1,2) = pert_rand(2)
+           !xx_dp(1,3) = pert_rand(3)
 
            ! ---------------------------------------------------------------
            ! Tophat block ends
