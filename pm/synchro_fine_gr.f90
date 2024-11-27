@@ -505,7 +505,9 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
         end do
      else
         do j=1,np
-           new_vp(j,idim)=vp(ind_part(j),idim)+ff(j,idim)*0.5D0*dteff(j)
+           !new_vp(j,idim)=vp(ind_part(j),idim)+ff(j,idim)*0.5D0*dteff(j)
+           ! GLASS: reverse sign of force
+           new_vp(j,idim)=vp(ind_part(j),idim)-ff(j,idim)*0.5D0*dteff(j)
         end do
      endif
   end do

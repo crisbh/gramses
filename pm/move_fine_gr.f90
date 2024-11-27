@@ -456,7 +456,9 @@ subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
            end do
         else
            do j=1,np
-              new_vp(j,idim)=vp(ind_part(j),idim)+ff(j,idim)*0.5D0*dtnew(ilevel)
+              !new_vp(j,idim)=vp(ind_part(j),idim)+ff(j,idim)*0.5D0*dtnew(ilevel)
+              ! GLASS: reverse sign of force
+              new_vp(j,idim)=vp(ind_part(j),idim)-ff(j,idim)*0.5D0*dtnew(ilevel)
            end do
         endif
      end do
