@@ -581,6 +581,8 @@ subroutine init_cosmo
      h0 = gadgetheader%hubbleparam * 100.d0
      boxlen_ini = gadgetheader%boxsize
      aexp = gadgetheader%time
+     ! GLASS TEST: set initial scale factor by hand
+     !aexp = 299d0
      aexp_ini = aexp
      ! Compute SPH equivalent mass (initial gas mass resolution)
      mass_sph=omega_b/omega_m*0.5d0**(ndim*levelmin)

@@ -862,7 +862,14 @@ subroutine load_gadget
   integer::idim
   real(dp), dimension(3) :: Amp, lambda_pert, k_pert, disp, NCell, pert_rand, r
   real(dp):: pii, BoxSize, MeshSize, CellSize, Offset, delta_i
+
+  ! GLASS randomisation
+  integer, dimension(1:1,1:IRandNumSize)::allseed
   real(kind=8) :: randNumb
+
+  ! Initialize random number generator
+  call rans(1,iseed,allseed)
+  localseed=allseed(1,1:IRandNumSize)
 
   ! Local particle count
   ipart=0
@@ -976,13 +983,17 @@ subroutine load_gadget
 
            do idim=1,ndim
              call ranf(localseed, randNumb)
-             pert_rand(idim) = (randNumb - 0.5d0) * 1.0d-4 * CellSize
-             xx_dp(1,idim) = xx_dp(1,idim) + pert_rand(idim)
+             !randNumb=abs(randNumb)
+             ! if(idim.eq.ndim .and. myid.eq.1) write(*,*) 'DEBUG: for particle ipart,  randNumb = ', ipart, randNumb
+             pert_rand(idim) = (randNumb - 0.5d0) * 5.0d-1
+             ! if(idim.eq.ndim) write(*,*) 'DEBUG: for particle ipart,  pert_rand(x,y,z) = ', ipart, pert_rand(1), pert_rand(2), pert_rand(3)
+             xx_dp(1,idim) = xx_dp(1,idim) + pert_rand(idim)*CellSize
            end do
 
-           ! Draw the position completely randomly, i.e. over the full box
+           ! ! Draw the position completely randomly, i.e. over the full box
            ! do idim=1,ndim
            !   call ranf(localseed, randNumb)
+           !   !if(idim.eq.ndim .and. myid.eq.1) write(*,*) 'DEBUG: for ipart,  randNumb = ', ipart, randNumb
            !   xx_dp(1,idim) = randNumb
            ! end do
 

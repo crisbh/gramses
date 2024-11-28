@@ -62,7 +62,7 @@ subroutine newdt_fine(ilevel)
   if(cosmo)then
      !dtnew(ilevel)=MIN(dtnew(ilevel),0.1/hexp)
      ! GLASS TEST: force timestep to be small when relaxing towards glass
-     dtnew(ilevel)=MIN(dtnew(ilevel),0.01/hexp)
+     dtnew(ilevel)=MIN(dtnew(ilevel),0.01d0/hexp)
   end if
 
 #ifdef ATON
