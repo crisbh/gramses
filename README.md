@@ -15,8 +15,8 @@ For details of the mathematical formalism and code implementation, see:
 
 **Applications**
 
-- [Gravitomagnetic effects in a hearing-dust Universe](https://arxiv.org/abs/2003.08014) - comparison with other numerical relativity codes
-- [Gravitomagnetic field in $\Lambda$CDM](https://arxiv.org/abs/2010.08257) - vector modes in cosmology
+- [Gravitomagnetic effects in a hearing-dust universe](https://arxiv.org/abs/2003.08014) - comparison with other numerical relativity codes
+- [Gravitomagnetic field in cosmology](https://arxiv.org/abs/2010.08257) - vector modes in cosmology
 - [Gravitomagnetic distorion in light propagation](https://arxiv.org/abs/2109.02632) - weak-lensing x kSZ effect
 
 ---
