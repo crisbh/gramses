@@ -7,8 +7,6 @@ For details of the mathematical formalism and code implementation, see:
 - [GRAMSES Paper 2](http://arxiv.org/abs/2001.07968) – gauge and generation of initial conditions
 
 
----
-
 ## Overview
 
 `GRAMSES` extends `RAMSES`' adaptive mesh refinement (AMR) and multigrid infrastructure to solve **Einstein's field equations** in a cosmological context, while evolving the geodesic equations for matter in an N-body particle scheme.
@@ -19,7 +17,6 @@ For details of the mathematical formalism and code implementation, see:
 - [Gravitomagnetic field in cosmology](https://arxiv.org/abs/2010.08257) - vector modes in cosmology
 - [Gravitomagnetic distorion in light propagation](https://arxiv.org/abs/2109.02632) - weak-lensing x kSZ effect
 
----
 
 ## Key Features
 
@@ -28,8 +25,6 @@ For details of the mathematical formalism and code implementation, see:
 - **Kick-Drift-Kick scheme** integration for particle geodesics.
 - **MPI (Message Passing Interface) parallisation** for distributed-memory HPC systems.
 
-
----
 
 ## Installation and usage
 ```bash
@@ -42,7 +37,6 @@ Then, you can run as
 ```bash
 mpirun -np 8 ./ramses3d namelist/relativistic_cosmo.nml
 ```
-
 
 ---
 
