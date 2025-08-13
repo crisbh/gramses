@@ -1,6 +1,6 @@
 # GRAMSES — Numerical Relativity N-body Simulations in Cosmology
 
-`GRAMSES` is a modified version of the [`RAMSES`](https://github.com/ramses-organisation/ramses) code to perform **numerical relativity simulations** in cosmology using a particle (N-body) description for dark matter. 
+`GRAMSES` is a modified version of [`RAMSES`](https://github.com/ramses-organisation/ramses) to perform **numerical relativity simulations** in cosmology using a particle (N-body) description for dark matter. 
 It is based on a fully constrained and non-linear 3+1 formulation of general relativity.  
 For details of the mathematical formalism and code implementation, see:  
 - [GRAMSES Paper 1](http://arxiv.org/abs/1905.08890) – methodology and code description  
