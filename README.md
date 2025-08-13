@@ -21,7 +21,7 @@ It is based on a fully constrained and non-linear 3+1 formulation of general rel
 
 - **Full AMR hierarchy** for efficient simulations of multi-scale dynamics.
 - **Multigrid solvers** for the 3+1 Einstein field equations.
-- **Kick-Drift-Kick scheme** integration for particle geodesics.
+- **Kick-Drift-Kick scheme** time integration for particle geodesics.
 - **MPI (Message Passing Interface) parallisation** for distributed-memory HPC systems.
 
 
