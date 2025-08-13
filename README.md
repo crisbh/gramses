@@ -14,7 +14,7 @@ It is based on a fully constrained and non-linear 3+1 formulation of general rel
 
 - [Gravitomagnetic effects in a shearing-dust universe](https://arxiv.org/abs/2003.08014) - comparison with other numerical relativity codes
 - [Gravitomagnetic field in cosmology](https://arxiv.org/abs/2010.08257) - vector modes in cosmology
-- [Gravitomagnetic distorion in light propagation](https://arxiv.org/abs/2109.02632) - weak-lensing x kSZ effect
+- [Gravitomagnetic distortion in light propagation](https://arxiv.org/abs/2109.02632) - weak-lensing x kSZ effect signal
 
 
 ## Key Features
