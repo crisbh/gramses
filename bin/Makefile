@@ -48,8 +48,8 @@ endif
 #FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
 
 # --- MPI, gfortran syntax ------------------------------
-#F90 = mpif90 -frecord-marker=4 -O3 -ffree-line-length-none -g -fbacktrace 
-#FFLAGS = -x f95-cpp-input $(DEFINES)
+F90 = mpif90 -frecord-marker=4 -O3 -ffree-line-length-none -g -fbacktrace 
+FFLAGS = -x f95-cpp-input $(DEFINES)
 
 # --- MPI, gfortran DEBUG syntax ------------------------------ 
 #F90 = mpif90 -frecord-marker=4 -ffree-line-length-none -fbacktrace -g -O -fbounds-check -Wuninitialized -Wall
@@ -64,11 +64,11 @@ endif
 #FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
 
 # --- MPI, ifort syntax, additional checks -----------
-F90 = mpif90
+#F90 = mpif90
 #Default compilation line - for debugging
 #FFLAGS = -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds -cpp $(DEFINES) -DNOSYSTEM
 #Compilation line for simulations
-FFLAGS = -O3 -g -traceback -fpe0 -ftrapuv -cpp $(DEFINES)
+#FFLAGS = -O3 -g -traceback -fpe0 -ftrapuv -cpp $(DEFINES)
 
 # --- MPI, ifort syntax ------------------------------
 #F90 = ftn

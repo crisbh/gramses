@@ -1,0 +1,11 @@
+[extra.ford]
+project_url = "https://crisbh.github.io/gramses/"
+exclude_dir = ["docs","doc","namelist","bin"]
+output_dir = "docs/_site"
+graph = true
+search = false
+preprocess = true
+macro = ["USE_MPI","DIM=3"]
+extensions = ["f90","f95","F90","F95"]
+md_extensions = ["markdown.extensions.tables","markdown.extensions.fenced_code","markdown.extensions.toc"]
+

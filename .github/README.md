@@ -1,3 +1,4 @@
+[![Pages](https://github.com/crisbh/gramses/actions/workflows/ford-pages.yml/badge.svg)](../../actions/workflows/ford-pages.yml)
 # GRAMSES — Numerical Relativity N-body Simulations in Cosmology
 
 `GRAMSES` is a modified version of [`RAMSES`](https://github.com/ramses-organisation/ramses) to perform **numerical relativity simulations** in cosmology using a particle (N-body) description for dark matter. 
