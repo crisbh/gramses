@@ -40,7 +40,7 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build site with FORD
-        run: ford docs/project.md --no-search
+        run: ford project.md --no-search
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

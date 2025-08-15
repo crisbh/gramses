@@ -5,8 +5,6 @@ author: Cristian Barrera-Hinojosa and Baojiu Li. RAMSES has been developed by R.
 src_dir:
     - ..
 
-
-
 ---
 # GRAMSES documentation
 Welcome to the GRAMSES API and developer docs. This site is generated automatically from the in-source comments using **FORD**.
