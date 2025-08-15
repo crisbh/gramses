@@ -1,5 +1,4 @@
 [extra.ford]
-project_url = "crisbh.github.io/gramses/"
 exclude_dir = ["docs","doc","namelist","bin"]
 src_dir = ["amr","aton","hydro","mhd","pario","patch","pm","poisson","rhd","rt","utils"]
 output_dir = "docs/_site"
