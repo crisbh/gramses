@@ -2,8 +2,6 @@
 project: GRAMSES
 summary: Numerical relativity N-body simulations in cosmology based on RAMSES
 author: Cristian Barrera-Hinojosa and Baojiu Li. RAMSES has been developed by R. Teyssier
-src_dir:
-    - ..
 
 ---
 # GRAMSES documentation
