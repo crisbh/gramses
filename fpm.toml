@@ -1,4 +1,7 @@
 [extra.ford]
+project = "GRAMSES"
+summary = "Numerical relativity N-body simulations in cosmology based on RAMSES"
+author = "Cristian Barrera-Hinojosa and Baojiu Li"
 exclude_dir = ["docs","doc","namelist","bin"]
 src_dir = ["amr","aton","hydro","mhd","pario","patch","pm","poisson","rhd","rt","utils"]
 output_dir = "docs/_site"

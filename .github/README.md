@@ -29,7 +29,7 @@ It is based on a fully constrained and non-linear 3+1 formulation of general rel
 ## Installation and usage
 ```bash
 git clone https://github.com/crisbh/gramses.git
-cd gramses
+cd gramses/bin
 make -j
 ```
 

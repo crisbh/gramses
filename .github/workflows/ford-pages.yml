@@ -39,6 +39,9 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Clean old site
+        run: rm -rf docs/_site
+
       - name: Build site with FORD
         run: ford project.md --no-search
 
