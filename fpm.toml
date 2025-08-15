@@ -1,9 +1,9 @@
 [extra.ford]
 project = "GRAMSES"
 summary = "Numerical relativity N-body simulations in cosmology based on RAMSES"
-author = "Cristian Barrera-Hinojosa and Baojiu Li"
-exclude_dir = ["docs","doc","namelist","bin"]
-src_dir = ["amr","aton","hydro","mhd","pario","patch","pm","poisson","rhd","rt","utils"]
+author = "Cristian Barrera-Hinojosa and Baojiu Li. RAMSES has been developed by R. Teyssier"
+src_dir = ["amr","aton","hydro","pario","pm","poisson","utils"]
+exclude_dir = ["docs","doc","namelist","bin", "patch", "rhd", "rt", "mhd"]
 output_dir = "docs/_site"
 graph = true
 search = false
