@@ -38,6 +38,10 @@ Then, you can run as
 mpirun -np 8 ./ramses3d namelist/relativistic_cosmo.nml
 ```
 
+## Documentation
+
+You can find the code documentation automatically generated from source files [here](https://crisbh.github.io/gramses/).
+
 ---
 
 ## Citation
