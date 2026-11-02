@@ -1,6 +1,7 @@
 !#########################################################
 !#########################################################
 subroutine source_fine_gr_aij_aij(ilevel,icount)
+  !! Compute A_ij A^ij at level `ilevel`; the result is stored in `gr_mat(:,1)`.
   use amr_commons
   use pm_commons
   use poisson_commons
@@ -41,6 +42,7 @@ end subroutine source_fine_gr_aij_aij
 !#########################################################
 !#########################################################
 subroutine comp_fine_gr_aij_aij(ind_grid,ngrid,ilevel,icount)
+  !! Compute A_ij A^ij from (U, V^i) for the cells of `ind_grid` with a 3-point kernel; stored in `gr_mat(:,1)`.
   use amr_commons
   use pm_commons
   use hydro_commons

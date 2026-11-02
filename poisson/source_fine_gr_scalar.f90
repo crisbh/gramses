@@ -1,4 +1,5 @@
 subroutine source_fine_gr_scalar(ilevel,icount,igr)
+  !! Compute the scalar source div(V) (`igr=4`) or div(B) (`igr=10`) at level `ilevel`.
   use amr_commons
   use pm_commons
   use poisson_commons
@@ -41,6 +42,7 @@ end subroutine source_fine_gr_scalar
 !#########################################################
 !#########################################################
 subroutine source_from_gr_pot_scalar(ind_grid,ngrid,ilevel,icount,igr)
+  !! Compute div(V) or div(B) for the cells of `ind_grid` with a 3-point finite-difference kernel.
   use amr_commons
   use pm_commons
   use hydro_commons

@@ -1,4 +1,6 @@
 subroutine synchro_fine_gr(ilevel,igrp)
+  !! Kick particles at level `ilevel` using the force from GR field `igrp`.
+  !! On the initial step (`nstep_coarse==-1`, `igrp==4`) this also converts the initial velocities.
   use pm_commons
   use amr_commons
   implicit none
@@ -82,6 +84,7 @@ end subroutine synchro_fine_gr
 !####################################################################
 !####################################################################
 subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
+  !! Interpolate the GR force to the particles of a vector sweep by inverse CIC and update their velocities.
   use amr_commons
   use amr_parameters
   use pm_commons
@@ -363,9 +366,9 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
      call clean_stop
   end if
  
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!! Initial Conditions !!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !----------
+  ! ----- Initial Conditions -----
+  !----------
   if((nstep_coarse.eq.-1).and.(igrp==4)) then
      ! update velocities from v_i to u_i using gr_pot(:,1:3) ! CBH
 
@@ -399,9 +402,9 @@ subroutine sync_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
 
      return
   end if
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!! Initial Conditions !!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !----------
+  ! ----- Initial Conditions -----
+  !----------
 
   ! Calculate Lorentz factor from the 4-velocity normalisation
   if(igrp==5.or.igrp==6) then

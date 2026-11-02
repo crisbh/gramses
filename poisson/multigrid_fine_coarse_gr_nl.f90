@@ -21,6 +21,7 @@
 ! --------------------------------------------------------------------------------
 
 subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
+   !! Residual of the non-linear GR equation on a coarse multigrid level, stored in `active_mg(myid,ilevel)%u(:,3)`.
    use amr_commons
    use poisson_commons
    use gr_commons
@@ -122,6 +123,7 @@ subroutine cmp_residual_mg_coarse_gr_nl(ilevel,igr)
 end subroutine cmp_residual_mg_coarse_gr_nl
 
 subroutine cmp_uvar_norm2_coarse_gr_nl(ivar,ilevel,norm2,n_cell_c)
+   !! Squared norm of multigrid variable `ivar` on a coarse multigrid level.
    use amr_commons
    use poisson_commons
    use gr_commons
@@ -155,6 +157,7 @@ subroutine cmp_uvar_norm2_coarse_gr_nl(ivar,ilevel,norm2,n_cell_c)
 end subroutine cmp_uvar_norm2_coarse_gr_nl   
 
 subroutine cmp_source_mean_mg_coarse_gr_nl(ilevel,igr,src_sum_coarse)
+   !! Sum of the non-linear source on a coarse multigrid level, used for regularisation.
    use amr_commons
    use poisson_commons
    use gr_commons
@@ -237,6 +240,7 @@ end subroutine cmp_source_mean_mg_coarse_gr_nl
 ! ------------------------------------------------------------------------
 
 subroutine gauss_seidel_mg_coarse_gr_nl(ilevel,safe,redstep,igr)
+   !! Red or black Gauss-Seidel sweep for the non-linear GR equation on a coarse multigrid level.
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -374,6 +378,8 @@ end subroutine gauss_seidel_mg_coarse_gr_nl
 ! ------------------------------------------------------------------------
 
 subroutine make_physical_rhs_coarse_gr_nl(ilevel,igr)
+   !! Physical right-hand side of a coarse multigrid level, including the corrections
+   !! from the finer level, stored in `active_mg(myid,ilevel)%u(:,2)`.
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -475,6 +481,7 @@ end subroutine make_physical_rhs_coarse_gr_nl
 !------------------------------------------------------------------
 
 subroutine restrict_gr_pot_coarse_reverse_gr_nl(ifinelevel)
+   !! Restrict the non-linear GR field between coarse multigrid levels.
 
    use amr_commons
    use poisson_commons
@@ -555,6 +562,7 @@ subroutine restrict_gr_pot_coarse_reverse_gr_nl(ifinelevel)
 end subroutine restrict_gr_pot_coarse_reverse_gr_nl
 
 subroutine restrict_coeff_coarse_reverse_gr_nl(ifinelevel) ! DEBUG 8-5-19
+   !! Restrict the non-linear operator coefficients between coarse multigrid levels.
    use amr_commons
    use poisson_commons
    use gr_commons
@@ -641,6 +649,7 @@ end subroutine restrict_coeff_coarse_reverse_gr_nl
 
 !subroutine interpolate_and_correct_coarse_gr_nl(ifinelevel,igr)
 subroutine interpolate_and_correct_coarse_gr_nl(ifinelevel)
+   !! Interpolate the correction from a coarser multigrid level and add it to the non-linear GR field.
    use amr_commons
    use poisson_commons
    use gr_commons   

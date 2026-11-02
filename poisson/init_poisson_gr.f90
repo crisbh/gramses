@@ -1,4 +1,5 @@
 subroutine init_poisson_gr
+  !! Allocate and initialise the Poisson, GR (`gr_pot`, `gr_mat`) and multigrid arrays; read them on restart.
     
   use pm_commons
   use amr_commons

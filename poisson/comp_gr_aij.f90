@@ -1,6 +1,7 @@
 !#########################################################
 !#########################################################
 subroutine comp_gr_aij(ilevel,icount,ivect)
+  !! Compute component `ivect` (1-6) of A^ij at level `ilevel`; the result is stored in `f(:,2)`.
   use amr_commons
   use pm_commons
   use poisson_commons
@@ -42,6 +43,7 @@ end subroutine comp_gr_aij
 !#########################################################
 !#########################################################
 subroutine gr_aij_components(ind_grid,ngrid,ilevel,icount,ivect)
+  !! Compute A_ij component `ivect` from (U, V^i) for the cells of `ind_grid` with a 3-point kernel.
   use amr_commons
   use amr_parameters
   use pm_commons

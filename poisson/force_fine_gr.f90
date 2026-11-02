@@ -1,6 +1,7 @@
 !#########################################################
 !#########################################################
 subroutine force_fine_gr(ilevel,icount,igrp)
+  !! Compute the force contribution of GR field `igrp` at level `ilevel`, used to kick particles.
   use amr_commons
   use pm_commons
   use poisson_commons
@@ -195,6 +196,7 @@ end subroutine force_fine_gr
 !#########################################################
 !#########################################################
 subroutine gradient_gr_pot(ind_grid,ngrid,ilevel,icount,igrp)
+  !! Gradient of GR field `igrp` for the cells of `ind_grid` with a 5-point finite-difference kernel.
   use amr_commons
   use pm_commons
   use hydro_commons
