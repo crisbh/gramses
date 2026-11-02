@@ -2,7 +2,7 @@ name: Build & Deploy FORD docs
 
 on:
   push:
-    branches: [ master ]   # ← change if your default branch is different
+    branches: [ master ]
   workflow_dispatch:
 
 permissions:
@@ -43,7 +43,7 @@ jobs:
         run: rm -rf docs/_site
 
       - name: Build site with FORD
-        run: ford project.md --no-search
+        run: ford project.md
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

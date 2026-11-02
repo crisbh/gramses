@@ -9,3 +9,4 @@ ramses3d
 *.swo
 *.swn
 .ipynb_checkpoints/
+docs/_site/
