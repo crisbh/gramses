@@ -19,6 +19,7 @@
 ! ------------------------------------------------------------------------
 
 subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
+   !! Residual of the non-linear GR equation `igr` (5 or 6) at the finest level, stored in `f(:,1)`.
    ! Computes the residual the fine (AMR) level, and stores it into f(:,1)
    use amr_commons
    use poisson_commons
@@ -122,6 +123,7 @@ subroutine cmp_residual_mg_fine_gr_nl(ilevel,igr)
 end subroutine cmp_residual_mg_fine_gr_nl
 
 subroutine cmp_residual_norm2_fine_gr_nl(ilevel,norm2,n_cell_f)
+   !! Squared norm of the non-linear residual at the finest level.
    use amr_commons
    use poisson_commons
    implicit none
@@ -162,6 +164,7 @@ end subroutine cmp_residual_norm2_fine_gr_nl
 ! ##################################################################
 
 subroutine cmp_source_mean_gr_nl(ilevel,igr,src_nl_sum)
+   !! Sum of the non-linear source at level `ilevel`, used to regularise the solve.
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -239,6 +242,7 @@ end subroutine cmp_source_mean_gr_nl
 ! ------------------------------------------------------------------------
 
 subroutine gauss_seidel_mg_fine_gr_nl(ilevel,redstep,igr)
+   !! Red or black Gauss-Seidel sweep for the non-linear GR equation `igr` at the finest level.
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -368,6 +372,7 @@ end subroutine gauss_seidel_mg_fine_gr_nl
 ! ------------------------------------------------------------------------
 
 subroutine restrict_gr_pot_fine_reverse_gr_nl(ifinelevel,igr)
+   !! Restrict the GR field from the finest level to the first coarse multigrid level (bottom-up).
    use amr_commons
    use poisson_commons
    use gr_commons
@@ -451,6 +456,7 @@ end subroutine restrict_gr_pot_fine_reverse_gr_nl
 ! ------------------------------------------------------------------------
 
 subroutine restrict_coeff_fine_reverse_gr_nl(ifinelevel,igr)
+   !! Restrict the coefficients of the non-linear differential operators to the coarse multigrid level.
 
    use amr_commons
    use poisson_commons
@@ -555,6 +561,7 @@ end subroutine restrict_coeff_fine_reverse_gr_nl
 ! ------------------------------------------------------------------------
 
 subroutine interpolate_and_correct_fine_gr_nl(ifinelevel,igr)
+   !! Interpolate the coarse-level correction and add it to the non-linear GR field at `ifinelevel`.
    use amr_commons
    use poisson_commons
    use gr_commons

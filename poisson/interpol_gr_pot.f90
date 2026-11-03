@@ -1,4 +1,6 @@
 subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igrp)
+  !! Interpolate GR field `igrp` at level boundaries (CIC in space), for the fine-level
+  !! boundary conditions and for `gradient_gr_pot` near level boundaries.
   use amr_commons
   use gr_commons, only:gr_pot
   implicit none
@@ -6,14 +8,14 @@ subroutine interpol_gr_pot(ind_cell,phi_int,ncell,ilevel,icount,igrp)
   integer ,dimension(1:nvector)::ind_cell
   real(dp),dimension(1:nvector,1:twotondim)::phi_int
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !----------
   ! Routine for interpolation at level-boundaries. Interpolation is used for
   ! - boundary conditions for solving poisson equation at fine level
   ! - computing force (gradient_gr_pot) at fine level for cells close to boundary
   ! Interpolation is performed in space (CIC) and - if adaptive timestepping is on -
   ! time (linear extrapolation of the change in phi during the last coarse step
   ! onto the first fine step)
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !----------
 
   integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells

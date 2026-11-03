@@ -24,6 +24,12 @@
 ! ------------------------------------------------------------------------
 
 subroutine multigrid_fine_gr(ilevel,icount,igr)
+   !! Main multigrid solver for GR field `igr` at AMR level `ilevel`, called by `amr_step`.
+   !!
+   !! Builds the field-dependent source (mask for `igr=1`, div(V) for 4, A_ij A^ij for 5,
+   !! div(A^ij) vector sources for 7, div(B) for 10), then iterates V-cycles until the
+   !! residual drops below `epsilon_gr`. Fields 5 and 6 use the non-linear relaxation,
+   !! the others the linear one.
    use amr_commons
    use poisson_commons
    use poisson_parameters
@@ -478,6 +484,7 @@ end subroutine multigrid_fine_gr
 ! Recursive multigrid routine for coarse MG levels
 ! ------------------------------------------------------------------------
 recursive subroutine recursive_multigrid_coarse_gr(ifinelevel, safe, igr, ilevel_domain)
+   !! Recursive V-cycle on the coarse multigrid levels below `ifinelevel` for field `igr`.
    use amr_commons
    use poisson_commons
    use gr_commons
@@ -692,6 +699,7 @@ end subroutine recursive_multigrid_coarse_gr
 !
 ! ------------------------------------------------------------------------
 subroutine make_fine_bc_rhs_gr_ln(ilevel,icount,igr)
+   !! Fill the boundary-condition-modified right-hand side `f(:,2)` for the linear GR equations.
 
    use amr_commons
    use pm_commons
@@ -836,6 +844,7 @@ end subroutine make_fine_bc_rhs_gr_ln
 
 !subroutine restore_mg_level_gr(ilevel)
 subroutine restore_mg_level_gr(ilevel,igr)
+   !! Reset the multigrid work arrays of level `ilevel` before the next GR solve.
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -874,6 +883,7 @@ subroutine restore_mg_level_gr(ilevel,igr)
 end subroutine restore_mg_level_gr
 
 subroutine restore_amr_level_gr(ilevel)
+   !! Reset the AMR work arrays `f(:,1:ndim-1)` of level `ilevel` after a GR solve.
 
    use amr_commons
    use pm_commons

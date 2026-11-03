@@ -19,6 +19,7 @@
 ! ------------------------------------------------------------------------
 
 subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
+   !! Residual of the linear GR equation `igr` at the finest level, stored in `f(:,1)`.
    ! Computes the residual the fine (AMR) level, and stores it into f(:,1)
    use amr_commons
    use poisson_commons
@@ -160,6 +161,7 @@ end subroutine cmp_residual_mg_fine_gr_ln
 ! ##################################################################
 
 subroutine cmp_source_mean_gr_ln(ilevel,igrm,src_ln_sum)
+   !! Sum of the source `gr_mat(:,igrm)` at level `ilevel`, used to regularise the linear solve.
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -191,6 +193,7 @@ end subroutine cmp_source_mean_gr_ln
 ! ------------------------------------------------------------------------
 
 subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
+   !! Red or black Gauss-Seidel sweep for the linear GR equation `igr` at the finest level.
    use amr_commons
    use pm_commons
    use poisson_commons
@@ -351,6 +354,7 @@ end subroutine gauss_seidel_mg_fine_gr_ln
 ! ------------------------------------------------------------------------
 
 subroutine interpolate_and_correct_fine_gr_ln(ifinelevel,igr)
+   !! Interpolate the coarse-level correction and add it to the linear GR field at `ifinelevel`.
    use amr_commons
    use poisson_commons
    use gr_commons

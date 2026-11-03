@@ -1,4 +1,5 @@
 subroutine interpol_gr_mat(ind_cell,phi_int,ncell,ilevel,icount,igrm)
+  !! Interpolate GR source `igrm` at level boundaries, for the div(A^ij) vector sources.
   use amr_commons
   use gr_commons, only:gr_mat
   implicit none
@@ -6,10 +7,10 @@ subroutine interpol_gr_mat(ind_cell,phi_int,ncell,ilevel,icount,igrm)
   integer ,dimension(1:nvector)::ind_cell
   real(dp),dimension(1:nvector,1:twotondim)::phi_int
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !----------
   ! Routine for interpolation at level-boundaries. Interpolation is used for
   ! computing vector source terms div(A) in source_fine_gr_mat_vector 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !----------
 
   integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells

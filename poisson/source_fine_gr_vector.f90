@@ -1,4 +1,6 @@
 subroutine source_fine_gr_vector(ilevel,icount,ivect)
+  !! Compute the div(A^ij) vector source terms at level `ilevel` for component `ivect`.
+  !! The A^ij components are read from `f(:,2)`; the result is stored in `gr_mat(:,2:4)`.
   use amr_commons
   use pm_commons
   use poisson_commons
@@ -48,6 +50,7 @@ end subroutine source_fine_gr_vector
 !#########################################################
 !#########################################################
 subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
+  !! Compute div(A^ij) for the cells of `ind_grid`, with A^ij read from `f(:,2)`.
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -170,7 +173,7 @@ subroutine source_from_gr_mat_vector(ind_grid,ngrid,ilevel,icount,ivect)
      end do
   end if
 
-  !!!!!DO COMMUNICATIONS!!!!!!!
+  ! ----- DO COMMUNICATIONS -----
   !   call make_virtual_fine_dp(gr_mat(1,2),ilevel)
   !   call make_virtual_fine_dp(gr_mat(1,3),ilevel)
   !   call make_virtual_fine_dp(gr_mat(1,4),ilevel)

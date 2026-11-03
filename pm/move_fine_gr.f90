@@ -1,4 +1,5 @@
 subroutine move_fine_gr(ilevel,igrp)
+  !! Update particle velocities and, for `igrp==10`, positions at level `ilevel` using GR field `igrp`.
   use amr_commons
   use pm_commons
   implicit none
@@ -61,6 +62,7 @@ end subroutine move_fine_gr
 !#########################################################################
 !#########################################################################
 subroutine move1_gr(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,igrp)
+  !! Inverse-CIC force interpolation and particle update for one vector sweep; called by `move_fine_gr`.
   use amr_commons
   use pm_commons
   use poisson_commons
