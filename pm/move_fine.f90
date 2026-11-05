@@ -1,4 +1,6 @@
 subroutine move_fine(ilevel)
+  !! Update the positions and time-centred velocities of the particles of level `ilevel`
+  !! with the Newtonian force.
   use amr_commons
   use pm_commons
   implicit none
@@ -61,6 +63,7 @@ end subroutine move_fine
 !#########################################################################
 !#########################################################################
 subroutine move_fine_static(ilevel)
+  !! As `move_fine`, for runs with `static_dm` or `static_stars`.
   use amr_commons
   use pm_commons
   implicit none

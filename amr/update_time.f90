@@ -59,6 +59,7 @@ end subroutine
 end module
 !=======================================================================
 subroutine timer (label, cmd)
+  !! Accumulate wall-clock time under `label`; `cmd` is `'start'` or `'stop'`.
   use timer_m
   implicit none
   character(len=*)::label,cmd
@@ -192,6 +193,8 @@ subroutine reset_timer
 end subroutine
 !=======================================================================
 subroutine update_time(ilevel)
+  !! Advance the time variables after a step at level `ilevel`. On a new coarse step,
+  !! check mass and energy conservation, print the run status and stop after the last output.
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -354,6 +357,7 @@ subroutine update_time(ilevel)
 end subroutine update_time
 
 subroutine clean_stop
+  !! Print the timers, finalise MPI, free the arrays and stop the run.
   use amr_commons
   use poisson_commons
   use gr_commons

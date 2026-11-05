@@ -1,4 +1,12 @@
 recursive subroutine amr_step(ilevel,icount)
+  !! Recursive adaptive-mesh, adaptive-time-step driver for level `ilevel`;
+  !! `icount` is the sub-cycle index (1 or 2) within the parent level's step.
+  !!
+  !! With `gr` on, `rho_fine` deposits the GR matter sources (`gr2`), `multigrid_fine_gr`
+  !! solves the 10 GR fields (only fields 1-4 on the initial step, `nstep_coarse==-1`),
+  !! `force_fine_gr` and `synchro_fine_gr` kick the particles in the order `gr_ord1`, and
+  !! `move_fine_gr` moves them in the order `gr_ord2`. With `gr_newtonian` the sources are
+  !! computed after a temporary Newtonian synchronisation, which is then reverted.
   use amr_commons
   use pm_commons
   use hydro_commons

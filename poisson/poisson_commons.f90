@@ -1,15 +1,17 @@
 module poisson_commons
+  !! Newtonian gravity arrays and multigrid communicators.
+  !! With `gr` on, `rho` holds the GR matter source \(s_0\).
   use amr_commons
   use poisson_parameters
 
-  real(dp),allocatable,dimension(:)  ::phi,phi_old      ! Potential
-  real(dp),allocatable,dimension(:)  ::rho              ! Density
-  real(dp),allocatable,dimension(:,:)::f                ! 3-force
+  real(dp),allocatable,dimension(:)  ::phi,phi_old      !! Potential
+  real(dp),allocatable,dimension(:)  ::rho              !! Density, the Poisson source term (with `gr` on, the GR source \(s_0\))
+  real(dp),allocatable,dimension(:,:)::f                !! 3-force
 
-  real(dp),allocatable,dimension(:)  ::rho_top          ! Density at last CIC level
+  real(dp),allocatable,dimension(:)  ::rho_top          !! Density at last CIC level
 
   ! Multigrid lookup table for amr -> mg index mapping
-  integer, allocatable, dimension(:) :: lookup_mg   ! Lookup table
+  integer, allocatable, dimension(:) :: lookup_mg   !! Lookup table
 
   ! Communicator arrays for multigrid levels
   type(communicator), allocatable, dimension(:,:) :: active_mg

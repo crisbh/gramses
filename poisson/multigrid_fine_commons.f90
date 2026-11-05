@@ -24,6 +24,8 @@
 ! ------------------------------------------------------------------------
 
 subroutine multigrid_fine(ilevel,icount)
+   !! Main multigrid solver for the Newtonian potential `phi` at level `ilevel`, called by `amr_step`.
+   !! With `gr` on, it is only used for the `gr_newtonian` synchronisation.
    use amr_commons
    use poisson_commons
    use poisson_parameters

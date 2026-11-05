@@ -357,6 +357,8 @@ end subroutine make_virtual_coarse_int
 !################################################################
 !################################################################
 subroutine make_virtual_fine_dp(xx,ilevel)
+  !! Copy the values of the double precision cell array `xx` at level `ilevel` from
+  !! the owning processes into the virtual (ghost) cells of the other processes.
   use amr_commons
   implicit none
 #ifndef WITHOUTMPI
@@ -529,6 +531,8 @@ end subroutine make_virtual_fine_int
 !################################################################
 !################################################################
 subroutine make_virtual_reverse_dp(xx,ilevel)
+  !! Add the values of the double precision cell array `xx` held in the virtual cells
+  !! at level `ilevel` back onto the owning processes (used after particle deposits).
   use amr_commons
   implicit none
 #ifndef WITHOUTMPI
@@ -858,6 +862,7 @@ end subroutine make_virtual_reverse_int
 !################################################################
 !################################################################
 subroutine build_comm(ilevel)
+  !! Build the MPI communication structure (`emission`, `reception`) for level `ilevel`.
   use amr_commons
   use poisson_commons, only: lookup_mg
   implicit none

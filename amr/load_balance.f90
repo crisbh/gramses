@@ -3,6 +3,7 @@
 !#########################################################################
 !#########################################################################
 subroutine load_balance
+  !! Redistribute the AMR grids and particles among the MPI processes.
   use amr_commons
   use pm_commons
   use hydro_commons, ONLY: nvar
@@ -981,6 +982,9 @@ end subroutine cmp_minmaxorder
 !#########################################################################
 !#########################################################################
 subroutine defrag
+  !! Renumber the grids so they are stored contiguously by level and process, moving the
+  !! cell arrays (including the GR fields and sources) with them. Called after load balancing
+  !! and before output.
   use amr_commons
   use pm_commons
   use poisson_commons
