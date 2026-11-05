@@ -16,6 +16,8 @@ predocmark = ">"
 # Sources are lowercase .f90, which FORD does not preprocess by default
 preprocess = true
 fpp_extensions = ["f90","F90","F"]
+# Stand-in mpif.h so the preprocessor does not warn on every MPI file
+include = ["docs/include"]
 # Defaults from bin/Makefile
 macro = ["NDIM=3","NVECTOR=64","NPRE=8","NVAR=5","NENER=0","SOLVERhydro"]
 extensions = ["f90","f95","F90","F95"]
