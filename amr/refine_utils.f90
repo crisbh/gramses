@@ -330,6 +330,8 @@ end subroutine make_grid_coarse
 !###############################################################
 !###############################################################
 subroutine refine_fine(ilevel)
+  !! Refine the flagged, unrefined cells of level `ilevel` and remove refinements
+  !! from refined cells that are no longer flagged.
   use amr_commons
   implicit none
 #ifndef WITHOUTMPI

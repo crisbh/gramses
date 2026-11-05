@@ -3,6 +3,8 @@
 !#########################################################
 !#########################################################
 subroutine force_fine(ilevel,icount)
+  !! Compute the gravitational acceleration `f` from `phi` at level `ilevel`,
+  !! together with the maximum density `rho_max` and the potential energy.
   use amr_commons
   use pm_commons
   use poisson_commons

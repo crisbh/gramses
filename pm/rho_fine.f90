@@ -3,6 +3,9 @@
 !##############################################################################
 !##############################################################################
 subroutine rho_fine(ilevel,icount)
+  !! Deposit the particle density at level `ilevel` with the CIC scheme into `rho`,
+  !! the Poisson source term. When `gr` and `gr2` are on, it also deposits the GR matter
+  !! sources into `gr_mat` and `gr_mat2`.
   use amr_commons
   use pm_commons
   use hydro_commons

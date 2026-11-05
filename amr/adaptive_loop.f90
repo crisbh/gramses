@@ -1,4 +1,9 @@
 subroutine adaptive_loop
+  !! Initialise the run, then drive the main coarse time loop.
+  !!
+  !! Each coarse step refines the levels below `levelmin`, calls `amr_step(levelmin,1)`,
+  !! refreshes the ghost zones (including `gr_pot`, `gr_mat` and `gr_mat2` when `gr` is on)
+  !! and advances `nstep_coarse`.
   use amr_commons
   use hydro_commons
   use pm_commons

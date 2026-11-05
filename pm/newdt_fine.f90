@@ -1,4 +1,6 @@
 subroutine newdt_fine(ilevel)
+  !! Compute the time step `dtnew(ilevel)` from a particle Courant condition, the free-fall
+  !! time and the allowed change in `aexp` (plus ATON and sink limits), and the particle kinetic energy.
   use pm_commons
   use amr_commons
   use hydro_commons

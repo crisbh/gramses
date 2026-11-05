@@ -1,4 +1,6 @@
 subroutine synchro_fine(ilevel)
+  !! Kick the particles of level `ilevel` with the Newtonian force to synchronise their
+  !! velocities with their positions, using inverse CIC on the finest level that contains them.
   use pm_commons
   use amr_commons
   implicit none
@@ -82,6 +84,7 @@ end subroutine synchro_fine
 !####################################################################
 !####################################################################
 subroutine synchro_fine_static(ilevel)
+  !! As `synchro_fine`, for runs with `static_dm` or `static_stars`.
   use pm_commons
   use amr_commons
   implicit none

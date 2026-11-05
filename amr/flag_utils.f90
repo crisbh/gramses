@@ -55,6 +55,7 @@ end subroutine flag_coarse
 !################################################################
 !################################################################
 subroutine flag_fine(ilevel,icount)
+  !! Build the refinement map at level `ilevel`.
   use amr_commons
   implicit none
   integer::ilevel,icount

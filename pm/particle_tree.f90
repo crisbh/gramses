@@ -164,6 +164,8 @@ end subroutine init_tree
 !################################################################
 !################################################################
 subroutine make_tree_fine(ilevel)
+  !! Move particles that have left their grid at level `ilevel` into the linked list of
+  !! the neighbouring grid; stop if a particle has moved further than one grid.
   use pm_commons
   use amr_commons
   implicit none
@@ -374,6 +376,8 @@ end subroutine check_tree
 !################################################################
 !################################################################
 subroutine kill_tree_fine(ilevel)
+  !! Move the particles of level `ilevel` grids into the linked lists of their
+  !! `ilevel+1` child grids, where those exist.
   use pm_commons
   use amr_commons
   implicit none
@@ -541,6 +545,7 @@ end subroutine kill_tree
 !################################################################
 !################################################################
 subroutine merge_tree_fine(ilevel)
+  !! Move the particles of the child grids of level `ilevel` back into their parent grid's linked list.
   use pm_commons
   use amr_commons
   implicit none
@@ -623,6 +628,7 @@ end subroutine merge_tree_fine
 !################################################################
 !################################################################
 subroutine virtual_tree_fine(ilevel)
+  !! Send particles that have moved across process boundaries at level `ilevel` to their new process.
   use pm_commons
   use amr_commons
   implicit none

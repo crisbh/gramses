@@ -1,4 +1,5 @@
 module pm_commons
+  !! Particle arrays (positions, velocities, masses, linked lists) and sink particle arrays.
   use amr_parameters
   use pm_parameters
   use random
@@ -18,11 +19,11 @@ module pm_commons
   real(dp),allocatable,dimension(:,:)::fsink,fsink_new,fsink_all
   real(dp),allocatable,dimension(:,:,:)::vsnew,vsold
   real(dp),allocatable,dimension(:,:,:)::fsink_partial,sink_jump
-  real(dp),allocatable,dimension(:,:)::lsink,lsink_new,lsink_all!sink angular momentum
+  real(dp),allocatable,dimension(:,:)::lsink,lsink_new,lsink_all!! sink angular momentum
   real(dp),allocatable,dimension(:,:)::xsink,xsink_new,xsink_all
   real(dp),allocatable,dimension(:,:)::weighted_density,weighted_volume,weighted_ethermal,weighted_divergence
   real(dp),allocatable,dimension(:,:,:)::weighted_momentum
-  real(dp),allocatable,dimension(:)::dt_acc                ! maximum timestep allowed by the sink
+  real(dp),allocatable,dimension(:)::dt_acc                !! maximum timestep allowed by the sink
   real(dp),allocatable,dimension(:)::rho_sink_tff
   integer,allocatable,dimension(:)::idsink,idsink_new,idsink_old,idsink_all
   logical,allocatable,dimension(:,:)::level_sink,level_sink_new
@@ -31,29 +32,29 @@ module pm_commons
   integer,allocatable,dimension(:)::idsink_sort
   integer::ncloud_sink,ncloud_sink_massive
   integer::nindsink=0
-  integer::sinkint_level=0         ! maximum level currently active is where the global sink variables are updated
-  real(dp)::ssoft                  ! sink softening lenght in code units
+  integer::sinkint_level=0         !! maximum level currently active is where the global sink variables are updated
+  real(dp)::ssoft                  !! sink softening lenght in code units
 
 
   ! Particles related arrays
-  real(dp),allocatable,dimension(:,:)::xp       ! Positions
-  real(dp),allocatable,dimension(:,:)::vp       ! Velocities
+  real(dp),allocatable,dimension(:,:)::xp       !! Positions
+  real(dp),allocatable,dimension(:,:)::vp       !! Velocities
 !  real(dp),allocatable,dimension(:,:)::fp_gr    ! Forces 
-  real(dp),allocatable,dimension(:)  ::mp       ! Masses
+  real(dp),allocatable,dimension(:)  ::mp       !! Masses
 #ifdef OUTPUT_PARTICLE_POTENTIAL
-  real(dp),allocatable,dimension(:)  ::ptcl_phi ! Potential of particle added by AP for output purposes
+  real(dp),allocatable,dimension(:)  ::ptcl_phi !! Potential of particle added by AP for output purposes
 #endif
-  real(dp),allocatable,dimension(:)  ::tp       ! Birth epoch
-  real(dp),allocatable,dimension(:,:)::weightp  ! weight of cloud parts for sink accretion only
-  real(dp),allocatable,dimension(:)  ::zp       ! Birth metallicity
-  integer ,allocatable,dimension(:)  ::nextp    ! Next particle in list
-  integer ,allocatable,dimension(:)  ::prevp    ! Previous particle in list
-  integer ,allocatable,dimension(:)  ::levelp   ! Current level of particle
-  integer(i8b),allocatable,dimension(:)::idp    ! Identity of particle
+  real(dp),allocatable,dimension(:)  ::tp       !! Birth epoch
+  real(dp),allocatable,dimension(:,:)::weightp  !! weight of cloud parts for sink accretion only
+  real(dp),allocatable,dimension(:)  ::zp       !! Birth metallicity
+  integer ,allocatable,dimension(:)  ::nextp    !! Next particle in list
+  integer ,allocatable,dimension(:)  ::prevp    !! Previous particle in list
+  integer ,allocatable,dimension(:)  ::levelp   !! Current level of particle
+  integer(i8b),allocatable,dimension(:)::idp    !! Identity of particle
   ! Tree related arrays
-  integer ,allocatable,dimension(:)  ::headp    ! Head particle in grid
-  integer ,allocatable,dimension(:)  ::tailp    ! Tail particle in grid
-  integer ,allocatable,dimension(:)  ::numbp    ! Number of particles in grid
+  integer ,allocatable,dimension(:)  ::headp    !! Head particle in grid
+  integer ,allocatable,dimension(:)  ::tailp    !! Tail particle in grid
+  integer ,allocatable,dimension(:)  ::numbp    !! Number of particles in grid
   ! Global particle linked lists
   integer::headp_free,tailp_free,numbp_free=0,numbp_free_tot=0
   ! Local and current seed for random number generator
