@@ -35,7 +35,7 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
    integer  :: igrid_amr, icell_amr, iskip_amr
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
 
-   real(dp) :: dtwondim = (twondim)
+   real(dp) :: dtwondim
 
    ! CBH
    real(dp) :: coeff_ic, ctilde
@@ -47,6 +47,10 @@ subroutine cmp_residual_mg_fine_gr_ln(ilevel,igr)
    ! CBH
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
    coeff_ic = 1.0d0                   ! Coefficient for initial conditions
+   ! Reset on every call. With an initialiser in the declaration, dtwondim would
+   ! be SAVEd and keep the Helmholtz diagonal set by the initial-conditions branch
+   ! below (nstep_coarse == -1) in all later solves.
+   dtwondim = twondim
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -209,7 +213,7 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
    integer  :: igrid_amr, icell_amr, iskip_amr
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
 
-   real(dp) :: dtwondim = (twondim)
+   real(dp) :: dtwondim
    ! CBH
    real(dp) :: coeff_ic, ctilde
 
@@ -219,6 +223,10 @@ subroutine gauss_seidel_mg_fine_gr_ln(ilevel,redstep,igr)
    ! CBH
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
    coeff_ic = 1.0d0                   ! Coefficient for initial conditions
+   ! Reset on every call. With an initialiser in the declaration, dtwondim would
+   ! be SAVEd and keep the Helmholtz diagonal set by the initial-conditions branch
+   ! below (nstep_coarse == -1) in all later solves.
+   dtwondim = twondim
 
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)

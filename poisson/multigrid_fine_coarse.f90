@@ -160,7 +160,7 @@ subroutine cmp_residual_mg_coarse(ilevel,igr)
    integer  :: igrid_amr, iskip_amr, cpu_nbor_amr
    integer  :: igshift, igrid_nbor_amr
 
-   real(dp) :: dtwondim = (twondim)
+   real(dp) :: dtwondim
    ! CBH
    real(dp) :: ctilde
 
@@ -170,6 +170,10 @@ subroutine cmp_residual_mg_coarse(ilevel,igr)
 
    ! CBH
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   ! Reset on every call. With an initialiser in the declaration, dtwondim would
+   ! be SAVEd and keep the Helmholtz diagonal set by the initial-conditions branch
+   ! below (nstep_coarse == -1) in all later solves.
+   dtwondim = twondim
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -375,7 +379,7 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep,igr)
    integer  :: igrid_amr, cpu_nbor_amr
    integer  :: iskip_mg, igrid_nbor_mg, icell_mg, icell_nbor_mg
    integer  :: igshift, igrid_nbor_amr
-   real(dp) :: dtwondim = (twondim)
+   real(dp) :: dtwondim
 
 
    ! CBH
@@ -386,6 +390,10 @@ subroutine gauss_seidel_mg_coarse(ilevel,safe,redstep,igr)
 
    ! CBH
    ctilde = sol/boxlen_ini/100000.0d0 ! Speed of light in code units
+   ! Reset on every call. With an initialiser in the declaration, dtwondim would
+   ! be SAVEd and keep the Helmholtz diagonal set by the initial-conditions branch
+   ! below (nstep_coarse == -1) in all later solves.
+   dtwondim = twondim
 
    ired  (1,1:4)=(/1,0,0,0/)
    iblack(1,1:4)=(/2,0,0,0/)
