@@ -450,7 +450,16 @@ subroutine multigrid_fine_gr(ilevel,icount,igr)
       if(myid==1) print '(A,I5,A,I5,A,1E15.6, A, 1e15.6)','   ==> Level=',ilevel,' igr=',&
                igr,' Residual=',residual,' Truncation error=',trunc_err
    end if
-   
+
+   ! Mean source removed by the regularisation (set on levelmin only). For igr=5,
+   ! src_mean_nl/(1.5 aexp omega_m) is minus the uniform density that closes the
+   ! averaged Hamiltonian constraint instead of the matter.
+   if((igr==5.or.igr==6) .and. ilevel==levelmin .and. myid==1) then
+      print '(A,I3,A,1pE13.6,A,1pE13.6,A,1pE13.6)','   ==> GR mean source: igr=',igr, &
+           & ' aexp=',aexp,' src_mean_nl=',src_mean_nl, &
+           & ' src_mean_nl/(1.5 aexp omega_m)=',src_mean_nl/(1.5d0*aexp*omega_m)
+   end if
+
    ! ---------------------------------------------------------------------
    ! Do NOT cleanup MG levels until all 10 GR fields are solved.
    ! Instead simply reset some containers to use them for the next GR field.
